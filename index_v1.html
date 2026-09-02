@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- test verzování záloh: 2026-09-02 -->
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
@@ -605,25 +606,17 @@ function renderDegustaceForm() {
   } else {
     html += `<input class="input" id="rumPickSearch" placeholder="Hledat rum…" oninput="renderRatingRumPicker()">`;
     html += `<div class="picker-list" id="rumPickList"></div>`;
-    if (!ui.showNewRum) {
-      html += `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showNewRum=true; renderDegustaceForm();">+ Nový rum, který ještě není v seznamu</button>`;
-    }
+    html += `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showNewRum=!ui.showNewRum; renderDegustaceForm();">${ui.showNewRum?'Zrušit':'+ Nový rum, který ještě není v seznamu'}</button>`;
     if (ui.showNewRum) {
       html += `
         <div style="margin-top:10px;">
-          <div class="field"><label>Značka rumu</label><input class="input" id="newRumNazev" placeholder="např. HAVANA CLUB"></div>
+          <div class="field"><label>Název</label><input class="input" id="newRumNazev" placeholder="např. HAVANA CLUB"></div>
           <div class="row2">
-            <div class="field"><label>Název rumu</label><input class="input" id="newRumZnacka" placeholder="Anejo Especial"></div>
+            <div class="field"><label>Varianta/značka</label><input class="input" id="newRumZnacka" placeholder="Anejo Especial"></div>
             <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba"></div>
           </div>
-          <div class="row2">
-            <div class="field"><label>Cena</label><input class="input" type="number" id="newRumCena"></div>
-            <div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>
-          </div>
-          <div class="btn-row" style="margin-top:4px;">
-            <button class="btn btn-primary btn-sm" onclick="createAndSelectRum()">Přidat rum</button>
-            <button class="btn btn-ghost btn-sm" onclick="ui.showNewRum=false; renderDegustaceForm();">Zrušit</button>
-          </div>
+          <div class="field"><label>Cena (Kč, nepovinné)</label><input class="input" type="number" id="newRumCena"></div>
+          <button class="btn btn-primary btn-sm" onclick="createAndSelectRum()">Přidat rum a pokračovat</button>
         </div>`;
     }
   }
@@ -695,8 +688,7 @@ async function createAndSelectRum() {
   const znacka = document.getElementById('newRumZnacka').value.trim();
   const puvod = document.getElementById('newRumPuvod').value.trim();
   const cena = document.getElementById('newRumCena').value;
-  const abv = document.getElementById('newRumAbv').value;
-  const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, abv: abv ? Number(abv) : null, cukr: null, poznamka: '', _seq: Date.now() };
+  const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, cukr: null, poznamka: '', _seq: Date.now() };
   const ref = await db.collection('rums').add(rum);
   ui.selectedRatingRumId = ref.id;
   ui.showNewRum = false;

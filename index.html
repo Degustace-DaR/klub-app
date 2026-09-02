@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥃</text></svg>">
+<title>Rum Klub</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #EAE2D0;
+    --surface: #F7F2E6;
+    --surface-2: #FBF8F0;
+    --ink: #2B2013;
+    --ink-soft: #6B5D46;
+    --ink-faint: #948566;
+    --line: #D8CBAA;
+    --line-strong: #C2B28C;
+    --accent: #9C5D18;
+    --accent-strong: #7A480F;
+    --accent-soft: #E8D2AC;
+    --accent-ink: #FFFFFF;
+    --good: #3F6E4C;
+    --good-soft: #DCE8DA;
+    --warn: #A6392A;
+    --warn-soft: #F1DAD1;
+    --info: #2E5E78;
+    --info-soft: #D9E5E9;
+    --gold: #B8860B;
+    --gold-soft: #F3E3B0;
+    --shadow: 0 1px 2px rgba(43,32,19,0.06), 0 6px 20px rgba(43,32,19,0.08);
+    --shadow-lg: 0 8px 16px rgba(43,32,19,0.12), 0 24px 48px rgba(43,32,19,0.18);
+    --font-display: "Fraunces", Georgia, serif;
+    --font-body: "Public Sans", -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1B140C; --surface: #241B10; --surface-2: #2C2213;
+      --ink: #EFE4CE; --ink-soft: #C1AD87; --ink-faint: #8C7B5C;
+      --line: #3C2E1A; --line-strong: #4E3C22;
+      --accent: #E0A24E; --accent-strong: #F0BA6D; --accent-soft: #4A3418; --accent-ink: #241B10;
+      --good: #8FC49B; --good-soft: #263C2A;
+      --warn: #E28A73; --warn-soft: #422620;
+      --info: #8BC0D8; --info-soft: #1F3641;
+      --gold: #E0BB5C; --gold-soft: #4A3B14;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.35);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 32px 64px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1B140C; --surface: #241B10; --surface-2: #2C2213;
+    --ink: #EFE4CE; --ink-soft: #C1AD87; --ink-faint: #8C7B5C;
+    --line: #3C2E1A; --line-strong: #4E3C22;
+    --accent: #E0A24E; --accent-strong: #F0BA6D; --accent-soft: #4A3418; --accent-ink: #241B10;
+    --good: #8FC49B; --good-soft: #263C2A;
+    --warn: #E28A73; --warn-soft: #422620;
+    --info: #8BC0D8; --info-soft: #1F3641;
+    --gold: #E0BB5C; --gold-soft: #4A3B14;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.35);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 32px 64px rgba(0,0,0,0.5);
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); }
+  body {
+    color: var(--ink); font-family: var(--font-body); line-height: 1.5;
+    font-size: 15px; padding-bottom: 84px; min-height: 100vh;
+  }
+  button { font-family: inherit; }
+  input, select, textarea { font-family: inherit; font-size: inherit; }
+
+  /* ---------- header ---------- */
+  header.app-head {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--bg); border-bottom: 1px solid var(--line);
+    padding: 14px 16px 10px;
+  }
+  .head-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .brand { display:flex; align-items:center; gap:9px; }
+  .brand-glass { font-size: 22px; line-height:1; }
+  .brand-name { font-family: var(--font-display); font-weight:600; font-size:1.25rem; }
+  .sync-dot { width:7px; height:7px; border-radius:50%; background: var(--ink-faint); display:inline-block; margin-right:5px; }
+  .sync-dot.live { background: var(--good); box-shadow:0 0 0 3px var(--good-soft); }
+  .sync-label { font-family: var(--font-mono); font-size:10.5px; color:var(--ink-faint); display:flex; align-items:center; }
+  .balance-chip {
+    font-family: var(--font-mono); font-size:12.5px; font-weight:500;
+    background: var(--surface); border:1px solid var(--line); border-radius:999px;
+    padding:5px 12px; color: var(--ink-soft); cursor:pointer; white-space:nowrap;
+  }
+  .balance-chip b { color: var(--ink); }
+  .balance-chip.neg b { color: var(--warn); }
+  .balance-chip.pos b { color: var(--good); }
+
+  /* ---------- tabs ---------- */
+  nav.tabs {
+    display:flex; gap:4px; overflow-x:auto; margin-top:12px; padding-bottom:2px;
+    scrollbar-width:none;
+  }
+  nav.tabs::-webkit-scrollbar { display:none; }
+  .tab-btn {
+    flex: 0 0 auto; display:flex; align-items:center; gap:6px;
+    border:none; background:transparent; color: var(--ink-faint);
+    padding:8px 13px; border-radius:999px; font-size:13.5px; font-weight:500; cursor:pointer;
+    white-space:nowrap;
+  }
+  .tab-btn.active { background: var(--accent); color: var(--accent-ink); }
+  .tab-btn:not(.active):hover { background: var(--surface); color: var(--ink); }
+
+  main { padding: 14px 14px 8px; max-width: 720px; margin: 0 auto; }
+  .view { display:none; }
+  .view.active { display:block; }
+
+  h2.view-title { font-family: var(--font-display); font-weight:600; font-size:1.3rem; margin: 4px 0 14px; }
+  .muted { color: var(--ink-faint); }
+  .empty-note { color: var(--ink-faint); font-size:0.92rem; text-align:center; padding: 30px 10px; }
+
+  /* ---------- form controls ---------- */
+  .field { margin-bottom: 12px; }
+  .field label { display:block; font-size:12.5px; color: var(--ink-soft); margin-bottom:5px; font-weight:500; }
+  .input, select.input, textarea.input {
+    width:100%; padding:10px 12px; border-radius:9px; border:1px solid var(--line-strong);
+    background: var(--surface-2); color: var(--ink); font-size:15px;
+  }
+  .input:focus, select.input:focus, textarea.input:focus {
+    outline:none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  textarea.input { resize: vertical; min-height: 60px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  .btn {
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    border:none; border-radius:9px; padding:11px 18px; font-size:14.5px; font-weight:600;
+    cursor:pointer; width:100%;
+  }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); }
+  .btn-primary:active { background: var(--accent-strong); }
+  .btn-ghost { background: var(--surface); color: var(--ink-soft); border:1px solid var(--line-strong); }
+  .btn-danger { background: var(--warn-soft); color: var(--warn); }
+  .btn-sm { width:auto; padding:7px 12px; font-size:13px; }
+  .btn-row { display:flex; gap:8px; margin-top: 6px; }
+  .btn-row .btn { width:auto; flex:1; }
+
+  /* ---------- cards ---------- */
+  .card {
+    background: var(--surface); border:1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 13px 14px; margin-bottom: 10px;
+  }
+
+  /* rum leaderboard */
+  .search-row { display:flex; gap:8px; margin-bottom: 12px; }
+  .search-row .input { flex:1; }
+  .search-row select.input { flex: 0 0 auto; width: auto; }
+  .rum-card { display:flex; align-items:center; gap:12px; cursor:pointer; }
+  .rum-rank { font-family: var(--font-mono); font-size:12px; color: var(--ink-faint); width:20px; text-align:right; flex-shrink:0; }
+  .rum-main { flex:1; min-width:0; }
+  .rum-name { font-family: var(--font-display); font-weight:600; font-size:1.02rem; }
+  .rum-sub { font-size:12.5px; color: var(--ink-faint); margin-top:2px; }
+  .origin-badge {
+    display:inline-block; font-size:11px; font-family: var(--font-mono);
+    background: var(--surface-2); border:1px solid var(--line); border-radius:5px;
+    padding:1px 6px; color: var(--ink-soft); margin-right:6px;
+  }
+  .rum-score { text-align:right; flex-shrink:0; }
+  .rum-score .num { font-family: var(--font-display); font-weight:700; font-size:1.4rem; }
+  .rum-score .cnt { font-size:11px; color: var(--ink-faint); }
+  .score-gold { color: var(--gold); }
+  .score-good { color: var(--good); }
+  .score-mid { color: var(--ink); }
+  .score-none { color: var(--ink-faint); font-size: 1rem; }
+
+  /* modal / detail */
+  .overlay {
+    position:fixed; inset:0; background: rgba(20,14,6,0.5); z-index:50;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .overlay[hidden] { display:none; }
+  .sheet {
+    background: var(--bg); width:100%; max-width:720px; max-height: 88vh; overflow-y:auto;
+    border-radius: 18px 18px 0 0; box-shadow: var(--shadow-lg); padding: 18px 18px 26px;
+  }
+  .sheet-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; gap: 10px;}
+  .sheet-close { background:none; border:none; font-size:22px; color: var(--ink-faint); cursor:pointer; line-height:1; padding:4px; }
+  .crit-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .crit-label { width: 78px; font-size:12.5px; color: var(--ink-soft); flex-shrink:0; }
+  .crit-bar-track { flex:1; height:8px; border-radius:5px; background: var(--surface-2); overflow:hidden; }
+  .crit-bar-fill { height:100%; background: var(--accent); border-radius:5px; }
+  .crit-val { font-family: var(--font-mono); font-size:12.5px; width:32px; text-align:right; color: var(--ink); }
+  .person-chip {
+    display:inline-flex; align-items:center; gap:6px; background: var(--surface-2);
+    border:1px solid var(--line); border-radius:999px; padding:5px 11px; font-size:12.5px; margin: 3px 4px 0 0;
+  }
+  .person-chip b { font-family: var(--font-mono); }
+
+  /* degustace / rating form */
+  .picker-list { max-height: 240px; overflow-y:auto; border:1px solid var(--line-strong); border-radius:9px; background:var(--surface-2); margin-top:6px; }
+  .picker-item { padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--line); font-size:14px; }
+  .picker-item:last-child { border-bottom:none; }
+  .picker-item:hover { background: var(--surface); }
+  .picker-item .sub { font-size:11.5px; color: var(--ink-faint); }
+  .selected-chip {
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background: var(--accent-soft); border-radius:9px; padding:10px 12px; margin-top:6px;
+  }
+  .selected-chip .x { background:none; border:none; color: var(--ink-soft); font-size:18px; cursor:pointer; }
+  .member-chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:6px; }
+  .member-chip {
+    border:1px solid var(--line-strong); background: var(--surface-2); color: var(--ink);
+    border-radius:999px; padding:8px 15px; font-size:14px; cursor:pointer;
+  }
+  .member-chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .slider-row { margin-bottom: 14px; }
+  .slider-head { display:flex; justify-content:space-between; font-size:13px; color: var(--ink-soft); margin-bottom:4px; }
+  .slider-head b { font-family: var(--font-mono); color: var(--ink); font-size:15px; }
+  input[type=range] { width:100%; accent-color: var(--accent); height: 22px; }
+  .total-box {
+    display:flex; justify-content:space-between; align-items:center;
+    background: var(--surface-2); border-radius:9px; padding:12px 14px; margin: 4px 0 14px;
+  }
+  .total-box .num { font-family: var(--font-display); font-weight:700; font-size:1.6rem; }
+  .warn-banner {
+    background: var(--warn-soft); color: var(--warn); border-radius:9px; padding:10px 12px;
+    font-size:13px; margin-bottom:12px;
+  }
+  .recent-item { display:flex; justify-content:space-between; font-size:13.5px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .recent-item:last-child { border-bottom:none; }
+
+  /* ledger */
+  .balance-hero { text-align:center; padding: 18px 10px; }
+  .balance-hero .num { font-family: var(--font-display); font-weight:700; font-size:2.4rem; }
+  .balance-hero .num.neg { color: var(--warn); }
+  .balance-hero .num.pos { color: var(--good); }
+  .ledger-row { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  .ledger-row:last-child { border-bottom:none; }
+  .ledger-desc { flex:1; min-width:0; }
+  .ledger-date { font-size:11px; color: var(--ink-faint); font-family: var(--font-mono); }
+  .ledger-amt { font-family: var(--font-mono); font-weight:600; flex-shrink:0; margin-left:10px; }
+  .ledger-amt.pos { color: var(--good); }
+  .ledger-amt.neg { color: var(--warn); }
+  .ledger-bal { font-size:11px; color: var(--ink-faint); display:block; text-align:right; }
+
+  /* wishlist */
+  .filter-chips { display:flex; gap:7px; margin-bottom:12px; overflow-x:auto; }
+  .filter-chip { flex:0 0 auto; border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft);
+    border-radius:999px; padding:6px 13px; font-size:13px; cursor:pointer; }
+  .filter-chip.active { background: var(--info); border-color:var(--info); color: #fff; }
+  .status-pill { font-size:11px; font-family: var(--font-mono); padding:2px 8px; border-radius:999px; }
+  .status-kandidat { background: var(--info-soft); color: var(--info); }
+  .status-koupeno { background: var(--good-soft); color: var(--good); }
+  .status-zamitnuto { background: var(--surface-2); color: var(--ink-faint); }
+
+  /* klub */
+  .member-card { display:flex; justify-content:space-between; align-items:center; }
+  .member-stats { font-size:12px; color: var(--ink-faint); margin-top:2px; }
+
+  .toast-wrap { position:fixed; bottom: 90px; left:0; right:0; display:flex; justify-content:center; z-index:60; pointer-events:none; }
+  .toast {
+    background: var(--ink); color: var(--bg); padding:10px 18px; border-radius:999px;
+    font-size:13.5px; box-shadow: var(--shadow-lg); opacity:0; transform:translateY(8px);
+    transition: all 0.25s ease;
+  }
+  .toast.show { opacity:1; transform:translateY(0); }
+
+  .offline-note { text-align:center; padding: 60px 20px; color: var(--ink-faint); }
+  .offline-note .big { font-size:38px; margin-bottom:10px; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<header class="app-head">
+  <div class="head-row">
+    <div class="brand">
+      <span class="brand-glass">🥃</span>
+      <span class="brand-name">Rum Klub</span>
+    </div>
+    <div class="head-row" style="gap:10px;">
+      <span class="sync-label" id="syncLabel"><span class="sync-dot" id="syncDot"></span>připojování…</span>
+      <span class="balance-chip" id="balanceChip" onclick="goTab('ucet')">Účet: <b id="balanceChipVal">–</b></span>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="rumy" onclick="goTab('rumy')">🥃 Rumy</button>
+    <button class="tab-btn" data-tab="degustace" onclick="goTab('degustace')">➕ Hodnocení</button>
+    <button class="tab-btn" data-tab="ucet" onclick="goTab('ucet')">💰 Účet</button>
+    <button class="tab-btn" data-tab="wishlist" onclick="goTab('wishlist')">⭐ Wishlist</button>
+    <button class="tab-btn" data-tab="klub" onclick="goTab('klub')">👥 Klub</button>
+  </nav>
+</header>
+
+<main id="app">
+  <div class="offline-note" id="offlineNote" hidden>
+    <div class="big">🥃💤</div>
+    <div>Tahle appka potřebuje živé propojení, které teď není k dispozici.<br>Zkus stránku otevřít znovu.</div>
+  </div>
+
+  <div class="view active" id="view-rumy">
+    <h2 class="view-title">Rumy</h2>
+    <div class="search-row">
+      <input class="input" id="rumSearch" placeholder="Hledat podle názvu, značky, původu…" oninput="renderRumy()">
+      <select class="input" id="rumSort" onchange="renderRumy()">
+        <option value="score_desc">Nejlépe hodnocené</option>
+        <option value="score_asc">Nejhůře hodnocené</option>
+        <option value="name">Podle názvu</option>
+        <option value="count">Podle počtu hodnocení</option>
+        <option value="new">Nejnovější</option>
+      </select>
+    </div>
+    <div id="rumList"></div>
+  </div>
+
+  <div class="view" id="view-degustace">
+    <h2 class="view-title">Přidat hodnocení</h2>
+    <div id="degustaceForm"></div>
+    <div class="card" id="recentRatings" style="margin-top:16px;"></div>
+  </div>
+
+  <div class="view" id="view-ucet">
+    <h2 class="view-title">Účet klubu</h2>
+    <div class="card balance-hero">
+      <div class="muted" style="font-size:12.5px;">aktuální zůstatek</div>
+      <div class="num" id="ucetBalanceBig">–</div>
+    </div>
+    <div class="card">
+      <div class="field"><label>Datum</label><input class="input" type="date" id="ucetDatum"></div>
+      <div class="field"><label>Popis</label><input class="input" id="ucetPopis" placeholder="např. nákup rumů, platba za degustaci…"></div>
+      <div class="row2">
+        <div class="field"><label>Částka (Kč, záporná = výdaj)</label><input class="input" type="number" id="ucetCastka" placeholder="-1500"></div>
+        <div class="field"><label>Kategorie</label>
+          <select class="input" id="ucetKategorie">
+            <option value="nákup">nákup</option>
+            <option value="degustace">platba za degustaci</option>
+            <option value="bonus">bonus</option>
+            <option value="jiné">jiné</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="addLedger()">Přidat transakci</button>
+    </div>
+    <div class="card" id="ledgerList"></div>
+  </div>
+
+  <div class="view" id="view-wishlist">
+    <h2 class="view-title">Wishlist</h2>
+    <div class="filter-chips" id="wishFilters"></div>
+    <button class="btn btn-ghost" style="margin-bottom:12px;" onclick="toggleWishForm()">+ Přidat kandidáta</button>
+    <div class="card" id="wishForm" hidden></div>
+    <div id="wishList"></div>
+  </div>
+
+  <div class="view" id="view-klub">
+    <h2 class="view-title">Klub</h2>
+    <div class="card">
+      <div class="field"><label>Přidat člena</label>
+        <div style="display:flex; gap:8px;">
+          <input class="input" id="newMemberName" placeholder="Jméno">
+          <button class="btn btn-primary btn-sm" onclick="addMember()" style="flex-shrink:0;">Přidat</button>
+        </div>
+      </div>
+    </div>
+    <div id="memberList"></div>
+    <div class="card muted" style="font-size:12.5px; margin-top:16px;" id="clubStats"></div>
+    <button class="btn btn-ghost" style="margin-top:12px;" onclick="exportToExcel()">⬇️ Exportovat všechna data (Excel)</button>
+  </div>
+</main>
+
+<div class="overlay" id="rumDetailOverlay" hidden onclick="if(event.target===this) closeRumDetail()">
+  <div class="sheet" id="rumDetailSheet"></div>
+</div>
+
+<div class="toast-wrap"><div class="toast" id="toast"></div></div>
+
+<!-- Firebase (compat SDK v12.18.0) -->
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
+<!-- SheetJS pro export do Excelu -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script>
+/* ======================================================================
+   FIREBASE KONFIGURACE — VLOŽ SEM SVOJE ÚDAJE Z FIREBASE KONZOLE
+   (Firebase Console -> ozubené kolo vedle "Project Overview" -> Project settings
+    -> dole "Your apps" -> web app "</>" -> "SDK setup and configuration" -> Config)
+   ====================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCG8INBP5aSOzwbkZZitQBO3HHRIkGQGXQ",
+  authDomain: "degustace-dar.firebaseapp.com",
+  projectId: "degustace-dar",
+  storageBucket: "degustace-dar.firebasestorage.app",
+  messagingSenderId: "236208817142",
+  appId: "1:236208817142:web:41be60c1f855b89bfabdd7",
+};
+
+const SEED = {"members": [{"id": "member_1", "jmeno": "Libor", "aktivni": true}, {"id": "member_2", "jmeno": "Tomáš", "aktivni": true}, {"id": "member_3", "jmeno": "Tonda", "aktivni": true}, {"id": "member_4", "jmeno": "Broněk", "aktivni": true}, {"id": "member_5", "jmeno": "Jirka", "aktivni": true}, {"id": "member_6", "jmeno": "Mirek", "aktivni": true}], "rums": [{"id": "rum_1", "nazev": "HAVANA CLUB", "znacka": "Anejo Especial", "puvod": "Kuba", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_2", "nazev": "SAVOY", "znacka": "Dark Rum", "puvod": "Bulharsko", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_3", "nazev": "SANTIAGO DE CUBA", "znacka": "Anejo 38%", "puvod": "Kuba", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_4", "nazev": "SANTIAGO DE CUBA", "znacka": "12Y", "puvod": "Kuba", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_5", "nazev": "PLANTATION", "znacka": "Grande Reserve", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_6", "nazev": "PLANTATION", "znacka": "20th ANNIV", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_7", "nazev": "DIPLOMATICO", "znacka": "Mantuano", "puvod": "Venezuela", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_8", "nazev": "DIPLOMATICO", "znacka": "Seleccion de familia 43%", "puvod": "Venezuela", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_9", "nazev": "RON ESPERO", "znacka": "Balboa", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_10", "nazev": "RON ESPERO", "znacka": "Último 42%", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_11", "nazev": "FLOR DE CANA", "znacka": "Gran Reserva 7Y", "puvod": "Nikaragua", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_12", "nazev": "FLOR DE CANA", "znacka": "Centenario 12Y", "puvod": "Nikaragua", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_13", "nazev": "FLOR DE CANA", "znacka": "Centenario Gold 18Y", "puvod": "Nikaragua", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_14", "nazev": "PAMPERO", "znacka": "Aniversario", "puvod": "Venezuela", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_15", "nazev": "EL DORADO", "znacka": "Reserve 12Y", "puvod": "Guyana", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_16", "nazev": "EL DORADO", "znacka": "Special Reserve 15Y", "puvod": "Guyana", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_17", "nazev": "KIRK AND SWEENEY", "znacka": "Reserva", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_18", "nazev": "ZACAPA", "znacka": "Centenario 23Y", "puvod": "Guatemala", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_19", "nazev": "BOTRAN", "znacka": "Reserva 15Y", "puvod": "Guatemala", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_20", "nazev": "BOTRAN", "znacka": "Solera 1893", "puvod": "Guatemala", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_21", "nazev": "MATUSALEM", "znacka": "Grand Reserva 23Y", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_22", "nazev": "MATUSALEM", "znacka": "Grand Reserva 15Y", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_23", "nazev": "PLANTATION", "znacka": "Original Dark", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_24", "nazev": "PLANTATION", "znacka": "Aňejo Guatemala & Belize", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_25", "nazev": "PLANTATION", "znacka": "Barbados 5Y", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_26", "nazev": "PLANTATION", "znacka": "Isle of Fiji", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_27", "nazev": "CHAIRMANS", "znacka": "Reserve Forgoten", "puvod": "St. Lucia", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_28", "nazev": "CHAIRMANS", "znacka": "Reserve Spiced", "puvod": "St. Lucia", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_29", "nazev": "PUNTACANA", "znacka": "Esplendido", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_30", "nazev": "PUNTACANA", "znacka": "XO Tesoro", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_31", "nazev": "EL DORADO", "znacka": "Special Reserve 21Y", "puvod": "Guyana", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_32", "nazev": "NATION GUATEMALA", "znacka": "XO", "puvod": "Guatemala", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_33", "nazev": "NATION GUATEMALA", "znacka": "Gran Reserva", "puvod": "Guatemala", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_34", "nazev": "ZACAPA", "znacka": "XO", "puvod": "Guatemala", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_35", "nazev": "APPLETON", "znacka": "Rare Cask 12Y", "puvod": "Jamaica", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_36", "nazev": "APPLETON", "znacka": "Reserve 8Y", "puvod": "Jamaica", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_37", "nazev": "RUM NATION", "znacka": "Barbados", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_38", "nazev": "RUM NATION", "znacka": "Panama", "puvod": "Panama", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_39", "nazev": "BACARDI", "znacka": "Gran Reserva Diez 10Y", "puvod": "Jamaica", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_40", "nazev": "BACARDI", "znacka": "Reserva Ocho", "puvod": "Jamaica", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_41", "nazev": "BARCELO", "znacka": "Imperial 38%", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_42", "nazev": "BARCELO", "znacka": "Gran Añejo", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_43", "nazev": "BARCELO", "znacka": "Imperial Rare Blends Porto Cask", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_44", "nazev": "LA HECHICERA", "znacka": "Reserva Familiar", "puvod": "Kolumbie", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_45", "nazev": "BELLAMYS", "znacka": "Sherry Cask Finish 12Y", "puvod": "Salvador", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_46", "nazev": "BRUGAL 1888", "znacka": "Gran Reserva 20YO", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_47", "nazev": "DOS MADERAS", "znacka": "P.X. 5+5 10Y", "puvod": "Guyana", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_48", "nazev": "SANTA TERESA", "znacka": "Solera Antiqua 1796", "puvod": "Venezuela", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_49", "nazev": "DOORLYS", "znacka": "12Y", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_50", "nazev": "DOORLYS", "znacka": "XO", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_51", "nazev": "CONTADORA", "znacka": "18Y", "puvod": "Panama", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_52", "nazev": "ENGLISH HARBOUR", "znacka": "Port Cask 46%", "puvod": "Antiqua", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_53", "nazev": "ENGLISH HARBOUR", "znacka": "Reserve 10Y", "puvod": "Antiqua", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_54", "nazev": "MOTORHEAD", "znacka": "Dark Premium", "puvod": "Švédsko", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_55", "nazev": "RAMMSTEIN", "znacka": "40 %", "puvod": "Dánsko", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_56", "nazev": "PRESIDENTE MARTÍ", "znacka": "19Y", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_57", "nazev": "PRESIDENTE MARTÍ", "znacka": "Solera 23Y", "puvod": "Dominikána", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_58", "nazev": "ENGLISH HARBOUR", "znacka": "Sherry Cask Finish 46%", "puvod": "Antiqua", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_59", "nazev": "CHAIRMANS", "znacka": "Legacy 43%", "puvod": "St. Lucia", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_60", "nazev": "CLEMENT", "znacka": "VSOP", "puvod": "Martinique", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_61", "nazev": "MOUNT GAY", "znacka": "XO Triple Cask", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_62", "nazev": "MOUNT GAY", "znacka": "Black Barrel", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_63", "nazev": "DOORLYS", "znacka": "14 Y.O.", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_64", "nazev": "TANDUAY", "znacka": "Double Rum", "puvod": "Filipíny", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_65", "nazev": "SHAKARA", "znacka": "12 Y.O.", "puvod": "Thajsko", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_66", "nazev": "NAGA RUM", "znacka": "Triple Wood", "puvod": "Indonésie", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_67", "nazev": "ARMY RUM", "znacka": "43 %", "puvod": "Myanmar (Barma)", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_68", "nazev": "PLANTERAY", "znacka": "Navy Sail N°2 Mister Fogg", "puvod": "Barbados", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_69", "nazev": "PUSSER'S", "znacka": "Pussers Gunpowder Proof", "puvod": "Guayna", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_70", "nazev": "HIGUANA", "znacka": "Carta Oro", "puvod": "Kuba", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_71", "nazev": "BARBANCOURT", "znacka": "Réserve du Domaine 15Y", "puvod": "Haiti", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_72", "nazev": "DAMOISEAU", "znacka": "8 Year Old Hors d'Age", "puvod": "Guadeloupe", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_73", "nazev": "PACTO NAVIO", "znacka": "Red Wine Cask", "puvod": "Kuba", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_74", "nazev": "EMINENTE", "znacka": "Reserva 7Y", "puvod": "Kuba", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_75", "nazev": "HAVANA CLUB", "znacka": "Seleccion de Maestro", "puvod": "Kuba", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_76", "nazev": "HAMPDEN ESTATE", "znacka": "1753", "puvod": "Jamajka", "cena": null, "cukr": null, "poznamka": ""}, {"id": "rum_77", "nazev": "HAMPDEN ESTATE", "znacka": "Pagos, bath 3", "puvod": "Jamajka", "cena": null, "cukr": null, "poznamka": ""}], "ratings": [{"id": "rating_1", "rumId": "rum_1", "clen": "Libor", "barva": 18, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_2", "rumId": "rum_1", "clen": "Broněk", "barva": 18, "aroma": 17, "chut": 17, "plnost": 18, "dojezd": 18, "celkem": 88, "datum": null}, {"id": "rating_3", "rumId": "rum_2", "clen": "Libor", "barva": 17, "aroma": 18, "chut": 17, "plnost": 17, "dojezd": 17, "celkem": 86, "datum": null}, {"id": "rating_4", "rumId": "rum_2", "clen": "Tonda", "barva": 16, "aroma": 16, "chut": 17, "plnost": 16, "dojezd": 17, "celkem": 82, "datum": null}, {"id": "rating_5", "rumId": "rum_2", "clen": "Broněk", "barva": 17, "aroma": 17, "chut": 17, "plnost": 17, "dojezd": 17, "celkem": 85, "datum": null}, {"id": "rating_6", "rumId": "rum_2", "clen": "Jirka", "barva": 17, "aroma": 17, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 88, "datum": null}, {"id": "rating_7", "rumId": "rum_3", "clen": "Libor", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_8", "rumId": "rum_3", "clen": "Broněk", "barva": 17, "aroma": 17, "chut": 18, "plnost": 17, "dojezd": 18, "celkem": 87, "datum": null}, {"id": "rating_9", "rumId": "rum_4", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_10", "rumId": "rum_4", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 17, "plnost": 18, "dojezd": 18, "celkem": 89, "datum": null}, {"id": "rating_11", "rumId": "rum_5", "clen": "Libor", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_12", "rumId": "rum_5", "clen": "Broněk", "barva": 17, "aroma": 17, "chut": 18, "plnost": 18, "dojezd": 17, "celkem": 87, "datum": null}, {"id": "rating_13", "rumId": "rum_6", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_14", "rumId": "rum_6", "clen": "Tonda", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 17, "celkem": 91, "datum": null}, {"id": "rating_15", "rumId": "rum_6", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_16", "rumId": "rum_7", "clen": "Libor", "barva": 18, "aroma": 18, "chut": 18, "plnost": 17, "dojezd": 18, "celkem": 89, "datum": null}, {"id": "rating_17", "rumId": "rum_7", "clen": "Broněk", "barva": 18, "aroma": 17, "chut": 18, "plnost": 17, "dojezd": 17, "celkem": 87, "datum": null}, {"id": "rating_18", "rumId": "rum_8", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_19", "rumId": "rum_8", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_20", "rumId": "rum_9", "clen": "Libor", "barva": 18, "aroma": 18, "chut": 17, "plnost": 18, "dojezd": 18, "celkem": 89, "datum": null}, {"id": "rating_21", "rumId": "rum_9", "clen": "Tonda", "barva": 15, "aroma": 16, "chut": 18, "plnost": 15, "dojezd": 15, "celkem": 79, "datum": null}, {"id": "rating_22", "rumId": "rum_9", "clen": "Broněk", "barva": 16, "aroma": 17, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 87, "datum": null}, {"id": "rating_23", "rumId": "rum_9", "clen": "Jirka", "barva": 17, "aroma": 18, "chut": 17, "plnost": 17, "dojezd": 17, "celkem": 86, "datum": null}, {"id": "rating_24", "rumId": "rum_10", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 18, "plnost": 19, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_25", "rumId": "rum_10", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_26", "rumId": "rum_10", "clen": "Jirka", "barva": 18, "aroma": 19, "chut": 17, "plnost": 17, "dojezd": 17, "celkem": 88, "datum": null}, {"id": "rating_27", "rumId": "rum_11", "clen": "Libor", "barva": 18, "aroma": 18, "chut": 17, "plnost": 17, "dojezd": 18, "celkem": 88, "datum": null}, {"id": "rating_28", "rumId": "rum_11", "clen": "Tonda", "barva": 17, "aroma": 17, "chut": 18, "plnost": 16, "dojezd": 16, "celkem": 84, "datum": null}, {"id": "rating_29", "rumId": "rum_11", "clen": "Broněk", "barva": 17, "aroma": 17, "chut": 17, "plnost": 17, "dojezd": 17, "celkem": 85, "datum": null}, {"id": "rating_30", "rumId": "rum_12", "clen": "Libor", "barva": 18, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_31", "rumId": "rum_12", "clen": "Tonda", "barva": 17, "aroma": 17, "chut": 19, "plnost": 16, "dojezd": 17, "celkem": 86, "datum": null}, {"id": "rating_32", "rumId": "rum_12", "clen": "Broněk", "barva": 18, "aroma": 19, "chut": 17, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_33", "rumId": "rum_13", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_34", "rumId": "rum_13", "clen": "Tonda", "barva": 17, "aroma": 18, "chut": 18, "plnost": 17, "dojezd": 15, "celkem": 85, "datum": null}, {"id": "rating_35", "rumId": "rum_13", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 17, "plnost": 18, "dojezd": 18, "celkem": 89, "datum": null}, {"id": "rating_36", "rumId": "rum_14", "clen": "Libor", "barva": 18, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_37", "rumId": "rum_14", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 17, "celkem": 89, "datum": null}, {"id": "rating_38", "rumId": "rum_15", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_39", "rumId": "rum_15", "clen": "Tonda", "barva": 18, "aroma": 18, "chut": 17, "plnost": 18, "dojezd": 17, "celkem": 88, "datum": null}, {"id": "rating_40", "rumId": "rum_15", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_41", "rumId": "rum_16", "clen": "Libor", "barva": 20, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 96, "datum": null}, {"id": "rating_42", "rumId": "rum_16", "clen": "Tonda", "barva": 19, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 92, "datum": null}, {"id": "rating_43", "rumId": "rum_16", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_44", "rumId": "rum_17", "clen": "Libor", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_45", "rumId": "rum_17", "clen": "Tonda", "barva": 17, "aroma": 18, "chut": 17, "plnost": 17, "dojezd": 17, "celkem": 86, "datum": null}, {"id": "rating_46", "rumId": "rum_17", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_47", "rumId": "rum_18", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_48", "rumId": "rum_18", "clen": "Tonda", "barva": 20, "aroma": 20, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 97, "datum": null}, {"id": "rating_49", "rumId": "rum_18", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_50", "rumId": "rum_19", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_51", "rumId": "rum_19", "clen": "Tonda", "barva": 19, "aroma": 17, "chut": 17, "plnost": 17, "dojezd": 17, "celkem": 87, "datum": null}, {"id": "rating_52", "rumId": "rum_19", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_53", "rumId": "rum_20", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_54", "rumId": "rum_20", "clen": "Tomáš", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_55", "rumId": "rum_20", "clen": "Tonda", "barva": 19, "aroma": 18, "chut": 17, "plnost": 18, "dojezd": 17, "celkem": 89, "datum": null}, {"id": "rating_56", "rumId": "rum_20", "clen": "Broněk", "barva": 18, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_57", "rumId": "rum_21", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_58", "rumId": "rum_21", "clen": "Tonda", "barva": 20, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 95, "datum": null}, {"id": "rating_59", "rumId": "rum_21", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_60", "rumId": "rum_21", "clen": "Jirka", "barva": 20, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 96, "datum": null}, {"id": "rating_61", "rumId": "rum_22", "clen": "Libor", "barva": 18, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_62", "rumId": "rum_22", "clen": "Tonda", "barva": 18, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_63", "rumId": "rum_22", "clen": "Broněk", "barva": 18, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_64", "rumId": "rum_22", "clen": "Jirka", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_65", "rumId": "rum_23", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 19, "plnost": 17, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_66", "rumId": "rum_23", "clen": "Tonda", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_67", "rumId": "rum_23", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_68", "rumId": "rum_24", "clen": "Libor", "barva": 18, "aroma": 19, "chut": 19, "plnost": 17, "dojezd": 17, "celkem": 90, "datum": null}, {"id": "rating_69", "rumId": "rum_24", "clen": "Tonda", "barva": 18, "aroma": 18, "chut": 18, "plnost": 17, "dojezd": 17, "celkem": 88, "datum": null}, {"id": "rating_70", "rumId": "rum_24", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_71", "rumId": "rum_25", "clen": "Libor", "barva": 18, "aroma": 19, "chut": 19, "plnost": 17, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_72", "rumId": "rum_25", "clen": "Tonda", "barva": 17, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 89, "datum": null}, {"id": "rating_73", "rumId": "rum_25", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_74", "rumId": "rum_26", "clen": "Libor", "barva": 17, "aroma": 18, "chut": 19, "plnost": 17, "dojezd": 18, "celkem": 89, "datum": null}, {"id": "rating_75", "rumId": "rum_26", "clen": "Tonda", "barva": 17, "aroma": 18, "chut": 18, "plnost": 19, "dojezd": 19, "celkem": 91, "datum": null}, {"id": "rating_76", "rumId": "rum_26", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_77", "rumId": "rum_27", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_78", "rumId": "rum_27", "clen": "Tonda", "barva": 18, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_79", "rumId": "rum_27", "clen": "Broněk", "barva": 18, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_80", "rumId": "rum_27", "clen": "Jirka", "barva": 20, "aroma": 18, "chut": 19, "plnost": 20, "dojezd": 19, "celkem": 96, "datum": null}, {"id": "rating_81", "rumId": "rum_28", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_82", "rumId": "rum_28", "clen": "Tonda", "barva": 18, "aroma": 17, "chut": 18, "plnost": 20, "dojezd": 19, "celkem": 92, "datum": null}, {"id": "rating_83", "rumId": "rum_28", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_84", "rumId": "rum_28", "clen": "Jirka", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_85", "rumId": "rum_29", "clen": "Libor", "barva": 18, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_86", "rumId": "rum_29", "clen": "Tonda", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 94, "datum": null}, {"id": "rating_87", "rumId": "rum_29", "clen": "Broněk", "barva": 17, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_88", "rumId": "rum_29", "clen": "Jirka", "barva": 19, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_89", "rumId": "rum_30", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_90", "rumId": "rum_30", "clen": "Tonda", "barva": 19, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 17, "celkem": 90, "datum": null}, {"id": "rating_91", "rumId": "rum_30", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 19, "plnost": 17, "dojezd": 17, "celkem": 89, "datum": null}, {"id": "rating_92", "rumId": "rum_30", "clen": "Jirka", "barva": 20, "aroma": 19, "chut": 18, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_93", "rumId": "rum_31", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 20, "dojezd": 19, "celkem": 96, "datum": null}, {"id": "rating_94", "rumId": "rum_31", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_95", "rumId": "rum_32", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_96", "rumId": "rum_32", "clen": "Tonda", "barva": 19, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_97", "rumId": "rum_32", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 19, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_98", "rumId": "rum_32", "clen": "Jirka", "barva": 18, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 92, "datum": null}, {"id": "rating_99", "rumId": "rum_33", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_100", "rumId": "rum_33", "clen": "Tonda", "barva": 18, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_101", "rumId": "rum_33", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 17, "celkem": 90, "datum": null}, {"id": "rating_102", "rumId": "rum_33", "clen": "Jirka", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_103", "rumId": "rum_34", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 20, "plnost": 20, "dojezd": 19, "celkem": 97, "datum": null}, {"id": "rating_104", "rumId": "rum_34", "clen": "Broněk", "barva": 19, "aroma": 20, "chut": 20, "plnost": 19, "dojezd": 19, "celkem": 97, "datum": null}, {"id": "rating_105", "rumId": "rum_34", "clen": "Jirka", "barva": 20, "aroma": 20, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 97, "datum": null}, {"id": "rating_106", "rumId": "rum_35", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_107", "rumId": "rum_35", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_108", "rumId": "rum_36", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_109", "rumId": "rum_36", "clen": "Tonda", "barva": 17, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_110", "rumId": "rum_36", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_111", "rumId": "rum_37", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 17, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_112", "rumId": "rum_37", "clen": "Tonda", "barva": 18, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_113", "rumId": "rum_37", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 91, "datum": null}, {"id": "rating_114", "rumId": "rum_38", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 17, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_115", "rumId": "rum_38", "clen": "Tonda", "barva": 18, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_116", "rumId": "rum_38", "clen": "Broněk", "barva": 18, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_117", "rumId": "rum_39", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 91, "datum": null}, {"id": "rating_118", "rumId": "rum_40", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 17, "plnost": 18, "dojezd": 18, "celkem": 89, "datum": null}, {"id": "rating_119", "rumId": "rum_41", "clen": "Tonda", "barva": 17, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 89, "datum": null}, {"id": "rating_120", "rumId": "rum_41", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_121", "rumId": "rum_42", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 17, "dojezd": 18, "celkem": 89, "datum": null}, {"id": "rating_122", "rumId": "rum_42", "clen": "Jirka", "barva": 19, "aroma": 18, "chut": 17, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_123", "rumId": "rum_43", "clen": "Tonda", "barva": 18, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_124", "rumId": "rum_43", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_125", "rumId": "rum_43", "clen": "Jirka", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_126", "rumId": "rum_44", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_127", "rumId": "rum_45", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_128", "rumId": "rum_46", "clen": "Tonda", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_129", "rumId": "rum_46", "clen": "Broněk", "barva": 19, "aroma": 20, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_130", "rumId": "rum_47", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_131", "rumId": "rum_48", "clen": "Tonda", "barva": 18, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_132", "rumId": "rum_48", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 94, "datum": null}, {"id": "rating_133", "rumId": "rum_49", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_134", "rumId": "rum_49", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_135", "rumId": "rum_50", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 18, "plnost": 19, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_136", "rumId": "rum_50", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 94, "datum": null}, {"id": "rating_137", "rumId": "rum_51", "clen": "Libor", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_138", "rumId": "rum_51", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_139", "rumId": "rum_51", "clen": "Jirka", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_140", "rumId": "rum_52", "clen": "Libor", "barva": 18, "aroma": 19, "chut": 18, "plnost": 19, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_141", "rumId": "rum_52", "clen": "Tonda", "barva": 19, "aroma": 19, "chut": 18, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_142", "rumId": "rum_52", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_143", "rumId": "rum_52", "clen": "Jirka", "barva": 18, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_144", "rumId": "rum_53", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 20, "plnost": 19, "dojezd": 19, "celkem": 96, "datum": null}, {"id": "rating_145", "rumId": "rum_53", "clen": "Tonda", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_146", "rumId": "rum_53", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_147", "rumId": "rum_53", "clen": "Jirka", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_148", "rumId": "rum_54", "clen": "Libor", "barva": 18, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_149", "rumId": "rum_54", "clen": "Tonda", "barva": 19, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 92, "datum": null}, {"id": "rating_150", "rumId": "rum_54", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 17, "celkem": 91, "datum": null}, {"id": "rating_151", "rumId": "rum_54", "clen": "Jirka", "barva": 18, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_152", "rumId": "rum_55", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 18, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_153", "rumId": "rum_55", "clen": "Tonda", "barva": 18, "aroma": 19, "chut": 20, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_154", "rumId": "rum_55", "clen": "Broněk", "barva": 18, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_155", "rumId": "rum_55", "clen": "Jirka", "barva": 18, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_156", "rumId": "rum_56", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 92, "datum": null}, {"id": "rating_157", "rumId": "rum_56", "clen": "Tonda", "barva": 18, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_158", "rumId": "rum_56", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 18, "plnost": 19, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_159", "rumId": "rum_57", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_160", "rumId": "rum_57", "clen": "Tonda", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_161", "rumId": "rum_57", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 18, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_162", "rumId": "rum_58", "clen": "Libor", "barva": 18, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_163", "rumId": "rum_58", "clen": "Tonda", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 94, "datum": null}, {"id": "rating_164", "rumId": "rum_58", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_165", "rumId": "rum_58", "clen": "Jirka", "barva": 18, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_166", "rumId": "rum_59", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 94, "datum": null}, {"id": "rating_167", "rumId": "rum_59", "clen": "Tonda", "barva": 19, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_168", "rumId": "rum_59", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_169", "rumId": "rum_59", "clen": "Jirka", "barva": 19, "aroma": 18, "chut": 17, "plnost": 19, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_170", "rumId": "rum_60", "clen": "Libor", "barva": 18, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_171", "rumId": "rum_60", "clen": "Tonda", "barva": 18, "aroma": 18, "chut": 19, "plnost": 17, "dojezd": 18, "celkem": 90, "datum": null}, {"id": "rating_172", "rumId": "rum_60", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_173", "rumId": "rum_60", "clen": "Jirka", "barva": 18, "aroma": 17, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 89, "datum": null}, {"id": "rating_174", "rumId": "rum_61", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_175", "rumId": "rum_61", "clen": "Tonda", "barva": 19, "aroma": 19, "chut": 20, "plnost": 19, "dojezd": 18, "celkem": 95, "datum": null}, {"id": "rating_176", "rumId": "rum_61", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_177", "rumId": "rum_61", "clen": "Jirka", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_178", "rumId": "rum_62", "clen": "Libor", "barva": 18, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_179", "rumId": "rum_62", "clen": "Tonda", "barva": 18, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_180", "rumId": "rum_62", "clen": "Broněk", "barva": 18, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_181", "rumId": "rum_62", "clen": "Jirka", "barva": 18, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 92, "datum": null}, {"id": "rating_182", "rumId": "rum_63", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_183", "rumId": "rum_63", "clen": "Tonda", "barva": 19, "aroma": 19, "chut": 20, "plnost": 19, "dojezd": 19, "celkem": 96, "datum": null}, {"id": "rating_184", "rumId": "rum_63", "clen": "Broněk", "barva": 20, "aroma": 19, "chut": 20, "plnost": 19, "dojezd": 19, "celkem": 97, "datum": null}, {"id": "rating_185", "rumId": "rum_63", "clen": "Jirka", "barva": 20, "aroma": 20, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 97, "datum": null}, {"id": "rating_186", "rumId": "rum_64", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_187", "rumId": "rum_64", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_188", "rumId": "rum_64", "clen": "Jirka", "barva": 19, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_189", "rumId": "rum_65", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_190", "rumId": "rum_65", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_191", "rumId": "rum_65", "clen": "Jirka", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_192", "rumId": "rum_66", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_193", "rumId": "rum_66", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 18, "plnost": 19, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_194", "rumId": "rum_66", "clen": "Jirka", "barva": 19, "aroma": 18, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_195", "rumId": "rum_67", "clen": "Libor", "barva": 17, "aroma": 17, "chut": 17, "plnost": 17, "dojezd": 17, "celkem": 85, "datum": null}, {"id": "rating_196", "rumId": "rum_67", "clen": "Broněk", "barva": 17, "aroma": 17, "chut": 18, "plnost": 17, "dojezd": 17, "celkem": 86, "datum": null}, {"id": "rating_197", "rumId": "rum_67", "clen": "Jirka", "barva": 16, "aroma": 16, "chut": 17, "plnost": 17, "dojezd": 16, "celkem": 82, "datum": null}, {"id": "rating_198", "rumId": "rum_68", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_199", "rumId": "rum_68", "clen": "Tonda", "barva": 19, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 17, "celkem": 92, "datum": null}, {"id": "rating_200", "rumId": "rum_68", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 94, "datum": null}, {"id": "rating_201", "rumId": "rum_68", "clen": "Jirka", "barva": 20, "aroma": 20, "chut": 20, "plnost": 19, "dojezd": 19, "celkem": 98, "datum": null}, {"id": "rating_202", "rumId": "rum_69", "clen": "Libor", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_203", "rumId": "rum_69", "clen": "Tonda", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_204", "rumId": "rum_69", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_205", "rumId": "rum_69", "clen": "Jirka", "barva": 20, "aroma": 20, "chut": 18, "plnost": 19, "dojezd": 19, "celkem": 96, "datum": null}, {"id": "rating_206", "rumId": "rum_70", "clen": "Libor", "barva": 18, "aroma": 18, "chut": 18, "plnost": 17, "dojezd": 17, "celkem": 88, "datum": null}, {"id": "rating_207", "rumId": "rum_70", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 18, "plnost": 17, "dojezd": 17, "celkem": 88, "datum": null}, {"id": "rating_208", "rumId": "rum_70", "clen": "Jirka", "barva": 17, "aroma": 18, "chut": 18, "plnost": 17, "dojezd": 17, "celkem": 87, "datum": null}, {"id": "rating_209", "rumId": "rum_71", "clen": "Libor", "barva": 18, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_210", "rumId": "rum_71", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_211", "rumId": "rum_72", "clen": "Libor", "barva": 18, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 91, "datum": null}, {"id": "rating_212", "rumId": "rum_72", "clen": "Broněk", "barva": 19, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_213", "rumId": "rum_73", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_214", "rumId": "rum_73", "clen": "Tonda", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_215", "rumId": "rum_73", "clen": "Broněk", "barva": 18, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 92, "datum": null}, {"id": "rating_216", "rumId": "rum_74", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 18, "celkem": 93, "datum": null}, {"id": "rating_217", "rumId": "rum_74", "clen": "Tonda", "barva": 18, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_218", "rumId": "rum_74", "clen": "Broněk", "barva": 18, "aroma": 19, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_219", "rumId": "rum_75", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_220", "rumId": "rum_75", "clen": "Tonda", "barva": 18, "aroma": 18, "chut": 19, "plnost": 18, "dojezd": 19, "celkem": 92, "datum": null}, {"id": "rating_221", "rumId": "rum_75", "clen": "Broněk", "barva": 18, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_222", "rumId": "rum_76", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 18, "plnost": 18, "dojezd": 18, "celkem": 92, "datum": null}, {"id": "rating_223", "rumId": "rum_76", "clen": "Tonda", "barva": 18, "aroma": 19, "chut": 18, "plnost": 19, "dojezd": 19, "celkem": 93, "datum": null}, {"id": "rating_224", "rumId": "rum_76", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_225", "rumId": "rum_77", "clen": "Libor", "barva": 19, "aroma": 19, "chut": 18, "plnost": 19, "dojezd": 19, "celkem": 94, "datum": null}, {"id": "rating_226", "rumId": "rum_77", "clen": "Tonda", "barva": 19, "aroma": 19, "chut": 19, "plnost": 19, "dojezd": 19, "celkem": 95, "datum": null}, {"id": "rating_227", "rumId": "rum_77", "clen": "Broněk", "barva": 19, "aroma": 19, "chut": 19, "plnost": 20, "dojezd": 19, "celkem": 96, "datum": null}], "ledger": [{"id": "ledger_1", "datum": "2025-03-17", "popis": "založení účtu", "castka": 2, "kategorie": "příjem"}, {"id": "ledger_2", "datum": "2025-03-20", "popis": "převedení banku", "castka": 1210, "kategorie": "příjem"}, {"id": "ledger_3", "datum": "2025-03-26", "popis": "nákup rumů", "castka": -2590, "kategorie": "nákup"}, {"id": "ledger_4", "datum": "2025-04-30", "popis": "platby za degustaci", "castka": 2775, "kategorie": "příjem"}, {"id": "ledger_5", "datum": "2025-05-27", "popis": "nákup rumů", "castka": -4582, "kategorie": "nákup"}, {"id": "ledger_6", "datum": "2025-05-30", "popis": "platby za degustaci", "castka": 2025, "kategorie": "příjem"}, {"id": "ledger_7", "datum": "2025-07-18", "popis": "platby za degustaci", "castka": 2870, "kategorie": "příjem"}, {"id": "ledger_8", "datum": "2025-08-20", "popis": "nákup rumů", "castka": -2204, "kategorie": "nákup"}, {"id": "ledger_9", "datum": "2025-09-05", "popis": "platby za degustaci", "castka": 2380, "kategorie": "příjem"}, {"id": "ledger_10", "datum": "2025-09-18", "popis": "nákup rumů", "castka": -1793, "kategorie": "nákup"}, {"id": "ledger_11", "datum": "2025-10-10", "popis": "platby za degustaci", "castka": 1900, "kategorie": "příjem"}, {"id": "ledger_12", "datum": "2025-10-27", "popis": "nákup rumů", "castka": -2340, "kategorie": "nákup"}, {"id": "ledger_13", "datum": "2025-10-29", "popis": "nákup rumů Savoy 3 láhve", "castka": -1050, "kategorie": "nákup"}, {"id": "ledger_14", "datum": "2025-11-14", "popis": "platby za degustaci", "castka": 2850, "kategorie": "příjem"}, {"id": "ledger_15", "datum": "2025-12-03", "popis": "nákup rumů Mount Gay, BZ", "castka": -1568, "kategorie": "nákup"}, {"id": "ledger_16", "datum": "2025-12-03", "popis": "nákup rumů Shak+Tand, BZ", "castka": -2014, "kategorie": "nákup"}, {"id": "ledger_17", "datum": "2025-12-04", "popis": "nákup rumů Doorlys, Naga", "castka": -2438, "kategorie": "nákup"}, {"id": "ledger_18", "datum": "2026-01-02", "popis": "platby za degustaci", "castka": 1710, "kategorie": "příjem"}, {"id": "ledger_19", "datum": "2026-01-24", "popis": "nákup rumů Plant+Pussers, BZ", "castka": -1682, "kategorie": "nákup"}, {"id": "ledger_20", "datum": "2026-02-27", "popis": "platby za degustaci", "castka": 2970, "kategorie": "příjem"}, {"id": "ledger_21", "datum": "2026-04-03", "popis": "platby za degustaci", "castka": 1890, "kategorie": "příjem"}, {"id": "ledger_22", "datum": "2026-04-07", "popis": "nákup rumů Damoi+Barban, na 15.5. BZ", "castka": -2095, "kategorie": "nákup"}, {"id": "ledger_23", "datum": "2026-05-14", "popis": "nákup rumů Pacto Navio, Eminente, Havana Club", "castka": -2812, "kategorie": "nákup"}, {"id": "ledger_24", "datum": "2026-05-15", "popis": "platby za degustaci", "castka": 2610, "kategorie": "příjem"}, {"id": "ledger_25", "datum": "2026-06-19", "popis": "platby za degustaci", "castka": 3290, "kategorie": "příjem"}, {"id": "ledger_26", "datum": "2025-06-25", "popis": "nákup rumů Savoy 3 láhve", "castka": -1050, "kategorie": "nákup"}, {"id": "ledger_27", "datum": "2026-06-26", "popis": "nákup rumů Hampden", "castka": -2474, "kategorie": "nákup"}, {"id": "ledger_28", "datum": "2026-07-25", "popis": "platby za degustaci", "castka": 2600, "kategorie": "příjem"}, {"id": "ledger_29", "datum": "2026-08-06", "popis": "nákup rumů Kiss+Iron+Ramm, na 4.9. BZ", "castka": -2888, "kategorie": "nákup"}], "wishlist": [{"id": "wish_1", "znacka": "CARTAVIO", "nazev": "XO 18Y", "puvod": "Peru", "cena": 1698, "cukr": 44, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_2", "znacka": "CARTAVIO", "nazev": "Solera 12Y", "puvod": "Peru", "cena": 779, "cukr": 8, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_3", "znacka": "CARTAVIO", "nazev": "Reserva 8Y", "puvod": "Peru", "cena": 639, "cukr": 6, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_4", "znacka": "MALTECO", "nazev": "20Y", "puvod": "Panama", "cena": 1045, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_5", "znacka": "MALTECO", "nazev": "15Y", "puvod": "Panama", "cena": 639, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_6", "znacka": "MALTECO", "nazev": "11Y", "puvod": "Panama", "cena": 754, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_7", "znacka": "MALTECO", "nazev": "Reserve 2011", "puvod": "Panama", "cena": 719, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_8", "znacka": "MOUNT GAY", "nazev": "XO", "puvod": "Barbados", "cena": 799, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_9", "znacka": "MOUNT GAY", "nazev": "Black Barrel", "puvod": "Barbados", "cena": 699, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_10", "znacka": "CLEMENT", "nazev": "XO", "puvod": "Martinique", "cena": 1249, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_11", "znacka": "CLEMENT", "nazev": "Select Barrel", "puvod": "Martinique", "cena": 649, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_12", "znacka": "CLEMENT", "nazev": "VSOP", "puvod": "Martinique", "cena": 839, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_13", "znacka": "CLEMENT", "nazev": "VO", "puvod": "Martinique", "cena": 799, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_14", "znacka": "CENTENARIO", "nazev": "20Y", "puvod": "Costa Rica", "cena": 1035, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_15", "znacka": "CENTENARIO", "nazev": "12Y", "puvod": "Costa Rica", "cena": 605, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_16", "znacka": "QUORHUM", "nazev": "23Y", "puvod": "Dominikána", "cena": 1059, "cukr": 46, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_17", "znacka": "QUORHUM", "nazev": "15Y", "puvod": "Dominikána", "cena": 799, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_18", "znacka": "QUORHUM", "nazev": "12Y Solera", "puvod": "Dominikána", "cena": 735, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_19", "znacka": "VIZCAYA", "nazev": "VXOP 21Y", "puvod": "Dominikána", "cena": 1399, "cukr": 28, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_20", "znacka": "VIZCAYA", "nazev": "Cask 12Y", "puvod": "Dominikána", "cena": 689, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_21", "znacka": "OPTHIMUS", "nazev": "21Y Cum Laude", "puvod": "Dominikána", "cena": 1189, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_22", "znacka": "OPTHIMUS", "nazev": "18Y Cum Laude", "puvod": "Dominikána", "cena": 999, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_23", "znacka": "OPTHIMUS", "nazev": "15Y Malt", "puvod": "Dominikána", "cena": 1039, "cukr": 3, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_24", "znacka": "OPTHIMUS", "nazev": "15Y Oporto", "puvod": "Dominikána", "cena": 989, "cukr": 29, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_25", "znacka": "OPHYUM", "nazev": "23Y", "puvod": "Dominikána", "cena": 1369, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_26", "znacka": "OPHYUM", "nazev": "17Y", "puvod": "Dominikána", "cena": 1099, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_27", "znacka": "OPHYUM", "nazev": "12Y", "puvod": "Dominikána", "cena": 945, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_28", "znacka": "PYRAT", "nazev": "XO Reserve", "puvod": "Barbados", "cena": 645, "cukr": 24, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_29", "znacka": "CIHUATAN", "nazev": "Obsidiana 1litr", "puvod": "El Salvaror", "cena": 919, "cukr": 18, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_30", "znacka": "CIHUATAN", "nazev": "12Y Solera", "puvod": "El Salvaror", "cena": 659, "cukr": 18, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_31", "znacka": "Tanduay", "nazev": "Reserve 10YO", "puvod": "Filipíny", "cena": 850, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_32", "znacka": "Tanduay", "nazev": "Double 16+5", "puvod": "Filipíny", "cena": 595, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_33", "znacka": "Shakara", "nazev": "12Y", "puvod": "Thajsko", "cena": 1290, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_34", "znacka": "Naga", "nazev": "Triple Wood", "puvod": "Indonesie", "cena": 793, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_35", "znacka": "Duppy Share", "nazev": "XO", "puvod": "Barbados", "cena": 950, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_36", "znacka": "Duppy Share", "nazev": "Aged", "puvod": "Barbados", "cena": 690, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_37", "znacka": "Duppy Share", "nazev": "White 0.7L 40%, bílý rum", "puvod": "Barbados", "cena": 665, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_38", "znacka": "Hampden", "nazev": "Estate Rum Fire 63%, bílý rum", "puvod": "Jamajka", "cena": 750, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_39", "znacka": "Hampden", "nazev": "Estate 8y 46%", "puvod": "Jamajka", "cena": 1390, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_40", "znacka": "Hampden", "nazev": "Estate HLCF Classic Overproof 60%", "puvod": "Jamajka", "cena": 2100, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_41", "znacka": "R. L. Seales", "nazev": "10Y, 46%", "puvod": "Barbados", "cena": 1100, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_42", "znacka": "Equiano", "nazev": 0.43, "puvod": "Barbados", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_43", "znacka": "Pusser's", "nazev": "Gunpowder Proof 54,5%", "puvod": "Guyana a Trinidad", "cena": 740, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_44", "znacka": "Cargo Cult", "nazev": "Navy Strength Rum 54,5%", "puvod": "Australie", "cena": 770, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_45", "znacka": "Abuelo", "nazev": "XII Two Oaks", "puvod": "Panama", "cena": 1050, "cukr": 24, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_46", "znacka": "Abuelo", "nazev": "Anejo 12y", "puvod": "Panama", "cena": 660, "cukr": 28, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_47", "znacka": "Abuelo", "nazev": "THREE ANGELS 43%", "puvod": "Panama", "cena": 1285, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_48", "znacka": "DOORLYS", "nazev": "14Y 48%", "puvod": "Barbados", "cena": 1645, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_49", "znacka": "DOORLYS", "nazev": "https://eshop.angelshare.cz/la-hechicera-reserva-familiar-2-1-darek-40-0-7l/", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_50", "znacka": "Body", "nazev": "Popis", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_51", "znacka": "0–25", "nazev": "To je čistý jed, proboha nepit!", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_52", "znacka": "26–49", "nazev": "Není to jed, ale člověk by si přál, aby byl.", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_53", "znacka": "50–59", "nazev": "Dá sa to vypit, ale radši ne.", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_54", "znacka": "60–69", "nazev": "Tak toto odradí aj kamarády, co by ináč pili kdeco.", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_55", "znacka": "70–74", "nazev": "Na míchaní do koktejlu dobré, ale jinak nic moc.", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_56", "znacka": "75–79", "nazev": "V koktejlu už to má grády, ale sám o sobě eště né.", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_57", "znacka": "80–84", "nazev": "Poctivý rum na míchání, ale když nic jiného není, dá sa i srkat.", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_58", "znacka": "85–89", "nazev": "To už je fajný rum na popíjaní.", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_59", "znacka": "90–94", "nazev": "Takový už si člověk schová a usrkává jak poklad.", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_60", "znacka": "95–98", "nazev": "To sú ti nejlepší z nejlepších, co stojí za každú korunu.", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}, {"id": "wish_61", "znacka": "98–100", "nazev": "Vezmi si klidně aj moju starú, ale rum nech! 😁", "puvod": "", "cena": null, "cukr": null, "priorita": "střední", "stav": "kandidát", "poznamka": ""}]};
+
+
+let db = null;
+let state = { members: [], rums: [], ratings: [], ledger: [], wishlist: [] };
+let ui = {
+  tab: 'rumy',
+  selectedRatingRumId: null,
+  selectedMember: null,
+  scores: { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 },
+  showNewRum: false,
+  showNewMember: false,
+  wishFilter: 'kandidát',
+  wishFormOpen: false,
+  detailRumId: null,
+};
+
+function uid(prefix) {
+  return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function goTab(tab) {
+  ui.tab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + tab));
+  if (tab === 'degustace') renderDegustaceForm();
+  if (tab === 'ucet') renderUcet();
+  if (tab === 'wishlist') renderWishlist();
+  if (tab === 'klub') renderKlub();
+}
+
+/* ---------------- derived data helpers ---------------- */
+function ceilTo05(n) { return Math.ceil(n * 2) / 2; }
+
+function ratingsForRum(rumId) {
+  return state.ratings.filter(r => r.rumId === rumId);
+}
+
+function rumStats(rumId) {
+  const rs = ratingsForRum(rumId);
+  if (rs.length === 0) return null;
+  const avg = (key) => ceilTo05(rs.reduce((s,r)=>s+(Number(r[key])||0),0) / rs.length);
+  return {
+    count: rs.length,
+    barva: avg('barva'), aroma: avg('aroma'), chut: avg('chut'), plnost: avg('plnost'), dojezd: avg('dojezd'),
+    celkem: avg('celkem'),
+    perPerson: rs.map(r => ({clen: r.clen, celkem: r.celkem})),
+  };
+}
+
+function scoreClass(score) {
+  if (score == null) return 'score-none';
+  if (score >= 95) return 'score-gold';
+  if (score >= 90) return 'score-good';
+  return 'score-mid';
+}
+
+function currentBalance() {
+  return state.ledger.reduce((s,l)=>s + (Number(l.castka)||0), 0);
+}
+
+/* ---------------- RUMY tab ---------------- */
+function renderRumy() {
+  const search = (document.getElementById('rumSearch').value || '').toLowerCase();
+  const sort = document.getElementById('rumSort').value;
+  let rows = state.rums.map(r => ({ rum: r, stats: rumStats(r.id) }));
+  if (search) {
+    rows = rows.filter(({rum}) =>
+      (rum.nazev||'').toLowerCase().includes(search) ||
+      (rum.znacka||'').toLowerCase().includes(search) ||
+      (rum.puvod||'').toLowerCase().includes(search)
+    );
+  }
+  rows.sort((a,b) => {
+    if (sort === 'name') return (a.rum.nazev||'').localeCompare(b.rum.nazev||'');
+    if (sort === 'count') return (b.stats?.count||0) - (a.stats?.count||0);
+    if (sort === 'new') return (b.rum._seq||0) - (a.rum._seq||0);
+    const av = a.stats?.celkem ?? -1, bv = b.stats?.celkem ?? -1;
+    return sort === 'score_asc' ? av - bv : bv - av;
+  });
+
+  const list = document.getElementById('rumList');
+  if (rows.length === 0) {
+    list.innerHTML = '<div class="empty-note">Žádný rum neodpovídá hledání.</div>';
+    return;
+  }
+  list.innerHTML = rows.map(({rum, stats}, i) => `
+    <div class="card rum-card" onclick="openRumDetail('${rum.id}')">
+      <div class="rum-rank">${i+1}</div>
+      <div class="rum-main">
+        <div class="rum-name">${esc(rum.nazev)}${rum.znacka ? ' <span class="muted" style="font-weight:400;font-size:0.85em;">– '+esc(rum.znacka)+'</span>' : ''}</div>
+        <div class="rum-sub">${rum.puvod ? '<span class="origin-badge">'+esc(rum.puvod)+'</span>' : ''}${rum.cena ? esc(String(rum.cena))+' Kč' : ''}</div>
+      </div>
+      <div class="rum-score">
+        <div class="num ${scoreClass(stats?.celkem)}">${stats ? stats.celkem : '–'}</div>
+        <div class="cnt">${stats ? stats.count + ' hodn.' : 'bez hodnocení'}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function esc(s) {
+  return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function openRumDetail(rumId) {
+  ui.detailRumId = rumId;
+  const rum = state.rums.find(r => r.id === rumId);
+  const stats = rumStats(rumId);
+  const crit = [['barva','Barva'],['aroma','Aroma'],['chut','Chuť'],['plnost','Plnost'],['dojezd','Dojezd']];
+  document.getElementById('rumDetailSheet').innerHTML = `
+    <div class="sheet-head">
+      <div>
+        <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.35rem;margin:0;">${esc(rum.nazev)}</h2>
+        <div class="muted" style="font-size:13px;margin-top:2px;">${esc(rum.znacka||'')} ${rum.puvod?'· '+esc(rum.puvod):''}</div>
+      </div>
+      <button class="sheet-close" onclick="closeRumDetail()">×</button>
+    </div>
+    ${stats ? `
+      <div style="text-align:center; margin: 10px 0 18px;">
+        <div class="num ${scoreClass(stats.celkem)}" style="font-family:var(--font-display);font-weight:700;font-size:2.2rem;">${stats.celkem}</div>
+        <div class="muted" style="font-size:12px;">průměr z ${stats.count} hodnocení</div>
+      </div>
+      ${crit.map(([k,label]) => `
+        <div class="crit-row">
+          <div class="crit-label">${label}</div>
+          <div class="crit-bar-track"><div class="crit-bar-fill" style="width:${(stats[k]/20*100).toFixed(0)}%"></div></div>
+          <div class="crit-val">${stats[k]}</div>
+        </div>
+      `).join('')}
+      <div style="margin-top:14px;">
+        ${stats.perPerson.map(p => `<span class="person-chip">${esc(p.clen)} <b>${p.celkem}</b></span>`).join('')}
+      </div>
+    ` : '<div class="empty-note">Zatím bez hodnocení.</div>'}
+    ${rum.cena ? `<div class="muted" style="margin-top:14px;font-size:13px;">Cena: ${esc(String(rum.cena))} Kč</div>` : ''}
+    ${rum.cukr ? `<div class="muted" style="font-size:13px;">Cukr: ${esc(String(rum.cukr))} g/l</div>` : ''}
+    <div class="btn-row" style="margin-top:18px;">
+      <button class="btn btn-primary" onclick="closeRumDetail(); goTab('degustace'); presetRatingRum('${rum.id}')">+ Přidat hodnocení</button>
+    </div>
+  `;
+  document.getElementById('rumDetailOverlay').hidden = false;
+}
+function closeRumDetail() { document.getElementById('rumDetailOverlay').hidden = true; }
+
+/* ---------------- DEGUSTACE (add rating) tab ---------------- */
+function presetRatingRum(rumId) {
+  ui.selectedRatingRumId = rumId;
+  renderDegustaceForm();
+}
+
+function renderDegustaceForm() {
+  const rum = state.rums.find(r => r.id === ui.selectedRatingRumId);
+  const crit = [['barva','Barva'],['aroma','Aroma'],['chut','Chuť'],['plnost','Plnost'],['dojezd','Dojezd']];
+  const total = crit.reduce((s,[k])=>s+Number(ui.scores[k]||0),0);
+
+  let dup = null;
+  if (rum && ui.selectedMember) {
+    dup = state.ratings.find(r => r.rumId === rum.id && r.clen === ui.selectedMember);
+  }
+
+  let html = '<div class="card">';
+  html += '<div class="field"><label>1. Rum</label>';
+  if (rum) {
+    html += `<div class="selected-chip"><span>${esc(rum.nazev)} ${rum.znacka?'– '+esc(rum.znacka):''}</span><button class="x" onclick="ui.selectedRatingRumId=null; renderDegustaceForm();">×</button></div>`;
+  } else {
+    html += `<input class="input" id="rumPickSearch" placeholder="Hledat rum…" oninput="renderRatingRumPicker()">`;
+    html += `<div class="picker-list" id="rumPickList"></div>`;
+    html += `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showNewRum=!ui.showNewRum; renderDegustaceForm();">${ui.showNewRum?'Zrušit':'+ Nový rum, který ještě není v seznamu'}</button>`;
+    if (ui.showNewRum) {
+      html += `
+        <div style="margin-top:10px;">
+          <div class="field"><label>Název</label><input class="input" id="newRumNazev" placeholder="např. HAVANA CLUB"></div>
+          <div class="row2">
+            <div class="field"><label>Varianta/značka</label><input class="input" id="newRumZnacka" placeholder="Anejo Especial"></div>
+            <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba"></div>
+          </div>
+          <div class="field"><label>Cena (Kč, nepovinné)</label><input class="input" type="number" id="newRumCena"></div>
+          <button class="btn btn-primary btn-sm" onclick="createAndSelectRum()">Přidat rum a pokračovat</button>
+        </div>`;
+    }
+  }
+  html += '</div>';
+
+  if (rum) {
+    html += '<div class="field"><label>2. Kdo hodnotí</label><div class="member-chips">';
+    html += state.members.filter(m=>m.aktivni!==false).map(m => `<button class="member-chip ${ui.selectedMember===m.jmeno?'active':''}" onclick="ui.selectedMember='${esc(m.jmeno).replace(/'/g,"\\'")}'; renderDegustaceForm();">${esc(m.jmeno)}</button>`).join('');
+    html += '</div>';
+    html += `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showNewMember=!ui.showNewMember; renderDegustaceForm();">${ui.showNewMember?'Zrušit':'+ Nový člen'}</button>`;
+    if (ui.showNewMember) {
+      html += `<div style="display:flex; gap:8px; margin-top:8px;"><input class="input" id="quickMemberName" placeholder="Jméno"><button class="btn btn-primary btn-sm" onclick="quickAddMember()">Přidat</button></div>`;
+    }
+    html += '</div>';
+  }
+
+  if (rum && ui.selectedMember) {
+    if (dup) {
+      html += `<div class="warn-banner">${esc(ui.selectedMember)} už tenhle rum hodnotil/a (${dup.celkem} b.). Uložením staré hodnocení přepíšeš.</div>`;
+    }
+    html += '<div class="field"><label>3. Hodnocení (1–20 každé)</label>';
+    crit.forEach(([k,label]) => {
+      html += `
+        <div class="slider-row">
+          <div class="slider-head"><span>${label}</span><b id="scoreVal-${k}">${ui.scores[k]}</b></div>
+          <input type="range" min="1" max="20" step="1" value="${ui.scores[k]}" oninput="updateScore('${k}', this.value)">
+        </div>`;
+    });
+    html += '</div>';
+    html += `<div class="total-box"><span class="muted">Celkem</span><span class="num">${total}</span></div>`;
+    html += `<button class="btn btn-primary" onclick="submitRating()">${dup ? 'Přepsat hodnocení' : 'Uložit hodnocení'}</button>`;
+  }
+  html += '</div>';
+
+  document.getElementById('degustaceForm').innerHTML = html;
+  if (!rum) renderRatingRumPicker();
+  renderRecentRatings();
+}
+
+function renderRatingRumPicker() {
+  const el = document.getElementById('rumPickList');
+  if (!el) return;
+  const q = (document.getElementById('rumPickSearch')?.value || '').toLowerCase();
+  let rows = state.rums;
+  if (q) rows = rows.filter(r => (r.nazev||'').toLowerCase().includes(q) || (r.znacka||'').toLowerCase().includes(q));
+  rows = rows.slice(0, 40);
+  el.innerHTML = rows.map(r => `
+    <div class="picker-item" onclick="ui.selectedRatingRumId='${r.id}'; renderDegustaceForm();">
+      ${esc(r.nazev)} ${r.znacka?'– '+esc(r.znacka):''}
+      <div class="sub">${esc(r.puvod||'')}</div>
+    </div>
+  `).join('') || '<div class="picker-item muted">Nic nenalezeno</div>';
+}
+
+function updateScore(key, val) {
+  ui.scores[key] = Number(val);
+  document.getElementById('scoreVal-'+key).textContent = val;
+  const crit = ['barva','aroma','chut','plnost','dojezd'];
+  const total = crit.reduce((s,k)=>s+Number(ui.scores[k]||0),0);
+  const totalEl = document.querySelector('#degustaceForm .total-box .num');
+  if (totalEl) totalEl.textContent = total;
+  const btn = document.querySelector('#degustaceForm .btn-primary');
+  // no full re-render needed for slider drags -> keeps UI snappy
+}
+
+async function createAndSelectRum() {
+  const nazev = document.getElementById('newRumNazev').value.trim();
+  if (!nazev) { toast('Zadej název rumu'); return; }
+  const znacka = document.getElementById('newRumZnacka').value.trim();
+  const puvod = document.getElementById('newRumPuvod').value.trim();
+  const cena = document.getElementById('newRumCena').value;
+  const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, cukr: null, poznamka: '', _seq: Date.now() };
+  const ref = await db.collection('rums').add(rum);
+  ui.selectedRatingRumId = ref.id;
+  ui.showNewRum = false;
+  toast('Rum přidán do katalogu');
+}
+
+async function quickAddMember() {
+  const name = document.getElementById('quickMemberName').value.trim();
+  if (!name) return;
+  await db.collection('members').add({ jmeno: name, aktivni: true });
+  ui.selectedMember = name;
+  ui.showNewMember = false;
+  toast('Člen přidán');
+}
+
+async function submitRating() {
+  const rum = state.rums.find(r => r.id === ui.selectedRatingRumId);
+  if (!rum || !ui.selectedMember) return;
+  const crit = ['barva','aroma','chut','plnost','dojezd'];
+  const celkem = crit.reduce((s,k)=>s+Number(ui.scores[k]||0),0);
+  const body = {
+    rumId: rum.id, clen: ui.selectedMember,
+    barva: ui.scores.barva, aroma: ui.scores.aroma, chut: ui.scores.chut,
+    plnost: ui.scores.plnost, dojezd: ui.scores.dojezd, celkem,
+    datum: new Date().toISOString().slice(0,10),
+    _seq: Date.now(),
+  };
+  const existing = state.ratings.find(r => r.rumId === rum.id && r.clen === ui.selectedMember);
+  if (existing) {
+    await db.collection('ratings').doc(existing.id).set(body);
+    toast('Hodnocení přepsáno');
+  } else {
+    await db.collection('ratings').add(body);
+    toast('Hodnocení uloženo');
+  }
+  ui.selectedMember = null;
+  ui.scores = { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 };
+  renderDegustaceForm();
+}
+
+function renderRecentRatings() {
+  const el = document.getElementById('recentRatings');
+  const recent = [...state.ratings].sort((a,b)=>(b._seq||0)-(a._seq||0)).slice(0,8);
+  if (recent.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="muted" style="font-size:12px;margin-bottom:6px;">Naposledy přidáno</div>' +
+    recent.map(r => {
+      const rum = state.rums.find(x=>x.id===r.rumId);
+      return `<div class="recent-item"><span>${esc(r.clen)} – ${esc(rum?rum.nazev:'?')}</span><b>${r.celkem}</b></div>`;
+    }).join('');
+}
+
+/* ---------------- UCET tab ---------------- */
+function renderUcet() {
+  const bal = currentBalance();
+  const big = document.getElementById('ucetBalanceBig');
+  big.textContent = Math.round(bal).toLocaleString('cs-CZ') + ' Kč';
+  big.className = 'num ' + (bal < 0 ? 'neg' : 'pos');
+  if (!document.getElementById('ucetDatum').value) {
+    document.getElementById('ucetDatum').value = new Date().toISOString().slice(0,10);
+  }
+
+  const sorted = [...state.ledger].sort((a,b) => (a.datum||'').localeCompare(b.datum||'') || (a._seq||0)-(b._seq||0));
+  let running = 0;
+  const withBalance = sorted.map(l => { running += Number(l.castka)||0; return {...l, running}; });
+  withBalance.reverse();
+
+  document.getElementById('ledgerList').innerHTML = withBalance.length === 0
+    ? '<div class="empty-note">Zatím žádné transakce.</div>'
+    : withBalance.map(l => `
+      <div class="ledger-row">
+        <div class="ledger-desc">
+          <div>${esc(l.popis)}</div>
+          <div class="ledger-date">${esc(l.datum||'')} · ${esc(l.kategorie||'')}</div>
+        </div>
+        <div>
+          <div class="ledger-amt ${l.castka<0?'neg':'pos'}">${l.castka>0?'+':''}${Math.round(l.castka).toLocaleString('cs-CZ')} Kč</div>
+          <span class="ledger-bal">zůst. ${Math.round(l.running).toLocaleString('cs-CZ')}</span>
+        </div>
+      </div>
+    `).join('');
+
+  updateBalanceChip();
+}
+
+function updateBalanceChip() {
+  const bal = currentBalance();
+  const chip = document.getElementById('balanceChip');
+  chip.className = 'balance-chip ' + (bal < 0 ? 'neg' : 'pos');
+  document.getElementById('balanceChipVal').textContent = Math.round(bal).toLocaleString('cs-CZ') + ' Kč';
+}
+
+async function addLedger() {
+  const datum = document.getElementById('ucetDatum').value;
+  const popis = document.getElementById('ucetPopis').value.trim();
+  const castka = Number(document.getElementById('ucetCastka').value);
+  const kategorie = document.getElementById('ucetKategorie').value;
+  if (!popis || !castka) { toast('Vyplň popis a částku'); return; }
+  await db.collection('ledger').add({ datum, popis, castka, kategorie, _seq: Date.now() });
+  document.getElementById('ucetPopis').value = '';
+  document.getElementById('ucetCastka').value = '';
+  toast('Transakce přidána');
+}
+
+/* ---------------- WISHLIST tab ---------------- */
+function renderWishFilters() {
+  const filters = [['kandidát','Kandidáti'],['koupeno','Koupeno'],['zamítnuto','Zamítnuto'],['vše','Vše']];
+  document.getElementById('wishFilters').innerHTML = filters.map(([v,l]) =>
+    `<button class="filter-chip ${ui.wishFilter===v?'active':''}" onclick="ui.wishFilter='${v}'; renderWishlist();">${l}</button>`
+  ).join('');
+}
+
+function toggleWishForm() {
+  ui.wishFormOpen = !ui.wishFormOpen;
+  const el = document.getElementById('wishForm');
+  el.hidden = !ui.wishFormOpen;
+  if (ui.wishFormOpen) {
+    el.innerHTML = `
+      <div class="field"><label>Značka</label><input class="input" id="wishZnacka"></div>
+      <div class="row2">
+        <div class="field"><label>Název</label><input class="input" id="wishNazev"></div>
+        <div class="field"><label>Původ</label><input class="input" id="wishPuvod"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Cena (Kč)</label><input class="input" type="number" id="wishCena"></div>
+        <div class="field"><label>Cukr (g/l)</label><input class="input" type="number" id="wishCukr"></div>
+      </div>
+      <div class="field"><label>Poznámka</label><textarea class="input" id="wishPoznamka"></textarea></div>
+      <button class="btn btn-primary" onclick="addWish()">Přidat na wishlist</button>
+    `;
+  }
+}
+
+async function addWish() {
+  const nazev = document.getElementById('wishNazev').value.trim();
+  if (!nazev) { toast('Zadej název'); return; }
+  await db.collection('wishlist').add({
+    znacka: document.getElementById('wishZnacka').value.trim(),
+    nazev,
+    puvod: document.getElementById('wishPuvod').value.trim(),
+    cena: Number(document.getElementById('wishCena').value) || null,
+    cukr: Number(document.getElementById('wishCukr').value) || null,
+    poznamka: document.getElementById('wishPoznamka').value.trim(),
+    priorita: 'střední', stav: 'kandidát', _seq: Date.now(),
+  });
+  toggleWishForm();
+  toast('Přidáno na wishlist');
+}
+
+async function setWishStatus(id, stav) {
+  await db.collection('wishlist').doc(id).update({ stav });
+}
+
+function renderWishlist() {
+  renderWishFilters();
+  let rows = state.wishlist;
+  if (ui.wishFilter !== 'vše') rows = rows.filter(w => (w.stav||'kandidát') === ui.wishFilter);
+  const list = document.getElementById('wishList');
+  if (rows.length === 0) { list.innerHTML = '<div class="empty-note">Nic tu není.</div>'; return; }
+  list.innerHTML = rows.map(w => `
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div class="rum-name">${esc(w.nazev)} ${w.znacka?'<span class="muted" style="font-weight:400;">– '+esc(w.znacka)+'</span>':''}</div>
+          <div class="rum-sub">${w.puvod?'<span class="origin-badge">'+esc(w.puvod)+'</span>':''}${w.cena?esc(String(w.cena))+' Kč':''}${w.cukr!=null?' · cukr '+esc(String(w.cukr))+' g/l':''}</div>
+          ${w.poznamka ? '<div class="muted" style="font-size:12.5px;margin-top:4px;">'+esc(w.poznamka)+'</div>' : ''}
+        </div>
+        <span class="status-pill status-${(w.stav||'kandidát').replace('á','a').replace('í','i')}">${esc(w.stav||'kandidát')}</span>
+      </div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn btn-ghost btn-sm" onclick="setWishStatus('${w.id}','kandidát')">Kandidát</button>
+        <button class="btn btn-ghost btn-sm" onclick="setWishStatus('${w.id}','koupeno')">Koupeno</button>
+        <button class="btn btn-ghost btn-sm" onclick="setWishStatus('${w.id}','zamítnuto')">Zamítnuto</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ---------------- KLUB tab ---------------- */
+async function addMember() {
+  const name = document.getElementById('newMemberName').value.trim();
+  if (!name) return;
+  await db.collection('members').add({ jmeno: name, aktivni: true });
+  document.getElementById('newMemberName').value = '';
+  toast('Člen přidán');
+}
+
+function renderKlub() {
+  const list = document.getElementById('memberList');
+  list.innerHTML = state.members.map(m => {
+    const rs = state.ratings.filter(r => r.clen === m.jmeno);
+    const avg = rs.length ? (rs.reduce((s,r)=>s+Number(r.celkem||0),0)/rs.length).toFixed(1) : '–';
+    return `
+      <div class="card member-card">
+        <div>
+          <div class="rum-name">${esc(m.jmeno)}</div>
+          <div class="member-stats">${rs.length} hodnocení · průměr ${avg}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('clubStats').innerHTML =
+    `Celkem v katalogu: <b>${state.rums.length}</b> rumů · <b>${state.ratings.length}</b> hodnocení · <b>${state.members.length}</b> členů`;
+}
+
+
+/* ---------------- EXPORT DO EXCELU ---------------- */
+function exportToExcel() {
+  if (typeof XLSX === 'undefined') { toast('Export se nepodařilo načíst, zkus obnovit stránku'); return; }
+  const wb = XLSX.utils.book_new();
+  const addSheet = (name, rows) => {
+    const clean = rows.map(r => { const { id, ...rest } = r; return { id, ...rest }; });
+    const ws = XLSX.utils.json_to_sheet(clean);
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  };
+  addSheet('Clenove', state.members);
+  addSheet('Rumy_katalog', state.rums);
+  addSheet('Hodnoceni', state.ratings);
+  addSheet('Ucet', state.ledger);
+  addSheet('Wishlist', state.wishlist);
+  const datum = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `rum-klub-export-${datum}.xlsx`);
+  toast('Export stažen');
+}
+
+function fromSnap(snap) { return snap.docs.map(d => ({ id: d.id, ...d.data() })); }
+
+async function maybeSeed() {
+  const seedRef = db.doc('meta/seed');
+  const snap = await seedRef.get();
+  if (snap.exists) return;
+  const jobs = [];
+  SEED.members.forEach(m => jobs.push(db.collection('members').doc(m.id).set(m)));
+  SEED.rums.forEach((r,i) => jobs.push(db.collection('rums').doc(r.id).set({...r, _seq: i})));
+  SEED.ratings.forEach((r,i) => jobs.push(db.collection('ratings').doc(r.id).set({...r, _seq: i})));
+  SEED.ledger.forEach((l,i) => jobs.push(db.collection('ledger').doc(l.id).set({...l, _seq: i})));
+  SEED.wishlist.forEach((w,i) => jobs.push(db.collection('wishlist').doc(w.id).set({...w, _seq: i})));
+  await Promise.all(jobs);
+  await seedRef.set({ done: true, at: new Date().toISOString() });
+}
+
+function subscribeAll() {
+  db.collection('members').onSnapshot(snap => { state.members = fromSnap(snap); rerenderActive(); },
+    () => toast('Chyba při načítání členů'));
+  db.collection('rums').onSnapshot(snap => { state.rums = fromSnap(snap); rerenderActive(); },
+    () => toast('Chyba při načítání rumů'));
+  db.collection('ratings').onSnapshot(snap => { state.ratings = fromSnap(snap); rerenderActive(); },
+    () => toast('Chyba při načítání hodnocení'));
+  db.collection('ledger').onSnapshot(snap => { state.ledger = fromSnap(snap); updateBalanceChip(); rerenderActive(); },
+    () => toast('Chyba při načítání účtu'));
+  db.collection('wishlist').onSnapshot(snap => { state.wishlist = fromSnap(snap); rerenderActive(); },
+    () => toast('Chyba při načítání wishlistu'));
+}
+
+function rerenderActive() {
+  if (ui.tab === 'rumy') renderRumy();
+  else if (ui.tab === 'degustace') renderDegustaceForm();
+  else if (ui.tab === 'ucet') renderUcet();
+  else if (ui.tab === 'wishlist') renderWishlist();
+  else if (ui.tab === 'klub') renderKlub();
+}
+
+
+async function init() {
+  if (!FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey.indexOf('SEM_VLOZ') === 0) {
+    document.getElementById('offlineNote').hidden = false;
+    document.getElementById('offlineNote').innerHTML =
+      '<div class="big">🥃⚙️</div><div>Appka ještě není nastavená.<br>Otevři soubor <code>index.html</code> a do <code>FIREBASE_CONFIG</code> na začátku &lt;script&gt; vlož údaje ze svého Firebase projektu (návod je v README-NASAZENI.md).</div>';
+    document.getElementById('syncLabel').innerHTML = '<span class="sync-dot"></span>nenastaveno';
+    return;
+  }
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    try {
+      await firebase.auth().signInAnonymously();
+    } catch (authErr) {
+      console.error('Anonymní přihlášení selhalo (zkontroluj, že je v Firebase konzoli zapnuté Authentication -> Sign-in method -> Anonymous):', authErr);
+    }
+    db = firebase.firestore();
+  } catch (e) {
+    console.error('Firebase se nepodařilo inicializovat:', e);
+    db = null;
+  }
+  if (!db) {
+    document.getElementById('offlineNote').hidden = false;
+    document.getElementById('syncLabel').innerHTML = '<span class="sync-dot"></span>offline';
+    return;
+  }
+  document.getElementById('syncLabel').innerHTML = '<span class="sync-dot live"></span>živě';
+  try {
+    await maybeSeed();
+  } catch(e) { /* seeding races are harmless; ignore */ console.error('Seed:', e); }
+  subscribeAll();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderRumy();
+  init();
+});
+</script>
+</body>
+</html>

@@ -524,19 +524,24 @@ function renderRumy() {
     list.innerHTML = '<div class="empty-note">Žádný rum neodpovídá hledání.</div>';
     return;
   }
-  list.innerHTML = rows.map(({rum, stats}, i) => `
+  list.innerHTML = rows.map(({rum, stats}, i) => {
+    const subBits = [];
+    if (rum.cena) subBits.push(esc(String(rum.cena))+' Kč');
+    if (rum.abv) subBits.push(esc(String(rum.abv))+'% obj.');
+    return `
     <div class="card rum-card" onclick="openRumDetail('${rum.id}')">
       <div class="rum-rank">${i+1}</div>
       <div class="rum-main">
         <div class="rum-name">${esc(rum.nazev)}${rum.znacka ? ' <span class="muted" style="font-weight:400;font-size:0.85em;">– '+esc(rum.znacka)+'</span>' : ''}</div>
-        <div class="rum-sub">${rum.puvod ? '<span class="origin-badge">'+esc(rum.puvod)+'</span>' : ''}${rum.cena ? esc(String(rum.cena))+' Kč' : ''}</div>
+        <div class="rum-sub">${rum.puvod ? '<span class="origin-badge">'+esc(rum.puvod)+'</span>' : ''}${subBits.join(' · ')}</div>
       </div>
       <div class="rum-score">
         <div class="num ${scoreClass(stats?.celkem)}">${stats ? stats.celkem : '–'}</div>
         <div class="cnt">${stats ? stats.count + ' hodn.' : 'bez hodnocení'}</div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function esc(s) {
@@ -573,6 +578,7 @@ function openRumDetail(rumId) {
       </div>
     ` : '<div class="empty-note">Zatím bez hodnocení.</div>'}
     ${rum.cena ? `<div class="muted" style="margin-top:14px;font-size:13px;">Cena: ${esc(String(rum.cena))} Kč</div>` : ''}
+    ${rum.abv ? `<div class="muted" style="font-size:13px;${rum.cena?'':'margin-top:14px;'}">Obsah alkoholu: ${esc(String(rum.abv))} %</div>` : ''}
     ${rum.cukr ? `<div class="muted" style="font-size:13px;">Cukr: ${esc(String(rum.cukr))} g/l</div>` : ''}
     <div class="btn-row" style="margin-top:18px;">
       <button class="btn btn-primary" onclick="closeRumDetail(); goTab('degustace'); presetRatingRum('${rum.id}')">+ Přidat hodnocení</button>

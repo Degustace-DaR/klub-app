@@ -418,14 +418,14 @@
   </div>
 
   <div class="view" id="view-terminy">
-    <h2 class="view-title">Termíny</h2>
+    <h2 class="view-title">Termíny degustací</h2>
     <div id="koloList"></div>
     <div class="card" id="newKoloSection" style="margin-top:16px;"></div>
     <div class="card" id="terminUcastniciSection" style="margin-top:16px;"></div>
   </div>
 
   <div class="view" id="view-ucast">
-    <h2 class="view-title">Účast</h2>
+    <h2 class="view-title">Účast na degustaci</h2>
     <div id="ucastList"></div>
     <div class="card" id="newUcastSection" style="margin-top:16px;"></div>
   </div>
@@ -445,7 +445,7 @@
   </div>
 
   <div class="view" id="view-klub">
-    <h2 class="view-title">Klub</h2>
+    <h2 class="view-title">Členové klubu</h2>
     <div id="memberList"></div>
     <div class="card" id="addMemberCard" style="margin-top:16px;">
       <div class="field"><label>Přidat člena</label>
@@ -540,6 +540,13 @@ let db = null;
 let isGuest = false;
 let isAdmin = false;
 let currentUser = null;
+
+/* ---------------- Oprávnění nad rámec běžného člena ---------------- */
+const PERM_SPRAVCI = ['Broněk', 'Libor'];   // potvrzování a zadávání termínů, účet, mazání účasti
+const PERM_MAZANI = ['Broněk'];             // mazání rumů a položek wishlistu
+function hasPerm(names) {
+  return isAdmin || (!!currentUser && names.includes(currentUser));
+}
 let state = { members: [], rums: [], ratings: [], ledger: [], wishlist: [], cigars: [], cigarLog: [], terminUcastnici: [], terminKola: [], ucasti: [] };
 let ui = {
   tab: 'rumy',
@@ -724,7 +731,7 @@ function openRumDetail(rumId) {
       <button class="btn btn-primary" onclick="closeRumDetail(); goTab('degustace'); presetRatingRum('${rum.id}')">+ Přidat hodnocení</button>
     </div>
     `}
-    ${isAdmin ? `
+    ${hasPerm(PERM_MAZANI) ? `
     <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-danger" onclick="deleteRum('${rum.id}')">Smazat rum</button>
     </div>
@@ -735,7 +742,7 @@ function openRumDetail(rumId) {
 function closeRumDetail() { document.getElementById('rumDetailOverlay').hidden = true; }
 
 async function deleteRum(rumId) {
-  if (!isAdmin) return;
+  if (!hasPerm(PERM_MAZANI)) return;
   const rum = state.rums.find(r => r.id === rumId);
   if (!rum) return;
   const relatedRatings = state.ratings.filter(r => r.rumId === rumId);
@@ -1082,25 +1089,27 @@ function renderUcet() {
 function openLedgerEdit(id) {
   const l = state.ledger.find(x => x.id === id);
   if (!l) return;
+  const canEdit = hasPerm(PERM_SPRAVCI);
+  const dis = canEdit ? '' : 'disabled';
   document.getElementById('ledgerEditSheet').innerHTML = `
     <div class="sheet-head">
       <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.35rem;margin:0;">Upravit transakci</h2>
       <button class="sheet-close" onclick="closeLedgerEdit()">×</button>
     </div>
-    <div class="field"><label>Datum</label><input class="input" type="date" id="editDatum" value="${esc(l.datum||'')}"></div>
-    <div class="field"><label>Popis</label><input class="input" id="editPopis" value="${esc(l.popis||'')}"></div>
+    <div class="field"><label>Datum</label><input class="input" type="date" id="editDatum" value="${esc(l.datum||'')}" ${dis}></div>
+    <div class="field"><label>Popis</label><input class="input" id="editPopis" value="${esc(l.popis||'')}" ${dis}></div>
     <div class="row2">
-      <div class="field"><label>Částka (Kč, záporná = výdaj)</label><input class="input" type="number" id="editCastka" value="${l.castka!=null?l.castka:''}"></div>
+      <div class="field"><label>Částka (Kč, záporná = výdaj)</label><input class="input" type="number" id="editCastka" value="${l.castka!=null?l.castka:''}" ${dis}></div>
       <div class="field"><label>Kategorie</label>
-        <select class="input" id="editKategorie">
+        <select class="input" id="editKategorie" ${dis}>
           ${['nákup','degustace','bonus','jiné'].map(k=>`<option value="${k}" ${l.kategorie===k?'selected':''}>${k}</option>`).join('')}
         </select>
       </div>
     </div>
     <div class="btn-row" style="margin-top:14px;">
-      <button class="btn btn-primary" onclick="saveLedgerEdit('${id}')">Uložit změny</button>
+      ${canEdit ? `<button class="btn btn-primary" onclick="saveLedgerEdit('${id}')">Uložit změny</button>` : ''}
       <button class="btn btn-ghost" onclick="closeLedgerEdit()">← Zpět</button>
-      <button class="btn btn-danger" onclick="deleteLedgerEntry('${id}')">Smazat</button>
+      ${canEdit ? `<button class="btn btn-danger" onclick="deleteLedgerEntry('${id}')">Smazat</button>` : ''}
     </div>
   `;
   document.getElementById('ledgerEditOverlay').hidden = false;
@@ -1109,6 +1118,7 @@ function openLedgerEdit(id) {
 function closeLedgerEdit() { document.getElementById('ledgerEditOverlay').hidden = true; }
 
 async function saveLedgerEdit(id) {
+  if (!hasPerm(PERM_SPRAVCI)) return;
   const datum = document.getElementById('editDatum').value;
   const popis = document.getElementById('editPopis').value.trim();
   const castka = Number(document.getElementById('editCastka').value);
@@ -1121,6 +1131,7 @@ async function saveLedgerEdit(id) {
 }
 
 async function deleteLedgerEntry(id) {
+  if (!hasPerm(PERM_SPRAVCI)) return;
   if (!confirm('Opravdu smazat tuto transakci?')) return;
   const l = state.ledger.find(x => x.id === id);
   await db.collection('ledger').doc(id).delete();
@@ -1213,6 +1224,7 @@ async function setWishStatus(id, stav) {
 }
 
 async function deleteWish(id) {
+  if (!hasPerm(PERM_MAZANI)) return;
   if (!confirm('Opravdu smazat tuhle položku z wishlistu?')) return;
   const w = state.wishlist.find(x => x.id === id);
   await db.collection('wishlist').doc(id).delete();
@@ -1238,11 +1250,11 @@ function renderWishlist() {
           <div class="rum-name">${esc(w.znacka)} ${w.nazev?'<span class="muted" style="font-weight:400;">– '+esc(w.nazev)+'</span>':''}</div>
           <div class="rum-sub">${subParts.join(' · ')}</div>
           ${w.poznamka ? '<div class="muted" style="font-size:12.5px;margin-top:4px;">'+esc(w.poznamka)+'</div>' : ''}
-          ${isGuest ? '' : `
+          ${hasPerm(PERM_MAZANI) ? `
           <div class="btn-row" style="margin-top:10px; flex-wrap:wrap;">
             <button class="btn btn-danger btn-sm" style="flex:0 0 auto;" onclick="deleteWish('${w.id}')">Smazat</button>
           </div>
-          `}
+          ` : ''}
         </div>
       </div>
     </div>
@@ -1653,7 +1665,7 @@ function renderTerminy() {
 function renderNewKoloSection() {
   const el = document.getElementById('newKoloSection');
   if (!el) return;
-  if (isGuest) { el.innerHTML = ''; return; }
+  if (!hasPerm(PERM_SPRAVCI)) { el.innerHTML = ''; return; }
   if (!ui.showNewKoloTerminy) {
     el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewKoloTerminy=true; ui.newKoloDatumy=['','']; renderNewKoloSection();">+ Nové kolo domlouvání termínu</button>`;
     return;
@@ -1672,6 +1684,7 @@ function renderNewKoloSection() {
 }
 
 async function createNewKolo() {
+  if (!hasPerm(PERM_SPRAVCI)) return;
   const datumy = [...new Set(ui.newKoloDatumy.filter(d => d))].sort();
   if (datumy.length === 0) { toast('Zadej aspoň jeden termín'); return; }
   await db.collection('termin_kola').add({ datumy, odpovedi: {}, vybrano: null, poznamka: '', _seq: Date.now() });
@@ -1729,7 +1742,7 @@ async function toggleTerminResponse(koloId, jmeno, datum) {
 }
 
 async function setKoloVybrano(koloId, datum) {
-  if (isGuest) return;
+  if (!hasPerm(PERM_SPRAVCI)) return;
   await db.collection('termin_kola').doc(koloId).update({ vybrano: datum });
   if (datum) {
     try { await syncUcastFromKolo(koloId, datum); } catch (e) { console.error('Sync účasti z termínu selhal:', e); }
@@ -1740,6 +1753,7 @@ async function setKoloVybrano(koloId, datum) {
 }
 
 async function addKoloDatum(koloId) {
+  if (!hasPerm(PERM_SPRAVCI)) return;
   const input = document.getElementById('newKoloDetailDatum');
   const datum = input.value;
   if (!datum) { toast('Vyber datum'); return; }
@@ -1789,9 +1803,11 @@ function renderKoloDetail() {
           <b>${esc(formatDatumCz(datum))}</b>
           ${isGuest ? (isVybrano ? '<span class="origin-badge" style="background:var(--good-soft);color:var(--good);border-color:var(--good);">✅ vybráno</span>' : '') : `
             <div style="display:flex; gap:6px;">
-              ${isVybrano
-                ? `<button class="btn btn-ghost btn-sm" onclick="setKoloVybrano('${kolo.id}', null)">✅ vybráno (zrušit)</button>`
-                : `<button class="btn btn-ghost btn-sm" onclick="setKoloVybrano('${kolo.id}', '${datum}')">Vybrat</button>`}
+              ${hasPerm(PERM_SPRAVCI)
+                ? (isVybrano
+                    ? `<button class="btn btn-ghost btn-sm" onclick="setKoloVybrano('${kolo.id}', null)">✅ vybráno (zrušit)</button>`
+                    : `<button class="btn btn-ghost btn-sm" onclick="setKoloVybrano('${kolo.id}', '${datum}')">Vybrat</button>`)
+                : (isVybrano ? '<span class="origin-badge" style="background:var(--good-soft);color:var(--good);border-color:var(--good);">✅ vybráno</span>' : '')}
               <button class="btn btn-danger btn-sm" onclick="removeKoloDatum('${kolo.id}', '${datum}')">×</button>
             </div>
           `}
@@ -1800,7 +1816,7 @@ function renderKoloDetail() {
       </div>
     `;
     }).join('')}
-    ${isGuest ? '' : `
+    ${hasPerm(PERM_SPRAVCI) ? `
     <div class="field" style="margin-top:4px;">
       <label>Přidat další navrhovaný termín</label>
       <div style="display:flex; gap:8px;">
@@ -1808,7 +1824,7 @@ function renderKoloDetail() {
         <button class="btn btn-primary btn-sm" onclick="addKoloDatum('${kolo.id}')" style="flex-shrink:0;">Přidat</button>
       </div>
     </div>
-    `}
+    ` : ''}
     <div class="btn-row" style="margin-top:18px;">
       <button class="btn btn-ghost" onclick="closeKoloDetail()">← Zpět</button>
     </div>
@@ -1932,7 +1948,7 @@ async function addUcastDalsiOsoba(ucastId) {
 }
 
 async function deleteUcast(ucastId) {
-  if (!isAdmin) return;
+  if (!hasPerm(PERM_SPRAVCI)) return;
   if (!confirm('Opravdu smazat tento záznam účasti?')) return;
   await db.collection('ucast').doc(ucastId).delete();
   closeUcastDetail();
@@ -1983,7 +1999,7 @@ function renderUcastDetail() {
     <div class="btn-row" style="margin-top:18px;">
       <button class="btn btn-ghost" onclick="closeUcastDetail()">← Zpět</button>
     </div>
-    ${isAdmin ? `
+    ${hasPerm(PERM_SPRAVCI) ? `
     <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-danger" onclick="deleteUcast('${u.id}')">Smazat záznam</button>
     </div>

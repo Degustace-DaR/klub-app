@@ -334,6 +334,7 @@
       </select>
     </div>
     <div id="rumList"></div>
+    <div class="card" id="newRumSection" style="margin-top:16px;"></div>
   </div>
 
   <div class="view" id="view-degustace">
@@ -370,7 +371,6 @@
 
   <div class="view" id="view-wishlist">
     <h2 class="view-title">Wishlist</h2>
-    <div class="filter-chips" id="wishFilters"></div>
     <button class="btn btn-ghost" id="wishToggleBtn" style="margin-bottom:12px;" onclick="toggleWishForm()">+ Přidat kandidáta</button>
     <div class="card" id="wishForm" hidden></div>
     <div id="wishList"></div>
@@ -465,6 +465,7 @@ let ui = {
   selectedMember: null,
   scores: { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 },
   showNewRum: false,
+  showNewRumRumy: false,
   showNewMember: false,
   wishFilter: 'kandidát',
   wishFormOpen: false,
@@ -544,6 +545,7 @@ function renderRumy() {
   });
 
   const list = document.getElementById('rumList');
+  renderNewRumSection();
   if (rows.length === 0) {
     list.innerHTML = '<div class="empty-note">Žádný rum neodpovídá hledání.</div>';
     return;
@@ -673,27 +675,6 @@ function renderDegustaceForm() {
   } else {
     html += `<input class="input" id="rumPickSearch" placeholder="Hledat rum…" oninput="renderRatingRumPicker()">`;
     html += `<div class="picker-list" id="rumPickList"></div>`;
-    if (!ui.showNewRum) {
-      html += `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showNewRum=true; renderDegustaceForm();">+ Nový rum, který ještě není v seznamu</button>`;
-    }
-    if (ui.showNewRum) {
-      html += `
-        <div style="margin-top:10px;">
-          <div class="field"><label>Značka rumu</label><input class="input" id="newRumNazev" placeholder="např. HAVANA CLUB"></div>
-          <div class="row2">
-            <div class="field"><label>Název rumu</label><input class="input" id="newRumZnacka" placeholder="Anejo Especial"></div>
-            <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba"></div>
-          </div>
-          <div class="row2">
-            <div class="field"><label>Cena</label><input class="input" type="number" id="newRumCena"></div>
-            <div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>
-          </div>
-          <div class="btn-row" style="margin-top:4px;">
-            <button class="btn btn-primary btn-sm" onclick="createAndSelectRum()">Přidat rum</button>
-            <button class="btn btn-ghost btn-sm" onclick="ui.showNewRum=false; renderDegustaceForm();">Zrušit</button>
-          </div>
-        </div>`;
-    }
   }
   html += '</div>';
 
@@ -833,7 +814,31 @@ async function openHistory() {
 }
 function closeHistory() { document.getElementById('historyOverlay').hidden = true; }
 
-async function createAndSelectRum() {
+function renderNewRumSection() {
+  const el = document.getElementById('newRumSection');
+  if (!el) return;
+  if (isGuest) { el.innerHTML = ''; return; }
+  if (!ui.showNewRumRumy) {
+    el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=true; renderNewRumSection();">+ Nový rum, který ještě není v seznamu</button>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="field"><label>Značka rumu</label><input class="input" id="newRumNazev" placeholder="např. HAVANA CLUB"></div>
+    <div class="row2">
+      <div class="field"><label>Název rumu</label><input class="input" id="newRumZnacka" placeholder="Anejo Especial"></div>
+      <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Cena</label><input class="input" type="number" id="newRumCena"></div>
+      <div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button class="btn btn-primary btn-sm" onclick="createNewRum()">Přidat rum</button>
+      <button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=false; renderNewRumSection();">Zpět</button>
+    </div>`;
+}
+
+async function createNewRum() {
   const nazev = document.getElementById('newRumNazev').value.trim();
   if (!nazev) { toast('Zadej název rumu'); return; }
   const znacka = document.getElementById('newRumZnacka').value.trim();
@@ -841,9 +846,8 @@ async function createAndSelectRum() {
   const cena = document.getElementById('newRumCena').value;
   const abv = document.getElementById('newRumAbv').value;
   const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, abv: abv ? Number(abv) : null, cukr: null, poznamka: '', _seq: Date.now() };
-  const ref = await db.collection('rums').add(rum);
-  ui.selectedRatingRumId = ref.id;
-  ui.showNewRum = false;
+  await db.collection('rums').add(rum);
+  ui.showNewRumRumy = false;
   toast('Rum přidán do katalogu');
   logChange('Přidán rum', `${nazev}${znacka?' – '+znacka:''}`);
 }
@@ -1031,13 +1035,6 @@ async function addLedger() {
 }
 
 /* ---------------- WISHLIST tab ---------------- */
-function renderWishFilters() {
-  const filters = [['kandidát','Kandidáti'],['koupeno','Koupeno'],['zamítnuto','Zamítnuto'],['vše','Vše']];
-  document.getElementById('wishFilters').innerHTML = filters.map(([v,l]) =>
-    `<button class="filter-chip ${ui.wishFilter===v?'active':''}" onclick="ui.wishFilter='${v}'; renderWishlist();">${l}</button>`
-  ).join('');
-}
-
 function toggleWishForm() {
   ui.wishFormOpen = !ui.wishFormOpen;
   const el = document.getElementById('wishForm');
@@ -1058,7 +1055,7 @@ function toggleWishForm() {
       <div class="field"><label>Poznámka</label><textarea class="input" id="wishPoznamka"></textarea></div>
       <div class="btn-row" style="margin-top:4px;">
         <button class="btn btn-primary btn-sm" onclick="addWish()">Přidat na wishlist</button>
-        <button class="btn btn-ghost btn-sm" onclick="toggleWishForm()">Zrušit</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleWishForm()">Zpět</button>
       </div>
     `;
   }
@@ -1098,9 +1095,7 @@ async function deleteWish(id) {
 }
 
 function renderWishlist() {
-  renderWishFilters();
   let rows = state.wishlist;
-  if (ui.wishFilter !== 'vše') rows = rows.filter(w => (w.stav||'kandidát') === ui.wishFilter);
   const list = document.getElementById('wishList');
   if (rows.length === 0) { list.innerHTML = '<div class="empty-note">Nic tu není.</div>'; return; }
   list.innerHTML = rows.map(w => {

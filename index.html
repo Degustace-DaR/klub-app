@@ -578,8 +578,7 @@ function openRumDetail(rumId) {
     <div class="sheet-head">
       <div>
         <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.75rem;margin:0;">${esc(rum.nazev)}</h2>
-        ${rum.znacka ? `<div style="font-size:17px;font-weight:500;color:var(--ink-soft);margin-top:3px;">${esc(rum.znacka)}</div>` : ''}
-        <div class="muted" style="font-size:13px;margin-top:2px;">${[rum.puvod?esc(rum.puvod):null, rum.abv?esc(String(rum.abv))+' %':null].filter(Boolean).join(' · ')}</div>
+        <div style="font-size:17px;font-weight:500;color:var(--ink-soft);margin-top:3px;">${[rum.znacka?esc(rum.znacka):null, rum.puvod?esc(rum.puvod):null, rum.abv?esc(String(rum.abv))+' %':null].filter(Boolean).join(' · ')}</div>
       </div>
       <button class="sheet-close" onclick="closeRumDetail()">×</button>
     </div>

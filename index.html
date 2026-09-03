@@ -106,6 +106,7 @@
   }
   .tab-btn.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   .tab-btn:not(.active):hover { background: var(--surface); color: var(--ink); }
+  .tab-btn.tab-btn-sm { padding:5px 9px; font-size:11.5px; }
 
   main { padding: 14px 14px 8px; max-width: 720px; margin: 0 auto; }
   .view { display:none; }
@@ -316,7 +317,9 @@
       <span class="brand-glass">🥃</span>
       <span class="brand-name">Rum Klub</span>
     </div>
-    <div class="head-row" style="gap:10px;">
+    <div class="head-row" style="gap:8px;">
+      <button class="tab-btn tab-btn-sm" data-tab="info" onclick="goTab('info')">ℹ️ Info</button>
+      <button class="tab-btn tab-btn-sm" data-tab="klub" onclick="goTab('klub')">👥 Klub</button>
       <span class="sync-label" id="syncLabel"><span class="sync-dot" id="syncDot"></span>připojování…</span>
     </div>
   </div>
@@ -326,7 +329,6 @@
     <button class="tab-btn" data-tab="ucet" onclick="goTab('ucet')">💰 Účet</button>
     <button class="tab-btn" data-tab="wishlist" onclick="goTab('wishlist')">⭐ Wishlist</button>
     <button class="tab-btn" data-tab="statistika" onclick="goTab('statistika')">📊 Statistika</button>
-    <button class="tab-btn" data-tab="klub" onclick="goTab('klub')">👥 Klub</button>
   </nav>
 </header>
 
@@ -398,6 +400,11 @@
       <select class="input" id="statOriginFilter" onchange="ui.statOrigin=this.value; renderStatistika();"></select>
     </div>
     <div id="statContent"></div>
+  </div>
+
+  <div class="view" id="view-info">
+    <h2 class="view-title">Info</h2>
+    <div id="infoContent"></div>
   </div>
 
   <div class="view" id="view-klub">
@@ -518,6 +525,7 @@ function goTab(tab) {
   if (tab === 'ucet') renderUcet();
   if (tab === 'wishlist') renderWishlist();
   if (tab === 'statistika') renderStatistika();
+  if (tab === 'info') renderInfo();
   if (tab === 'klub') renderKlub();
 }
 
@@ -1267,6 +1275,38 @@ function renderStatistika() {
   document.getElementById('statContent').innerHTML = html;
 }
 
+/* ---------------- INFO tab ---------------- */
+function renderInfo() {
+  const el = document.getElementById('infoContent');
+  if (!el) return;
+  let html = `
+    <div class="card">
+      <div class="rum-name">O aplikaci</div>
+      <div class="muted" style="font-size:13px;margin-top:6px;">Rum Klub – appka pro evidenci rumů, degustační hodnocení, účet klubu a wishlist. Data se ukládají do sdílené databáze a appka funguje v prohlížeči, i na mobilu.</div>
+    </div>
+    <div class="card" style="margin-top:12px;">
+      <div class="rum-name">Návod k záložkám</div>
+      <div class="stat-row"><span class="stat-row-main">🥃 Rumy</span><span class="stat-row-sub">katalog a žebříček</span></div>
+      <div class="stat-row"><span class="stat-row-main">➕ Hodnocení</span><span class="stat-row-sub">zadání nové ochutnávky</span></div>
+      <div class="stat-row"><span class="stat-row-main">💰 Účet</span><span class="stat-row-sub">zůstatek a transakce klubu</span></div>
+      <div class="stat-row"><span class="stat-row-main">⭐ Wishlist</span><span class="stat-row-sub">tipy na příští nákup</span></div>
+      <div class="stat-row"><span class="stat-row-main">📊 Statistika</span><span class="stat-row-sub">přehledy a žebříčky</span></div>
+      <div class="stat-row"><span class="stat-row-main">👥 Klub</span><span class="stat-row-sub">členové, export dat</span></div>
+    </div>
+  `;
+  if (isAdmin) {
+    html += `
+    <div class="card" style="margin-top:12px;">
+      <div class="rum-name">PIN kódy (jen pro admina)</div>
+      <div class="stat-row"><span class="stat-row-main">Super admin</span><span class="stat-row-sub">${esc(APP_PIN)}</span></div>
+      ${Object.keys(MEMBER_PINS).map(name => `<div class="stat-row"><span class="stat-row-main">${esc(name)}</span><span class="stat-row-sub">${esc(MEMBER_PINS[name])}</span></div>`).join('')}
+      <div class="stat-row"><span class="stat-row-main">Host</span><span class="stat-row-sub">${esc(GUEST_PIN)}</span></div>
+    </div>
+    `;
+  }
+  el.innerHTML = html;
+}
+
 /* ---------------- KLUB tab ---------------- */
 async function addMember() {
   const name = document.getElementById('newMemberName').value.trim();
@@ -1306,7 +1346,7 @@ function renderKlub() {
 
 
 /* ---------------- EXPORT DO EXCELU ---------------- */
-function exportToExcel() {
+async function exportToExcel() {
   if (typeof XLSX === 'undefined') { toast('Export se nepodařilo načíst, zkus obnovit stránku'); return; }
   const wb = XLSX.utils.book_new();
   const addSheet = (name, rows) => {
@@ -1319,6 +1359,14 @@ function exportToExcel() {
   addSheet('Hodnoceni', state.ratings);
   addSheet('Ucet', state.ledger);
   addSheet('Wishlist', state.wishlist);
+  try {
+    const snap = await db.collection('activity_log').orderBy('cas', 'desc').get();
+    const logRows = snap.docs.map(d => {
+      const l = d.data();
+      return { datum_cas: l.cas ? new Date(l.cas).toLocaleString('cs-CZ') : '', kdo: l.kdo || '', akce: l.akce || '', popis: l.popis || '' };
+    });
+    addSheet('Historie_zmen', logRows);
+  } catch (e) { console.error('Export historie se nepodařil:', e); }
   const datum = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, `rum-klub-export-${datum}.xlsx`);
   toast('Export stažen');
@@ -1359,6 +1407,7 @@ function rerenderActive() {
   else if (ui.tab === 'ucet') renderUcet();
   else if (ui.tab === 'wishlist') renderWishlist();
   else if (ui.tab === 'statistika') renderStatistika();
+  else if (ui.tab === 'info') renderInfo();
   else if (ui.tab === 'klub') renderKlub();
 }
 

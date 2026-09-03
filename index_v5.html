@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥃</text></svg>">
-<title>Rum Klub</title>
+<title>Degustační klub</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
   :root {
@@ -80,7 +80,7 @@
   .brand { display:flex; align-items:center; gap:9px; }
   .brand-glass { font-size: 22px; line-height:1; }
   .brand-name { font-family: var(--font-display); font-weight:600; font-size:1.25rem; }
-  .sync-dot { width:7px; height:7px; border-radius:50%; background: var(--ink-faint); display:inline-block; margin-right:5px; }
+  .sync-dot { width:10px; height:10px; border-radius:50%; background: var(--ink-faint); display:inline-block; margin-right:5px; }
   .sync-dot.live { background: var(--good); box-shadow:0 0 0 3px var(--good-soft); }
   .sync-label { font-family: var(--font-mono); font-size:10.5px; color:var(--ink-faint); display:flex; align-items:center; }
   .balance-chip {
@@ -106,6 +106,7 @@
   }
   .tab-btn.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   .tab-btn:not(.active):hover { background: var(--surface); color: var(--ink); }
+  .tab-btn.tab-btn-sm { padding:5px 9px; font-size:11.5px; }
 
   main { padding: 14px 14px 8px; max-width: 720px; margin: 0 auto; }
   .view { display:none; }
@@ -224,6 +225,23 @@
   }
   .recent-item { display:flex; justify-content:space-between; font-size:13.5px; padding:8px 0; border-bottom:1px solid var(--line); }
   .recent-item:last-child { border-bottom:none; }
+  .recent-item.clickable { cursor:pointer; }
+  .recent-item.clickable:active { background: var(--surface-2, rgba(0,0,0,0.04)); }
+  .recent-list-scroll { max-height: 265px; overflow-y: auto; }
+
+  /* statistika */
+  .stat-filters { display:flex; gap:8px; margin-bottom:14px; }
+  .stat-filters .input { flex:1; }
+  .stat-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(110px,1fr)); gap:10px; }
+  .stat-tile { background: var(--surface-2); border-radius:12px; padding:12px 8px; text-align:center; }
+  .stat-tile .val { font-family: var(--font-display); font-weight:700; font-size:1.5rem; line-height:1.1; }
+  .stat-tile .val.small { font-size:1.05rem; }
+  .stat-tile .lbl { font-size:11px; color: var(--ink-soft); margin-top:4px; }
+  .stat-section-title { font-size:12px; color: var(--ink-soft); margin: 18px 0 6px; text-transform:uppercase; letter-spacing:.03em; }
+  .stat-row { display:flex; justify-content:space-between; align-items:center; font-size:13.5px; padding:7px 0; border-bottom:1px solid var(--line); gap:10px; }
+  .stat-row:last-child { border-bottom:none; }
+  .stat-row .stat-row-main { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .stat-row .stat-row-sub { font-size:11.5px; color: var(--ink-faint); }
 
   /* ledger */
   .balance-hero { text-align:center; padding: 18px 10px; }
@@ -286,7 +304,7 @@
 <div class="pin-gate" id="pinGate">
   <div class="pin-card">
     <div class="pin-glass">🥃</div>
-    <h1 class="pin-title">Rum Klub</h1>
+    <h1 class="pin-title">Degustační klub</h1>
     <p class="pin-sub">Zadej PIN pro vstup</p>
     <input class="input pin-input" id="pinInput" type="password" inputmode="numeric" placeholder="••••" maxlength="12" autofocus>
     <div class="pin-error" id="pinError"></div>
@@ -297,11 +315,12 @@
   <div class="head-row">
     <div class="brand">
       <span class="brand-glass">🥃</span>
-      <span class="brand-name">Rum Klub</span>
+      <span class="brand-name">Degustační klub</span>
     </div>
-    <div class="head-row" style="gap:10px;">
+    <div class="head-row" style="gap:8px;">
+      <button class="tab-btn tab-btn-sm" data-tab="info" onclick="goTab('info')">ℹ️ Info</button>
+      <button class="tab-btn tab-btn-sm" data-tab="klub" onclick="goTab('klub')">👥 Klub</button>
       <span class="sync-label" id="syncLabel"><span class="sync-dot" id="syncDot"></span>připojování…</span>
-      <span class="balance-chip" id="balanceChip" onclick="goTab('ucet')">Účet: <b id="balanceChipVal">–</b></span>
     </div>
   </div>
   <nav class="tabs">
@@ -309,7 +328,7 @@
     <button class="tab-btn" data-tab="degustace" onclick="goTab('degustace')">➕ Hodnocení</button>
     <button class="tab-btn" data-tab="ucet" onclick="goTab('ucet')">💰 Účet</button>
     <button class="tab-btn" data-tab="wishlist" onclick="goTab('wishlist')">⭐ Wishlist</button>
-    <button class="tab-btn" data-tab="klub" onclick="goTab('klub')">👥 Klub</button>
+    <button class="tab-btn" data-tab="statistika" onclick="goTab('statistika')">📊 Statistika</button>
   </nav>
 </header>
 
@@ -324,14 +343,15 @@
     <div class="search-row">
       <input class="input" id="rumSearch" placeholder="Hledat podle názvu, značky, původu…" oninput="renderRumy()">
       <select class="input" id="rumSort" onchange="renderRumy()">
+        <option value="new" selected>Nejnovější</option>
         <option value="score_desc">Nejlépe hodnocené</option>
         <option value="score_asc">Nejhůře hodnocené</option>
         <option value="name">Podle názvu</option>
         <option value="count">Podle počtu hodnocení</option>
-        <option value="new">Nejnovější</option>
       </select>
     </div>
     <div id="rumList"></div>
+    <div class="card" id="newRumSection" style="margin-top:16px;"></div>
   </div>
 
   <div class="view" id="view-degustace">
@@ -368,10 +388,23 @@
 
   <div class="view" id="view-wishlist">
     <h2 class="view-title">Wishlist</h2>
-    <div class="filter-chips" id="wishFilters"></div>
     <button class="btn btn-ghost" id="wishToggleBtn" style="margin-bottom:12px;" onclick="toggleWishForm()">+ Přidat kandidáta</button>
     <div class="card" id="wishForm" hidden></div>
     <div id="wishList"></div>
+  </div>
+
+  <div class="view" id="view-statistika">
+    <h2 class="view-title">Statistika</h2>
+    <div class="stat-filters">
+      <select class="input" id="statMemberFilter" onchange="ui.statMember=this.value; renderStatistika();"></select>
+      <select class="input" id="statOriginFilter" onchange="ui.statOrigin=this.value; renderStatistika();"></select>
+    </div>
+    <div id="statContent"></div>
+  </div>
+
+  <div class="view" id="view-info">
+    <h2 class="view-title">Info</h2>
+    <div id="infoContent"></div>
   </div>
 
   <div class="view" id="view-klub">
@@ -463,10 +496,13 @@ let ui = {
   selectedMember: null,
   scores: { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 },
   showNewRum: false,
+  showNewRumRumy: false,
   showNewMember: false,
   wishFilter: 'kandidát',
   wishFormOpen: false,
   detailRumId: null,
+  statMember: 'vse',
+  statOrigin: 'vse',
 };
 
 function uid(prefix) {
@@ -488,6 +524,8 @@ function goTab(tab) {
   if (tab === 'degustace') renderDegustaceForm();
   if (tab === 'ucet') renderUcet();
   if (tab === 'wishlist') renderWishlist();
+  if (tab === 'statistika') renderStatistika();
+  if (tab === 'info') renderInfo();
   if (tab === 'klub') renderKlub();
 }
 
@@ -542,6 +580,7 @@ function renderRumy() {
   });
 
   const list = document.getElementById('rumList');
+  renderNewRumSection();
   if (rows.length === 0) {
     list.innerHTML = '<div class="empty-note">Žádný rum neodpovídá hledání.</div>';
     return;
@@ -578,8 +617,9 @@ function openRumDetail(rumId) {
   document.getElementById('rumDetailSheet').innerHTML = `
     <div class="sheet-head">
       <div>
-        <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.35rem;margin:0;">${esc(rum.nazev)}</h2>
-        <div class="muted" style="font-size:13px;margin-top:2px;">${esc(rum.znacka||'')} ${rum.puvod?'· '+esc(rum.puvod):''}${rum.abv?' · '+esc(String(rum.abv))+' %':''}</div>
+        <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.75rem;margin:0;">${esc(rum.nazev)}</h2>
+        <div style="font-size:17px;font-weight:500;color:var(--ink-soft);margin-top:3px;">${[rum.znacka?esc(rum.znacka):null, rum.abv?esc(String(rum.abv))+' %':null].filter(Boolean).join(' · ')}</div>
+        ${rum.puvod ? `<div style="font-size:17px;font-weight:500;color:var(--ink-soft);">${esc(rum.puvod)}</div>` : ''}
       </div>
       <button class="sheet-close" onclick="closeRumDetail()">×</button>
     </div>
@@ -601,8 +641,11 @@ function openRumDetail(rumId) {
     ` : '<div class="empty-note">Zatím bez hodnocení.</div>'}
     ${rum.cena ? `<div class="muted" style="margin-top:14px;font-size:13px;">Cena: ${esc(String(rum.cena))} Kč</div>` : ''}
     ${rum.cukr ? `<div class="muted" style="font-size:13px;${(rum.cena)?'':'margin-top:14px;'}">Cukr: ${esc(String(rum.cukr))} g/l</div>` : ''}
-    ${isGuest ? '' : `
     <div class="btn-row" style="margin-top:18px;">
+      <button class="btn btn-ghost" onclick="closeRumDetail()">← Zpět</button>
+    </div>
+    ${isGuest ? '' : `
+    <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-primary" onclick="closeRumDetail(); goTab('degustace'); presetRatingRum('${rum.id}')">+ Přidat hodnocení</button>
     </div>
     `}
@@ -635,6 +678,16 @@ async function deleteRum(rumId) {
 }
 
 /* ---------------- DEGUSTACE (add rating) tab ---------------- */
+function backToRatingStart() {
+  ui.selectedRatingRumId = null;
+  ui.selectedMember = currentUser || null;
+  ui.showNewRum = false;
+  ui.showNewMember = false;
+  ui.scores = { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 };
+  renderDegustaceForm();
+  document.getElementById('view-degustace').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function presetRatingRum(rumId) {
   ui.selectedRatingRumId = rumId;
   renderDegustaceForm();
@@ -657,38 +710,19 @@ function renderDegustaceForm() {
   } else {
     html += `<input class="input" id="rumPickSearch" placeholder="Hledat rum…" oninput="renderRatingRumPicker()">`;
     html += `<div class="picker-list" id="rumPickList"></div>`;
-    if (!ui.showNewRum) {
-      html += `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showNewRum=true; renderDegustaceForm();">+ Nový rum, který ještě není v seznamu</button>`;
-    }
-    if (ui.showNewRum) {
-      html += `
-        <div style="margin-top:10px;">
-          <div class="field"><label>Značka rumu</label><input class="input" id="newRumNazev" placeholder="např. HAVANA CLUB"></div>
-          <div class="row2">
-            <div class="field"><label>Název rumu</label><input class="input" id="newRumZnacka" placeholder="Anejo Especial"></div>
-            <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba"></div>
-          </div>
-          <div class="row2">
-            <div class="field"><label>Cena</label><input class="input" type="number" id="newRumCena"></div>
-            <div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>
-          </div>
-          <div class="btn-row" style="margin-top:4px;">
-            <button class="btn btn-primary btn-sm" onclick="createAndSelectRum()">Přidat rum</button>
-            <button class="btn btn-ghost btn-sm" onclick="ui.showNewRum=false; renderDegustaceForm();">Zrušit</button>
-          </div>
-        </div>`;
-    }
   }
   html += '</div>';
 
   if (rum) {
     html += '<div class="field"><label>2. Kdo hodnotí</label><div class="member-chips">';
-    html += state.members.filter(m=>m.aktivni!==false).map(m => `<button class="member-chip ${ui.selectedMember===m.jmeno?'active':''}" onclick="ui.selectedMember='${esc(m.jmeno).replace(/'/g,"\\'")}'; renderDegustaceForm();">${esc(m.jmeno)}</button>`).join('');
+    const ratingMembers = state.members.filter(m=>m.aktivni!==false).slice().sort((a,b) => {
+      const ia = CLUB_MEMBER_ORDER.indexOf(a.jmeno), ib = CLUB_MEMBER_ORDER.indexOf(b.jmeno);
+      const ra = ia === -1 ? CLUB_MEMBER_ORDER.length : ia;
+      const rb = ib === -1 ? CLUB_MEMBER_ORDER.length : ib;
+      return ra !== rb ? ra - rb : a.jmeno.localeCompare(b.jmeno, 'cs');
+    });
+    html += ratingMembers.map(m => `<button class="member-chip ${ui.selectedMember===m.jmeno?'active':''}" onclick="ui.selectedMember='${esc(m.jmeno).replace(/'/g,"\\'")}'; renderDegustaceForm();">${esc(m.jmeno)}</button>`).join('');
     html += '</div>';
-    html += `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showNewMember=!ui.showNewMember; renderDegustaceForm();">${ui.showNewMember?'Zrušit':'+ Nový člen'}</button>`;
-    if (ui.showNewMember) {
-      html += `<div style="display:flex; gap:8px; margin-top:8px;"><input class="input" id="quickMemberName" placeholder="Jméno"><button class="btn btn-primary btn-sm" onclick="quickAddMember()">Přidat</button></div>`;
-    }
     html += '</div>';
   }
 
@@ -707,6 +741,7 @@ function renderDegustaceForm() {
     html += '</div>';
     html += `<div class="total-box"><span class="muted">Celkem</span><span class="num">${total}</span></div>`;
     html += `<button class="btn btn-primary" onclick="submitRating()">${dup ? 'Přepsat hodnocení' : 'Uložit hodnocení'}</button>`;
+    html += `<div class="btn-row" style="margin-top:8px;"><button class="btn btn-ghost" onclick="backToRatingStart()">← Zpět</button></div>`;
   }
   html += '</div>';
 
@@ -719,7 +754,7 @@ function renderRatingRumPicker() {
   const el = document.getElementById('rumPickList');
   if (!el) return;
   const q = (document.getElementById('rumPickSearch')?.value || '').toLowerCase();
-  let rows = state.rums;
+  let rows = [...state.rums].sort((a,b) => (b._seq||0) - (a._seq||0));
   if (q) rows = rows.filter(r => (r.nazev||'').toLowerCase().includes(q) || (r.znacka||'').toLowerCase().includes(q));
   rows = rows.slice(0, 40);
   el.innerHTML = rows.map(r => `
@@ -814,7 +849,31 @@ async function openHistory() {
 }
 function closeHistory() { document.getElementById('historyOverlay').hidden = true; }
 
-async function createAndSelectRum() {
+function renderNewRumSection() {
+  const el = document.getElementById('newRumSection');
+  if (!el) return;
+  if (isGuest) { el.innerHTML = ''; return; }
+  if (!ui.showNewRumRumy) {
+    el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=true; renderNewRumSection();">+ Nový rum, který ještě není v seznamu</button>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="field"><label>Značka rumu</label><input class="input" id="newRumNazev" placeholder="např. HAVANA CLUB"></div>
+    <div class="row2">
+      <div class="field"><label>Název rumu</label><input class="input" id="newRumZnacka" placeholder="Anejo Especial"></div>
+      <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Cena</label><input class="input" type="number" id="newRumCena"></div>
+      <div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button class="btn btn-primary btn-sm" onclick="createNewRum()">Přidat rum</button>
+      <button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=false; renderNewRumSection();">Zpět</button>
+    </div>`;
+}
+
+async function createNewRum() {
   const nazev = document.getElementById('newRumNazev').value.trim();
   if (!nazev) { toast('Zadej název rumu'); return; }
   const znacka = document.getElementById('newRumZnacka').value.trim();
@@ -822,9 +881,8 @@ async function createAndSelectRum() {
   const cena = document.getElementById('newRumCena').value;
   const abv = document.getElementById('newRumAbv').value;
   const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, abv: abv ? Number(abv) : null, cukr: null, poznamka: '', _seq: Date.now() };
-  const ref = await db.collection('rums').add(rum);
-  ui.selectedRatingRumId = ref.id;
-  ui.showNewRum = false;
+  await db.collection('rums').add(rum);
+  ui.showNewRumRumy = false;
   toast('Rum přidán do katalogu');
   logChange('Přidán rum', `${nazev}${znacka?' – '+znacka:''}`);
 }
@@ -868,13 +926,33 @@ async function submitRating() {
 
 function renderRecentRatings() {
   const el = document.getElementById('recentRatings');
-  const recent = [...state.ratings].sort((a,b)=>(b._seq||0)-(a._seq||0)).slice(0,8);
+  const recent = [...state.ratings].sort((a,b)=>(b._seq||0)-(a._seq||0)).slice(0,100);
   if (recent.length === 0) { el.innerHTML = ''; return; }
+  const editable = !isGuest;
   el.innerHTML = '<div class="muted" style="font-size:12px;margin-bottom:6px;">Naposledy přidáno</div>' +
+    '<div class="recent-list-scroll">' +
     recent.map(r => {
       const rum = state.rums.find(x=>x.id===r.rumId);
-      return `<div class="recent-item"><span>${esc(r.clen)} – ${esc(rum?rum.nazev:'?')}</span><b>${r.celkem}</b></div>`;
-    }).join('');
+      const cls = 'recent-item' + (editable ? ' clickable' : '');
+      const click = editable ? ` onclick="editRecentRating('${r.id}')"` : '';
+      return `<div class="${cls}"${click}><span>${esc(r.clen)} – ${esc(rum?rum.nazev:'?')}</span><b>${r.celkem}</b></div>`;
+    }).join('') +
+    '</div>';
+}
+
+function editRecentRating(ratingId) {
+  if (isGuest) return;
+  const r = state.ratings.find(x => x.id === ratingId);
+  if (!r) return;
+  ui.selectedRatingRumId = r.rumId;
+  ui.selectedMember = r.clen;
+  ui.scores = {
+    barva: Number(r.barva)||15, aroma: Number(r.aroma)||15, chut: Number(r.chut)||15,
+    plnost: Number(r.plnost)||15, dojezd: Number(r.dojezd)||15
+  };
+  ui.showNewRum = false;
+  renderDegustaceForm();
+  document.getElementById('degustaceForm').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 /* ---------------- UCET tab ---------------- */
@@ -931,6 +1009,7 @@ function openLedgerEdit(id) {
     </div>
     <div class="btn-row" style="margin-top:14px;">
       <button class="btn btn-primary" onclick="saveLedgerEdit('${id}')">Uložit změny</button>
+      <button class="btn btn-ghost" onclick="closeLedgerEdit()">← Zpět</button>
       <button class="btn btn-danger" onclick="deleteLedgerEntry('${id}')">Smazat</button>
     </div>
   `;
@@ -961,8 +1040,9 @@ async function deleteLedgerEntry(id) {
 }
 
 function updateBalanceChip() {
-  const bal = currentBalance();
   const chip = document.getElementById('balanceChip');
+  if (!chip) return; // odstraněno z hlavičky
+  const bal = currentBalance();
   chip.className = 'balance-chip ' + (bal < 0 ? 'neg' : 'pos');
   document.getElementById('balanceChipVal').textContent = Math.round(bal).toLocaleString('cs-CZ') + ' Kč';
 }
@@ -991,13 +1071,6 @@ async function addLedger() {
 }
 
 /* ---------------- WISHLIST tab ---------------- */
-function renderWishFilters() {
-  const filters = [['kandidát','Kandidáti'],['koupeno','Koupeno'],['zamítnuto','Zamítnuto'],['vše','Vše']];
-  document.getElementById('wishFilters').innerHTML = filters.map(([v,l]) =>
-    `<button class="filter-chip ${ui.wishFilter===v?'active':''}" onclick="ui.wishFilter='${v}'; renderWishlist();">${l}</button>`
-  ).join('');
-}
-
 function toggleWishForm() {
   ui.wishFormOpen = !ui.wishFormOpen;
   const el = document.getElementById('wishForm');
@@ -1018,7 +1091,7 @@ function toggleWishForm() {
       <div class="field"><label>Poznámka</label><textarea class="input" id="wishPoznamka"></textarea></div>
       <div class="btn-row" style="margin-top:4px;">
         <button class="btn btn-primary btn-sm" onclick="addWish()">Přidat na wishlist</button>
-        <button class="btn btn-ghost btn-sm" onclick="toggleWishForm()">Zrušit</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleWishForm()">Zpět</button>
       </div>
     `;
   }
@@ -1058,9 +1131,7 @@ async function deleteWish(id) {
 }
 
 function renderWishlist() {
-  renderWishFilters();
   let rows = state.wishlist;
-  if (ui.wishFilter !== 'vše') rows = rows.filter(w => (w.stav||'kandidát') === ui.wishFilter);
   const list = document.getElementById('wishList');
   if (rows.length === 0) { list.innerHTML = '<div class="empty-note">Nic tu není.</div>'; return; }
   list.innerHTML = rows.map(w => {
@@ -1071,25 +1142,169 @@ function renderWishlist() {
     if (w.cukr!=null) subParts.push('cukr '+esc(String(w.cukr))+' g/l');
     return `
     <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div>
-          <div class="rum-name">${esc(w.znacka)} ${w.nazev?'<span class="muted" style="font-weight:400;">– '+esc(w.nazev)+'</span>':''}</div>
-          <div class="rum-sub">${subParts.join(' · ')}</div>
-          ${w.poznamka ? '<div class="muted" style="font-size:12.5px;margin-top:4px;">'+esc(w.poznamka)+'</div>' : ''}
-        </div>
-        <span class="status-pill status-${(w.stav||'kandidát').replace('á','a').replace('í','i')}">${esc(w.stav||'kandidát')}</span>
+      <div>
+        <div class="rum-name">${esc(w.znacka)} ${w.nazev?'<span class="muted" style="font-weight:400;">– '+esc(w.nazev)+'</span>':''}</div>
+        <div class="rum-sub">${subParts.join(' · ')}</div>
+        ${w.poznamka ? '<div class="muted" style="font-size:12.5px;margin-top:4px;">'+esc(w.poznamka)+'</div>' : ''}
       </div>
       ${isGuest ? '' : `
       <div class="btn-row" style="margin-top:10px; flex-wrap:wrap;">
-        <button class="btn btn-ghost btn-sm" style="flex:0 0 auto;" onclick="setWishStatus('${w.id}','kandidát')">Kandidát</button>
-        <button class="btn btn-ghost btn-sm" style="flex:0 0 auto;" onclick="setWishStatus('${w.id}','koupeno')">Koupeno</button>
-        <button class="btn btn-ghost btn-sm" style="flex:0 0 auto;" onclick="setWishStatus('${w.id}','zamítnuto')">Zamítnuto</button>
         <button class="btn btn-danger btn-sm" style="flex:0 0 auto;" onclick="deleteWish('${w.id}')">Smazat</button>
       </div>
       `}
     </div>
   `;
   }).join('');
+}
+
+/* ---------------- STATISTIKA tab ---------------- */
+function statTile(val, lbl, small) {
+  return `<div class="stat-tile"><div class="val${small?' small':''}">${val}</div><div class="lbl">${lbl}</div></div>`;
+}
+
+function renderStatistika() {
+  const memberSel = document.getElementById('statMemberFilter');
+  const originSel = document.getElementById('statOriginFilter');
+  if (!memberSel || !originSel) return;
+
+  const activeMembers = [...state.members].filter(m=>m.aktivni!==false).sort((a,b) => {
+    const ia = CLUB_MEMBER_ORDER.indexOf(a.jmeno), ib = CLUB_MEMBER_ORDER.indexOf(b.jmeno);
+    const ra = ia === -1 ? CLUB_MEMBER_ORDER.length : ia;
+    const rb = ib === -1 ? CLUB_MEMBER_ORDER.length : ib;
+    return ra !== rb ? ra - rb : a.jmeno.localeCompare(b.jmeno, 'cs');
+  });
+  if (!activeMembers.some(m => m.jmeno === ui.statMember)) ui.statMember = 'vse';
+  memberSel.innerHTML = '<option value="vse">Kdo: Všichni</option>' +
+    activeMembers.map(m => `<option value="${esc(m.jmeno)}" ${ui.statMember===m.jmeno?'selected':''}>${esc(m.jmeno)}</option>`).join('');
+
+  const origins = [...new Set(state.rums.map(r=>r.puvod).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'cs'));
+  if (ui.statOrigin !== 'vse' && !origins.includes(ui.statOrigin)) ui.statOrigin = 'vse';
+  originSel.innerHTML = '<option value="vse">Původ: Vše</option>' +
+    origins.map(o => `<option value="${esc(o)}" ${ui.statOrigin===o?'selected':''}>${esc(o)}</option>`).join('');
+
+  const rumIdsByOrigin = ui.statOrigin === 'vse' ? null : new Set(state.rums.filter(r=>r.puvod===ui.statOrigin).map(r=>r.id));
+  const originRatings = rumIdsByOrigin ? state.ratings.filter(r=>rumIdsByOrigin.has(r.rumId)) : state.ratings;
+  const filteredRatings = ui.statMember === 'vse' ? originRatings : originRatings.filter(r=>r.clen===ui.statMember);
+
+  const rumLabel = (id) => { const rum = state.rums.find(x=>x.id===id); return rum ? esc(rum.nazev)+(rum.znacka?' – '+esc(rum.znacka):'') : '?'; };
+
+  const totalCount = filteredRatings.length;
+  const avgScore = totalCount ? (filteredRatings.reduce((s,r)=>s+Number(r.celkem||0),0)/totalCount).toFixed(1) : '–';
+  const distinctRums = new Set(filteredRatings.map(r=>r.rumId)).size;
+  let best = null, worst = null;
+  filteredRatings.forEach(r => {
+    if (!best || r.celkem > best.celkem) best = r;
+    if (!worst || r.celkem < worst.celkem) worst = r;
+  });
+
+  let html = '<div class="stat-grid">';
+  html += statTile(totalCount, 'hodnocení');
+  html += statTile(avgScore, 'průměr skóre');
+  html += statTile(distinctRums, 'rumů ochutnáno');
+  html += statTile(best ? best.celkem : '–', 'nejlepší skóre', true);
+  html += statTile(worst ? worst.celkem : '–', 'nejhorší skóre', true);
+  html += '</div>';
+  if (best) html += `<div class="muted" style="font-size:12px;margin-top:8px;">Nejlépe hodnoceno: <b>${rumLabel(best.rumId)}</b> (${esc(best.clen)}, ${best.celkem} b.)</div>`;
+  if (worst && worst !== best) html += `<div class="muted" style="font-size:12px;margin-top:2px;">Nejhůře hodnoceno: <b>${rumLabel(worst.rumId)}</b> (${esc(worst.clen)}, ${worst.celkem} b.)</div>`;
+
+  html += '<div class="stat-section-title">Žebříček členů</div>';
+  const memberRows = activeMembers.map(m => {
+    const rs = originRatings.filter(r=>r.clen===m.jmeno);
+    const avg = rs.length ? (rs.reduce((s,r)=>s+Number(r.celkem||0),0)/rs.length).toFixed(1) : '–';
+    return { jmeno: m.jmeno, count: rs.length, avg };
+  }).sort((a,b) => b.count - a.count);
+  html += memberRows.length ? memberRows.map(m =>
+    `<div class="stat-row"><span class="stat-row-main">${esc(m.jmeno)}</span><span class="stat-row-sub">${m.count} hodn. · průměr ${m.avg}</span></div>`
+  ).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+
+  const byRum = {};
+  filteredRatings.forEach(r => { (byRum[r.rumId] = byRum[r.rumId] || []).push(Number(r.celkem)||0); });
+  const rumAgg = Object.keys(byRum).map(id => ({ id, count: byRum[id].length, avg: byRum[id].reduce((s,v)=>s+v,0)/byRum[id].length }));
+  const renderRumRankRow = (r) => `<div class="stat-row"><span class="stat-row-main">${rumLabel(r.id)}</span><span class="stat-row-sub">${r.avg.toFixed(1)} b. · ${r.count}×</span></div>`;
+
+  const topRated = [...rumAgg].sort((a,b)=>b.avg-a.avg).slice(0,5);
+  html += '<div class="stat-section-title">Nejlépe hodnocené</div>';
+  html += topRated.length ? topRated.map(renderRumRankRow).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+
+  const bottomRated = [...rumAgg].filter(r=>r.count>=2).sort((a,b)=>a.avg-b.avg).slice(0,5);
+  html += '<div class="stat-section-title">Nejhůře hodnocené</div>';
+  html += bottomRated.length ? bottomRated.map(renderRumRankRow).join('') : '<div class="empty-note">Zatím málo dat (min. 2 hodnocení na rum).</div>';
+
+  const mostTasted = [...rumAgg].sort((a,b)=>b.count-a.count).slice(0,5);
+  html += '<div class="stat-section-title">Nejvíc ochutnávané</div>';
+  html += mostTasted.length ? mostTasted.map(renderRumRankRow).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+
+  html += '<div class="stat-section-title">Podle původu</div>';
+  const origGroups = {};
+  state.rums.forEach(r => {
+    const key = r.puvod || 'Neuvedeno';
+    if (!origGroups[key]) origGroups[key] = { rums: 0, count: 0, sum: 0 };
+    origGroups[key].rums++;
+  });
+  state.ratings.forEach(r => {
+    const rum = state.rums.find(x=>x.id===r.rumId);
+    const key = rum ? (rum.puvod || 'Neuvedeno') : 'Neuvedeno';
+    if (!origGroups[key]) origGroups[key] = { rums: 0, count: 0, sum: 0 };
+    origGroups[key].count++;
+    origGroups[key].sum += Number(r.celkem||0);
+  });
+  const origRows = Object.keys(origGroups).map(k => ({
+    puvod: k, rums: origGroups[k].rums, count: origGroups[k].count,
+    avg: origGroups[k].count ? (origGroups[k].sum/origGroups[k].count).toFixed(1) : '–'
+  })).sort((a,b) => b.rums - a.rums);
+  html += origRows.length ? origRows.map(o =>
+    `<div class="stat-row"><span class="stat-row-main">${esc(o.puvod)}</span><span class="stat-row-sub">${o.rums} rumů · ${o.count} hodn. · průměr ${o.avg}</span></div>`
+  ).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+
+  if (!isGuest) {
+    const pricedRums = state.rums.filter(r=>r.cena);
+    const avgPrice = pricedRums.length ? Math.round(pricedRums.reduce((s,r)=>s+Number(r.cena||0),0)/pricedRums.length) : null;
+    const abvRums = state.rums.filter(r=>r.abv);
+    const avgAbv = abvRums.length ? (abvRums.reduce((s,r)=>s+Number(r.abv||0),0)/abvRums.length).toFixed(1) : null;
+    const spentNakup = state.ledger.filter(l=>l.kategorie==='nákup').reduce((s,l)=>s+Math.abs(Number(l.castka)||0),0);
+    html += '<div class="stat-section-title">Katalog &amp; účet</div>';
+    html += '<div class="stat-grid">';
+    html += statTile(state.rums.length, 'rumů v katalogu');
+    html += statTile(avgPrice!=null ? avgPrice+' Kč' : '–', 'průměrná cena', true);
+    html += statTile(avgAbv!=null ? avgAbv+' %' : '–', 'průměrný obsah alk.', true);
+    html += statTile(Math.round(currentBalance())+' Kč', 'zůstatek účtu', true);
+    html += statTile(Math.round(spentNakup)+' Kč', 'utraceno za nákup', true);
+    html += '</div>';
+  }
+
+  document.getElementById('statContent').innerHTML = html;
+}
+
+/* ---------------- INFO tab ---------------- */
+function renderInfo() {
+  const el = document.getElementById('infoContent');
+  if (!el) return;
+  let html = `
+    <div class="card">
+      <div class="rum-name">O aplikaci</div>
+      <div class="muted" style="font-size:13px;margin-top:6px;">Degustační klub – appka pro evidenci rumů, degustační hodnocení, účet klubu a wishlist. Data se ukládají do sdílené databáze a appka funguje v prohlížeči, i na mobilu.</div>
+    </div>
+    <div class="card" style="margin-top:12px;">
+      <div class="rum-name">Návod k záložkám</div>
+      <div class="stat-row"><span class="stat-row-main">🥃 Rumy</span><span class="stat-row-sub">katalog a žebříček</span></div>
+      <div class="stat-row"><span class="stat-row-main">➕ Hodnocení</span><span class="stat-row-sub">zadání nové ochutnávky</span></div>
+      <div class="stat-row"><span class="stat-row-main">💰 Účet</span><span class="stat-row-sub">zůstatek a transakce klubu</span></div>
+      <div class="stat-row"><span class="stat-row-main">⭐ Wishlist</span><span class="stat-row-sub">tipy na příští nákup</span></div>
+      <div class="stat-row"><span class="stat-row-main">📊 Statistika</span><span class="stat-row-sub">přehledy a žebříčky</span></div>
+      <div class="stat-row"><span class="stat-row-main">👥 Klub</span><span class="stat-row-sub">členové, export dat</span></div>
+    </div>
+  `;
+  if (isAdmin) {
+    html += `
+    <div class="card" style="margin-top:12px;">
+      <div class="rum-name">PIN kódy (jen pro admina)</div>
+      <div class="stat-row"><span class="stat-row-main">Super admin</span><span class="stat-row-sub">${esc(APP_PIN)}</span></div>
+      ${Object.keys(MEMBER_PINS).map(name => `<div class="stat-row"><span class="stat-row-main">${esc(name)}</span><span class="stat-row-sub">${esc(MEMBER_PINS[name])}</span></div>`).join('')}
+      <div class="stat-row"><span class="stat-row-main">Host</span><span class="stat-row-sub">${esc(GUEST_PIN)}</span></div>
+    </div>
+    `;
+  }
+  el.innerHTML = html;
 }
 
 /* ---------------- KLUB tab ---------------- */
@@ -1131,7 +1346,7 @@ function renderKlub() {
 
 
 /* ---------------- EXPORT DO EXCELU ---------------- */
-function exportToExcel() {
+async function exportToExcel() {
   if (typeof XLSX === 'undefined') { toast('Export se nepodařilo načíst, zkus obnovit stránku'); return; }
   const wb = XLSX.utils.book_new();
   const addSheet = (name, rows) => {
@@ -1144,6 +1359,14 @@ function exportToExcel() {
   addSheet('Hodnoceni', state.ratings);
   addSheet('Ucet', state.ledger);
   addSheet('Wishlist', state.wishlist);
+  try {
+    const snap = await db.collection('activity_log').orderBy('cas', 'desc').get();
+    const logRows = snap.docs.map(d => {
+      const l = d.data();
+      return { datum_cas: l.cas ? new Date(l.cas).toLocaleString('cs-CZ') : '', kdo: l.kdo || '', akce: l.akce || '', popis: l.popis || '' };
+    });
+    addSheet('Historie_zmen', logRows);
+  } catch (e) { console.error('Export historie se nepodařil:', e); }
   const datum = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, `rum-klub-export-${datum}.xlsx`);
   toast('Export stažen');
@@ -1183,6 +1406,8 @@ function rerenderActive() {
   else if (ui.tab === 'degustace') renderDegustaceForm();
   else if (ui.tab === 'ucet') renderUcet();
   else if (ui.tab === 'wishlist') renderWishlist();
+  else if (ui.tab === 'statistika') renderStatistika();
+  else if (ui.tab === 'info') renderInfo();
   else if (ui.tab === 'klub') renderKlub();
 }
 
@@ -1212,7 +1437,7 @@ async function init() {
     document.getElementById('syncLabel').innerHTML = '<span class="sync-dot"></span>offline';
     return;
   }
-  document.getElementById('syncLabel').innerHTML = '<span class="sync-dot live"></span>živě';
+  document.getElementById('syncLabel').innerHTML = '<span class="sync-dot live"></span>databáze';
   try {
     await maybeSeed();
   } catch(e) { /* seeding races are harmless; ignore */ console.error('Seed:', e); }

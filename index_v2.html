@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥃</text></svg>">
-<title>Rum Klub</title>
+<title>Degustační klub</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
   :root {
@@ -106,6 +106,7 @@
   }
   .tab-btn.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   .tab-btn:not(.active):hover { background: var(--surface); color: var(--ink); }
+  .tab-btn.tab-btn-sm { padding:5px 9px; font-size:11.5px; }
 
   main { padding: 14px 14px 8px; max-width: 720px; margin: 0 auto; }
   .view { display:none; }
@@ -224,6 +225,23 @@
   }
   .recent-item { display:flex; justify-content:space-between; font-size:13.5px; padding:8px 0; border-bottom:1px solid var(--line); }
   .recent-item:last-child { border-bottom:none; }
+  .recent-item.clickable { cursor:pointer; }
+  .recent-item.clickable:active { background: var(--surface-2, rgba(0,0,0,0.04)); }
+  .recent-list-scroll { max-height: 265px; overflow-y: auto; }
+
+  /* statistika */
+  .stat-filters { display:flex; gap:8px; margin-bottom:14px; }
+  .stat-filters .input { flex:1; }
+  .stat-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(110px,1fr)); gap:10px; }
+  .stat-tile { background: var(--surface-2); border-radius:12px; padding:12px 8px; text-align:center; }
+  .stat-tile .val { font-family: var(--font-display); font-weight:700; font-size:1.5rem; line-height:1.1; }
+  .stat-tile .val.small { font-size:1.05rem; }
+  .stat-tile .lbl { font-size:11px; color: var(--ink-soft); margin-top:4px; }
+  .stat-section-title { font-size:12px; color: var(--ink-soft); margin: 18px 0 6px; text-transform:uppercase; letter-spacing:.03em; }
+  .stat-row { display:flex; justify-content:space-between; align-items:center; font-size:13.5px; padding:7px 0; border-bottom:1px solid var(--line); gap:10px; }
+  .stat-row:last-child { border-bottom:none; }
+  .stat-row .stat-row-main { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .stat-row .stat-row-sub { font-size:11.5px; color: var(--ink-faint); }
 
   /* ledger */
   .balance-hero { text-align:center; padding: 18px 10px; }
@@ -286,20 +304,23 @@
 <div class="pin-gate" id="pinGate">
   <div class="pin-card">
     <div class="pin-glass">🥃</div>
-    <h1 class="pin-title">Rum Klub</h1>
+    <h1 class="pin-title">Degustační klub</h1>
     <p class="pin-sub">Zadej PIN pro vstup</p>
     <input class="input pin-input" id="pinInput" type="password" inputmode="numeric" placeholder="••••" maxlength="12" autofocus>
     <div class="pin-error" id="pinError"></div>
-    <button class="btn btn-primary" onclick="checkPin()">Odemknout</button>
+    <button class="btn btn-primary" id="pinUnlockBtn" onclick="checkPin()">Odemknout</button>
   </div>
 </div>
 <header class="app-head">
   <div class="head-row">
     <div class="brand">
       <span class="brand-glass">🥃</span>
-      <span class="brand-name">Rum Klub</span>
+      <img src="data:image/png;base64,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" alt="doutník" style="height:22px;width:auto;vertical-align:middle;">
+      <span class="brand-name">Degustační klub</span>
     </div>
-    <div class="head-row" style="gap:10px;">
+    <div class="head-row" style="gap:8px;">
+      <button class="tab-btn tab-btn-sm" data-tab="info" onclick="goTab('info')">ℹ️ Info</button>
+      <button class="tab-btn tab-btn-sm" data-tab="klub" onclick="goTab('klub')">👥 Klub</button>
       <span class="sync-label" id="syncLabel"><span class="sync-dot" id="syncDot"></span>připojování…</span>
     </div>
   </div>
@@ -308,7 +329,7 @@
     <button class="tab-btn" data-tab="degustace" onclick="goTab('degustace')">➕ Hodnocení</button>
     <button class="tab-btn" data-tab="ucet" onclick="goTab('ucet')">💰 Účet</button>
     <button class="tab-btn" data-tab="wishlist" onclick="goTab('wishlist')">⭐ Wishlist</button>
-    <button class="tab-btn" data-tab="klub" onclick="goTab('klub')">👥 Klub</button>
+    <button class="tab-btn" data-tab="statistika" onclick="goTab('statistika')">📊 Statistika</button>
   </nav>
 </header>
 
@@ -323,14 +344,15 @@
     <div class="search-row">
       <input class="input" id="rumSearch" placeholder="Hledat podle názvu, značky, původu…" oninput="renderRumy()">
       <select class="input" id="rumSort" onchange="renderRumy()">
+        <option value="new" selected>Nejnovější</option>
         <option value="score_desc">Nejlépe hodnocené</option>
         <option value="score_asc">Nejhůře hodnocené</option>
         <option value="name">Podle názvu</option>
         <option value="count">Podle počtu hodnocení</option>
-        <option value="new">Nejnovější</option>
       </select>
     </div>
     <div id="rumList"></div>
+    <div class="card" id="newRumSection" style="margin-top:16px;"></div>
   </div>
 
   <div class="view" id="view-degustace">
@@ -367,10 +389,23 @@
 
   <div class="view" id="view-wishlist">
     <h2 class="view-title">Wishlist</h2>
-    <div class="filter-chips" id="wishFilters"></div>
     <button class="btn btn-ghost" id="wishToggleBtn" style="margin-bottom:12px;" onclick="toggleWishForm()">+ Přidat kandidáta</button>
     <div class="card" id="wishForm" hidden></div>
     <div id="wishList"></div>
+  </div>
+
+  <div class="view" id="view-statistika">
+    <h2 class="view-title">Statistika</h2>
+    <div class="stat-filters">
+      <select class="input" id="statMemberFilter" onchange="ui.statMember=this.value; renderStatistika();"></select>
+      <select class="input" id="statOriginFilter" onchange="ui.statOrigin=this.value; renderStatistika();"></select>
+    </div>
+    <div id="statContent"></div>
+  </div>
+
+  <div class="view" id="view-info">
+    <h2 class="view-title">Info</h2>
+    <div id="infoContent"></div>
   </div>
 
   <div class="view" id="view-klub">
@@ -462,10 +497,13 @@ let ui = {
   selectedMember: null,
   scores: { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 },
   showNewRum: false,
+  showNewRumRumy: false,
   showNewMember: false,
   wishFilter: 'kandidát',
   wishFormOpen: false,
   detailRumId: null,
+  statMember: 'vse',
+  statOrigin: 'vse',
 };
 
 function uid(prefix) {
@@ -487,6 +525,8 @@ function goTab(tab) {
   if (tab === 'degustace') renderDegustaceForm();
   if (tab === 'ucet') renderUcet();
   if (tab === 'wishlist') renderWishlist();
+  if (tab === 'statistika') renderStatistika();
+  if (tab === 'info') renderInfo();
   if (tab === 'klub') renderKlub();
 }
 
@@ -541,6 +581,7 @@ function renderRumy() {
   });
 
   const list = document.getElementById('rumList');
+  renderNewRumSection();
   if (rows.length === 0) {
     list.innerHTML = '<div class="empty-note">Žádný rum neodpovídá hledání.</div>';
     return;
@@ -578,8 +619,8 @@ function openRumDetail(rumId) {
     <div class="sheet-head">
       <div>
         <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.75rem;margin:0;">${esc(rum.nazev)}</h2>
-        ${rum.znacka ? `<div style="font-size:17px;font-weight:500;color:var(--ink-soft);margin-top:3px;">${esc(rum.znacka)}</div>` : ''}
-        <div class="muted" style="font-size:13px;margin-top:2px;">${[rum.puvod?esc(rum.puvod):null, rum.abv?esc(String(rum.abv))+' %':null].filter(Boolean).join(' · ')}</div>
+        <div style="font-size:17px;font-weight:500;color:var(--ink-soft);margin-top:3px;">${[rum.znacka?esc(rum.znacka):null, rum.abv?esc(String(rum.abv))+' %':null].filter(Boolean).join(' · ')}</div>
+        ${rum.puvod ? `<div style="font-size:17px;font-weight:500;color:var(--ink-soft);">${esc(rum.puvod)}</div>` : ''}
       </div>
       <button class="sheet-close" onclick="closeRumDetail()">×</button>
     </div>
@@ -638,6 +679,16 @@ async function deleteRum(rumId) {
 }
 
 /* ---------------- DEGUSTACE (add rating) tab ---------------- */
+function backToRatingStart() {
+  ui.selectedRatingRumId = null;
+  ui.selectedMember = currentUser || null;
+  ui.showNewRum = false;
+  ui.showNewMember = false;
+  ui.scores = { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 };
+  renderDegustaceForm();
+  document.getElementById('view-degustace').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function presetRatingRum(rumId) {
   ui.selectedRatingRumId = rumId;
   renderDegustaceForm();
@@ -660,38 +711,19 @@ function renderDegustaceForm() {
   } else {
     html += `<input class="input" id="rumPickSearch" placeholder="Hledat rum…" oninput="renderRatingRumPicker()">`;
     html += `<div class="picker-list" id="rumPickList"></div>`;
-    if (!ui.showNewRum) {
-      html += `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showNewRum=true; renderDegustaceForm();">+ Nový rum, který ještě není v seznamu</button>`;
-    }
-    if (ui.showNewRum) {
-      html += `
-        <div style="margin-top:10px;">
-          <div class="field"><label>Značka rumu</label><input class="input" id="newRumNazev" placeholder="např. HAVANA CLUB"></div>
-          <div class="row2">
-            <div class="field"><label>Název rumu</label><input class="input" id="newRumZnacka" placeholder="Anejo Especial"></div>
-            <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba"></div>
-          </div>
-          <div class="row2">
-            <div class="field"><label>Cena</label><input class="input" type="number" id="newRumCena"></div>
-            <div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>
-          </div>
-          <div class="btn-row" style="margin-top:4px;">
-            <button class="btn btn-primary btn-sm" onclick="createAndSelectRum()">Přidat rum</button>
-            <button class="btn btn-ghost btn-sm" onclick="ui.showNewRum=false; renderDegustaceForm();">Zrušit</button>
-          </div>
-        </div>`;
-    }
   }
   html += '</div>';
 
   if (rum) {
     html += '<div class="field"><label>2. Kdo hodnotí</label><div class="member-chips">';
-    html += state.members.filter(m=>m.aktivni!==false).map(m => `<button class="member-chip ${ui.selectedMember===m.jmeno?'active':''}" onclick="ui.selectedMember='${esc(m.jmeno).replace(/'/g,"\\'")}'; renderDegustaceForm();">${esc(m.jmeno)}</button>`).join('');
+    const ratingMembers = state.members.filter(m=>m.aktivni!==false).slice().sort((a,b) => {
+      const ia = CLUB_MEMBER_ORDER.indexOf(a.jmeno), ib = CLUB_MEMBER_ORDER.indexOf(b.jmeno);
+      const ra = ia === -1 ? CLUB_MEMBER_ORDER.length : ia;
+      const rb = ib === -1 ? CLUB_MEMBER_ORDER.length : ib;
+      return ra !== rb ? ra - rb : a.jmeno.localeCompare(b.jmeno, 'cs');
+    });
+    html += ratingMembers.map(m => `<button class="member-chip ${ui.selectedMember===m.jmeno?'active':''}" onclick="ui.selectedMember='${esc(m.jmeno).replace(/'/g,"\\'")}'; renderDegustaceForm();">${esc(m.jmeno)}</button>`).join('');
     html += '</div>';
-    html += `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showNewMember=!ui.showNewMember; renderDegustaceForm();">${ui.showNewMember?'Zrušit':'+ Nový člen'}</button>`;
-    if (ui.showNewMember) {
-      html += `<div style="display:flex; gap:8px; margin-top:8px;"><input class="input" id="quickMemberName" placeholder="Jméno"><button class="btn btn-primary btn-sm" onclick="quickAddMember()">Přidat</button></div>`;
-    }
     html += '</div>';
   }
 
@@ -710,6 +742,7 @@ function renderDegustaceForm() {
     html += '</div>';
     html += `<div class="total-box"><span class="muted">Celkem</span><span class="num">${total}</span></div>`;
     html += `<button class="btn btn-primary" onclick="submitRating()">${dup ? 'Přepsat hodnocení' : 'Uložit hodnocení'}</button>`;
+    html += `<div class="btn-row" style="margin-top:8px;"><button class="btn btn-ghost" onclick="backToRatingStart()">← Zpět</button></div>`;
   }
   html += '</div>';
 
@@ -722,7 +755,7 @@ function renderRatingRumPicker() {
   const el = document.getElementById('rumPickList');
   if (!el) return;
   const q = (document.getElementById('rumPickSearch')?.value || '').toLowerCase();
-  let rows = state.rums;
+  let rows = [...state.rums].sort((a,b) => (b._seq||0) - (a._seq||0));
   if (q) rows = rows.filter(r => (r.nazev||'').toLowerCase().includes(q) || (r.znacka||'').toLowerCase().includes(q));
   rows = rows.slice(0, 40);
   el.innerHTML = rows.map(r => `
@@ -817,7 +850,31 @@ async function openHistory() {
 }
 function closeHistory() { document.getElementById('historyOverlay').hidden = true; }
 
-async function createAndSelectRum() {
+function renderNewRumSection() {
+  const el = document.getElementById('newRumSection');
+  if (!el) return;
+  if (isGuest) { el.innerHTML = ''; return; }
+  if (!ui.showNewRumRumy) {
+    el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=true; renderNewRumSection();">+ Nový rum, který ještě není v seznamu</button>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="field"><label>Značka rumu</label><input class="input" id="newRumNazev" placeholder="např. HAVANA CLUB"></div>
+    <div class="row2">
+      <div class="field"><label>Název rumu</label><input class="input" id="newRumZnacka" placeholder="Anejo Especial"></div>
+      <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Cena</label><input class="input" type="number" id="newRumCena"></div>
+      <div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button class="btn btn-primary btn-sm" onclick="createNewRum()">Přidat rum</button>
+      <button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=false; renderNewRumSection();">Zpět</button>
+    </div>`;
+}
+
+async function createNewRum() {
   const nazev = document.getElementById('newRumNazev').value.trim();
   if (!nazev) { toast('Zadej název rumu'); return; }
   const znacka = document.getElementById('newRumZnacka').value.trim();
@@ -825,9 +882,8 @@ async function createAndSelectRum() {
   const cena = document.getElementById('newRumCena').value;
   const abv = document.getElementById('newRumAbv').value;
   const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, abv: abv ? Number(abv) : null, cukr: null, poznamka: '', _seq: Date.now() };
-  const ref = await db.collection('rums').add(rum);
-  ui.selectedRatingRumId = ref.id;
-  ui.showNewRum = false;
+  await db.collection('rums').add(rum);
+  ui.showNewRumRumy = false;
   toast('Rum přidán do katalogu');
   logChange('Přidán rum', `${nazev}${znacka?' – '+znacka:''}`);
 }
@@ -871,13 +927,33 @@ async function submitRating() {
 
 function renderRecentRatings() {
   const el = document.getElementById('recentRatings');
-  const recent = [...state.ratings].sort((a,b)=>(b._seq||0)-(a._seq||0)).slice(0,8);
+  const recent = [...state.ratings].sort((a,b)=>(b._seq||0)-(a._seq||0)).slice(0,100);
   if (recent.length === 0) { el.innerHTML = ''; return; }
+  const editable = !isGuest;
   el.innerHTML = '<div class="muted" style="font-size:12px;margin-bottom:6px;">Naposledy přidáno</div>' +
+    '<div class="recent-list-scroll">' +
     recent.map(r => {
       const rum = state.rums.find(x=>x.id===r.rumId);
-      return `<div class="recent-item"><span>${esc(r.clen)} – ${esc(rum?rum.nazev:'?')}</span><b>${r.celkem}</b></div>`;
-    }).join('');
+      const cls = 'recent-item' + (editable ? ' clickable' : '');
+      const click = editable ? ` onclick="editRecentRating('${r.id}')"` : '';
+      return `<div class="${cls}"${click}><span>${esc(r.clen)} – ${esc(rum?rum.nazev:'?')}</span><b>${r.celkem}</b></div>`;
+    }).join('') +
+    '</div>';
+}
+
+function editRecentRating(ratingId) {
+  if (isGuest) return;
+  const r = state.ratings.find(x => x.id === ratingId);
+  if (!r) return;
+  ui.selectedRatingRumId = r.rumId;
+  ui.selectedMember = r.clen;
+  ui.scores = {
+    barva: Number(r.barva)||15, aroma: Number(r.aroma)||15, chut: Number(r.chut)||15,
+    plnost: Number(r.plnost)||15, dojezd: Number(r.dojezd)||15
+  };
+  ui.showNewRum = false;
+  renderDegustaceForm();
+  document.getElementById('degustaceForm').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 /* ---------------- UCET tab ---------------- */
@@ -934,6 +1010,7 @@ function openLedgerEdit(id) {
     </div>
     <div class="btn-row" style="margin-top:14px;">
       <button class="btn btn-primary" onclick="saveLedgerEdit('${id}')">Uložit změny</button>
+      <button class="btn btn-ghost" onclick="closeLedgerEdit()">← Zpět</button>
       <button class="btn btn-danger" onclick="deleteLedgerEntry('${id}')">Smazat</button>
     </div>
   `;
@@ -995,13 +1072,6 @@ async function addLedger() {
 }
 
 /* ---------------- WISHLIST tab ---------------- */
-function renderWishFilters() {
-  const filters = [['kandidát','Kandidáti'],['koupeno','Koupeno'],['zamítnuto','Zamítnuto'],['vše','Vše']];
-  document.getElementById('wishFilters').innerHTML = filters.map(([v,l]) =>
-    `<button class="filter-chip ${ui.wishFilter===v?'active':''}" onclick="ui.wishFilter='${v}'; renderWishlist();">${l}</button>`
-  ).join('');
-}
-
 function toggleWishForm() {
   ui.wishFormOpen = !ui.wishFormOpen;
   const el = document.getElementById('wishForm');
@@ -1022,7 +1092,7 @@ function toggleWishForm() {
       <div class="field"><label>Poznámka</label><textarea class="input" id="wishPoznamka"></textarea></div>
       <div class="btn-row" style="margin-top:4px;">
         <button class="btn btn-primary btn-sm" onclick="addWish()">Přidat na wishlist</button>
-        <button class="btn btn-ghost btn-sm" onclick="toggleWishForm()">Zrušit</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleWishForm()">Zpět</button>
       </div>
     `;
   }
@@ -1062,9 +1132,7 @@ async function deleteWish(id) {
 }
 
 function renderWishlist() {
-  renderWishFilters();
   let rows = state.wishlist;
-  if (ui.wishFilter !== 'vše') rows = rows.filter(w => (w.stav||'kandidát') === ui.wishFilter);
   const list = document.getElementById('wishList');
   if (rows.length === 0) { list.innerHTML = '<div class="empty-note">Nic tu není.</div>'; return; }
   list.innerHTML = rows.map(w => {
@@ -1075,25 +1143,169 @@ function renderWishlist() {
     if (w.cukr!=null) subParts.push('cukr '+esc(String(w.cukr))+' g/l');
     return `
     <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div>
-          <div class="rum-name">${esc(w.znacka)} ${w.nazev?'<span class="muted" style="font-weight:400;">– '+esc(w.nazev)+'</span>':''}</div>
-          <div class="rum-sub">${subParts.join(' · ')}</div>
-          ${w.poznamka ? '<div class="muted" style="font-size:12.5px;margin-top:4px;">'+esc(w.poznamka)+'</div>' : ''}
-        </div>
-        <span class="status-pill status-${(w.stav||'kandidát').replace('á','a').replace('í','i')}">${esc(w.stav||'kandidát')}</span>
+      <div>
+        <div class="rum-name">${esc(w.znacka)} ${w.nazev?'<span class="muted" style="font-weight:400;">– '+esc(w.nazev)+'</span>':''}</div>
+        <div class="rum-sub">${subParts.join(' · ')}</div>
+        ${w.poznamka ? '<div class="muted" style="font-size:12.5px;margin-top:4px;">'+esc(w.poznamka)+'</div>' : ''}
       </div>
       ${isGuest ? '' : `
       <div class="btn-row" style="margin-top:10px; flex-wrap:wrap;">
-        <button class="btn btn-ghost btn-sm" style="flex:0 0 auto;" onclick="setWishStatus('${w.id}','kandidát')">Kandidát</button>
-        <button class="btn btn-ghost btn-sm" style="flex:0 0 auto;" onclick="setWishStatus('${w.id}','koupeno')">Koupeno</button>
-        <button class="btn btn-ghost btn-sm" style="flex:0 0 auto;" onclick="setWishStatus('${w.id}','zamítnuto')">Zamítnuto</button>
         <button class="btn btn-danger btn-sm" style="flex:0 0 auto;" onclick="deleteWish('${w.id}')">Smazat</button>
       </div>
       `}
     </div>
   `;
   }).join('');
+}
+
+/* ---------------- STATISTIKA tab ---------------- */
+function statTile(val, lbl, small) {
+  return `<div class="stat-tile"><div class="val${small?' small':''}">${val}</div><div class="lbl">${lbl}</div></div>`;
+}
+
+function renderStatistika() {
+  const memberSel = document.getElementById('statMemberFilter');
+  const originSel = document.getElementById('statOriginFilter');
+  if (!memberSel || !originSel) return;
+
+  const activeMembers = [...state.members].filter(m=>m.aktivni!==false).sort((a,b) => {
+    const ia = CLUB_MEMBER_ORDER.indexOf(a.jmeno), ib = CLUB_MEMBER_ORDER.indexOf(b.jmeno);
+    const ra = ia === -1 ? CLUB_MEMBER_ORDER.length : ia;
+    const rb = ib === -1 ? CLUB_MEMBER_ORDER.length : ib;
+    return ra !== rb ? ra - rb : a.jmeno.localeCompare(b.jmeno, 'cs');
+  });
+  if (!activeMembers.some(m => m.jmeno === ui.statMember)) ui.statMember = 'vse';
+  memberSel.innerHTML = '<option value="vse">Kdo: Všichni</option>' +
+    activeMembers.map(m => `<option value="${esc(m.jmeno)}" ${ui.statMember===m.jmeno?'selected':''}>${esc(m.jmeno)}</option>`).join('');
+
+  const origins = [...new Set(state.rums.map(r=>r.puvod).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'cs'));
+  if (ui.statOrigin !== 'vse' && !origins.includes(ui.statOrigin)) ui.statOrigin = 'vse';
+  originSel.innerHTML = '<option value="vse">Původ: Vše</option>' +
+    origins.map(o => `<option value="${esc(o)}" ${ui.statOrigin===o?'selected':''}>${esc(o)}</option>`).join('');
+
+  const rumIdsByOrigin = ui.statOrigin === 'vse' ? null : new Set(state.rums.filter(r=>r.puvod===ui.statOrigin).map(r=>r.id));
+  const originRatings = rumIdsByOrigin ? state.ratings.filter(r=>rumIdsByOrigin.has(r.rumId)) : state.ratings;
+  const filteredRatings = ui.statMember === 'vse' ? originRatings : originRatings.filter(r=>r.clen===ui.statMember);
+
+  const rumLabel = (id) => { const rum = state.rums.find(x=>x.id===id); return rum ? esc(rum.nazev)+(rum.znacka?' – '+esc(rum.znacka):'') : '?'; };
+
+  const totalCount = filteredRatings.length;
+  const avgScore = totalCount ? (filteredRatings.reduce((s,r)=>s+Number(r.celkem||0),0)/totalCount).toFixed(1) : '–';
+  const distinctRums = new Set(filteredRatings.map(r=>r.rumId)).size;
+  let best = null, worst = null;
+  filteredRatings.forEach(r => {
+    if (!best || r.celkem > best.celkem) best = r;
+    if (!worst || r.celkem < worst.celkem) worst = r;
+  });
+
+  let html = '<div class="stat-grid">';
+  html += statTile(totalCount, 'hodnocení');
+  html += statTile(avgScore, 'průměr skóre');
+  html += statTile(distinctRums, 'rumů ochutnáno');
+  html += statTile(best ? best.celkem : '–', 'nejlepší skóre', true);
+  html += statTile(worst ? worst.celkem : '–', 'nejhorší skóre', true);
+  html += '</div>';
+  if (best) html += `<div class="muted" style="font-size:12px;margin-top:8px;">Nejlépe hodnoceno: <b>${rumLabel(best.rumId)}</b> (${esc(best.clen)}, ${best.celkem} b.)</div>`;
+  if (worst && worst !== best) html += `<div class="muted" style="font-size:12px;margin-top:2px;">Nejhůře hodnoceno: <b>${rumLabel(worst.rumId)}</b> (${esc(worst.clen)}, ${worst.celkem} b.)</div>`;
+
+  html += '<div class="stat-section-title">Žebříček členů</div>';
+  const memberRows = activeMembers.map(m => {
+    const rs = originRatings.filter(r=>r.clen===m.jmeno);
+    const avg = rs.length ? (rs.reduce((s,r)=>s+Number(r.celkem||0),0)/rs.length).toFixed(1) : '–';
+    return { jmeno: m.jmeno, count: rs.length, avg };
+  }).sort((a,b) => b.count - a.count);
+  html += memberRows.length ? memberRows.map(m =>
+    `<div class="stat-row"><span class="stat-row-main">${esc(m.jmeno)}</span><span class="stat-row-sub">${m.count} hodn. · průměr ${m.avg}</span></div>`
+  ).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+
+  const byRum = {};
+  filteredRatings.forEach(r => { (byRum[r.rumId] = byRum[r.rumId] || []).push(Number(r.celkem)||0); });
+  const rumAgg = Object.keys(byRum).map(id => ({ id, count: byRum[id].length, avg: byRum[id].reduce((s,v)=>s+v,0)/byRum[id].length }));
+  const renderRumRankRow = (r) => `<div class="stat-row"><span class="stat-row-main">${rumLabel(r.id)}</span><span class="stat-row-sub">${r.avg.toFixed(1)} b. · ${r.count}×</span></div>`;
+
+  const topRated = [...rumAgg].sort((a,b)=>b.avg-a.avg).slice(0,5);
+  html += '<div class="stat-section-title">Nejlépe hodnocené</div>';
+  html += topRated.length ? topRated.map(renderRumRankRow).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+
+  const bottomRated = [...rumAgg].filter(r=>r.count>=2).sort((a,b)=>a.avg-b.avg).slice(0,5);
+  html += '<div class="stat-section-title">Nejhůře hodnocené</div>';
+  html += bottomRated.length ? bottomRated.map(renderRumRankRow).join('') : '<div class="empty-note">Zatím málo dat (min. 2 hodnocení na rum).</div>';
+
+  const mostTasted = [...rumAgg].sort((a,b)=>b.count-a.count).slice(0,5);
+  html += '<div class="stat-section-title">Nejvíc ochutnávané</div>';
+  html += mostTasted.length ? mostTasted.map(renderRumRankRow).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+
+  html += '<div class="stat-section-title">Podle původu</div>';
+  const origGroups = {};
+  state.rums.forEach(r => {
+    const key = r.puvod || 'Neuvedeno';
+    if (!origGroups[key]) origGroups[key] = { rums: 0, count: 0, sum: 0 };
+    origGroups[key].rums++;
+  });
+  state.ratings.forEach(r => {
+    const rum = state.rums.find(x=>x.id===r.rumId);
+    const key = rum ? (rum.puvod || 'Neuvedeno') : 'Neuvedeno';
+    if (!origGroups[key]) origGroups[key] = { rums: 0, count: 0, sum: 0 };
+    origGroups[key].count++;
+    origGroups[key].sum += Number(r.celkem||0);
+  });
+  const origRows = Object.keys(origGroups).map(k => ({
+    puvod: k, rums: origGroups[k].rums, count: origGroups[k].count,
+    avg: origGroups[k].count ? (origGroups[k].sum/origGroups[k].count).toFixed(1) : '–'
+  })).sort((a,b) => b.rums - a.rums);
+  html += origRows.length ? origRows.map(o =>
+    `<div class="stat-row"><span class="stat-row-main">${esc(o.puvod)}</span><span class="stat-row-sub">${o.rums} rumů · ${o.count} hodn. · průměr ${o.avg}</span></div>`
+  ).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+
+  if (!isGuest) {
+    const pricedRums = state.rums.filter(r=>r.cena);
+    const avgPrice = pricedRums.length ? Math.round(pricedRums.reduce((s,r)=>s+Number(r.cena||0),0)/pricedRums.length) : null;
+    const abvRums = state.rums.filter(r=>r.abv);
+    const avgAbv = abvRums.length ? (abvRums.reduce((s,r)=>s+Number(r.abv||0),0)/abvRums.length).toFixed(1) : null;
+    const spentNakup = state.ledger.filter(l=>l.kategorie==='nákup').reduce((s,l)=>s+Math.abs(Number(l.castka)||0),0);
+    html += '<div class="stat-section-title">Katalog &amp; účet</div>';
+    html += '<div class="stat-grid">';
+    html += statTile(state.rums.length, 'rumů v katalogu');
+    html += statTile(avgPrice!=null ? avgPrice+' Kč' : '–', 'průměrná cena', true);
+    html += statTile(avgAbv!=null ? avgAbv+' %' : '–', 'průměrný obsah alk.', true);
+    html += statTile(Math.round(currentBalance())+' Kč', 'zůstatek účtu', true);
+    html += statTile(Math.round(spentNakup)+' Kč', 'utraceno za nákup', true);
+    html += '</div>';
+  }
+
+  document.getElementById('statContent').innerHTML = html;
+}
+
+/* ---------------- INFO tab ---------------- */
+function renderInfo() {
+  const el = document.getElementById('infoContent');
+  if (!el) return;
+  let html = `
+    <div class="card">
+      <div class="rum-name">O aplikaci</div>
+      <div class="muted" style="font-size:13px;margin-top:6px;">Degustační klub – appka pro evidenci rumů, degustační hodnocení, účet klubu a wishlist. Data se ukládají do sdílené databáze a appka funguje v prohlížeči, i na mobilu.</div>
+    </div>
+    <div class="card" style="margin-top:12px;">
+      <div class="rum-name">Návod k záložkám</div>
+      <div class="stat-row"><span class="stat-row-main">🥃 Rumy</span><span class="stat-row-sub">katalog a žebříček</span></div>
+      <div class="stat-row"><span class="stat-row-main">➕ Hodnocení</span><span class="stat-row-sub">zadání nové ochutnávky</span></div>
+      <div class="stat-row"><span class="stat-row-main">💰 Účet</span><span class="stat-row-sub">zůstatek a transakce klubu</span></div>
+      <div class="stat-row"><span class="stat-row-main">⭐ Wishlist</span><span class="stat-row-sub">tipy na příští nákup</span></div>
+      <div class="stat-row"><span class="stat-row-main">📊 Statistika</span><span class="stat-row-sub">přehledy a žebříčky</span></div>
+      <div class="stat-row"><span class="stat-row-main">👥 Klub</span><span class="stat-row-sub">členové, export dat</span></div>
+    </div>
+  `;
+  if (isAdmin) {
+    html += `
+    <div class="card" style="margin-top:12px;">
+      <div class="rum-name">PIN kódy (jen pro admina)</div>
+      <div class="stat-row"><span class="stat-row-main">Super admin</span><span class="stat-row-sub">${esc(APP_PIN)}</span></div>
+      ${Object.keys(MEMBER_PINS).map(name => `<div class="stat-row"><span class="stat-row-main">${esc(name)}</span><span class="stat-row-sub">${esc(MEMBER_PINS[name])}</span></div>`).join('')}
+      <div class="stat-row"><span class="stat-row-main">Host</span><span class="stat-row-sub">${esc(GUEST_PIN)}</span></div>
+    </div>
+    `;
+  }
+  el.innerHTML = html;
 }
 
 /* ---------------- KLUB tab ---------------- */
@@ -1135,7 +1347,7 @@ function renderKlub() {
 
 
 /* ---------------- EXPORT DO EXCELU ---------------- */
-function exportToExcel() {
+async function exportToExcel() {
   if (typeof XLSX === 'undefined') { toast('Export se nepodařilo načíst, zkus obnovit stránku'); return; }
   const wb = XLSX.utils.book_new();
   const addSheet = (name, rows) => {
@@ -1148,6 +1360,14 @@ function exportToExcel() {
   addSheet('Hodnoceni', state.ratings);
   addSheet('Ucet', state.ledger);
   addSheet('Wishlist', state.wishlist);
+  try {
+    const snap = await db.collection('activity_log').orderBy('cas', 'desc').get();
+    const logRows = snap.docs.map(d => {
+      const l = d.data();
+      return { datum_cas: l.cas ? new Date(l.cas).toLocaleString('cs-CZ') : '', kdo: l.kdo || '', akce: l.akce || '', popis: l.popis || '' };
+    });
+    addSheet('Historie_zmen', logRows);
+  } catch (e) { console.error('Export historie se nepodařil:', e); }
   const datum = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, `rum-klub-export-${datum}.xlsx`);
   toast('Export stažen');
@@ -1187,6 +1407,8 @@ function rerenderActive() {
   else if (ui.tab === 'degustace') renderDegustaceForm();
   else if (ui.tab === 'ucet') renderUcet();
   else if (ui.tab === 'wishlist') renderWishlist();
+  else if (ui.tab === 'statistika') renderStatistika();
+  else if (ui.tab === 'info') renderInfo();
   else if (ui.tab === 'klub') renderKlub();
 }
 
@@ -1255,9 +1477,64 @@ function saveSession(role, user) {
   try { localStorage.setItem('rumklub_session', JSON.stringify({ role, user })); } catch(e) {}
 }
 
-function checkPin() {
-  const val = document.getElementById('pinInput').value.trim();
+const PIN_LOCKOUT_KEY = 'rumklub_pin_lockout';
+const PIN_LOCKOUT_MAX_ATTEMPTS = 3;
+const PIN_LOCKOUT_MS = 15 * 60 * 1000;
+
+function getPinLockout() {
+  try { return JSON.parse(localStorage.getItem(PIN_LOCKOUT_KEY) || 'null') || { count: 0, lockUntil: 0 }; }
+  catch(e) { return { count: 0, lockUntil: 0 }; }
+}
+function savePinLockout(st) {
+  try { localStorage.setItem(PIN_LOCKOUT_KEY, JSON.stringify(st)); } catch(e) {}
+}
+function clearPinLockout() {
+  try { localStorage.removeItem(PIN_LOCKOUT_KEY); } catch(e) {}
+}
+function pinLockRemainingMs() {
+  return Math.max(0, (getPinLockout().lockUntil || 0) - Date.now());
+}
+function formatRemaining(ms) {
+  const totalSec = Math.ceil(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return m > 0 ? `${m} min${s > 0 ? ' ' + s + ' s' : ''}` : `${s} s`;
+}
+
+function updatePinLockUI() {
+  const remaining = pinLockRemainingMs();
   const err = document.getElementById('pinError');
+  const input = document.getElementById('pinInput');
+  const btn = document.getElementById('pinUnlockBtn');
+  if (remaining > 0) {
+    err.textContent = `Příliš mnoho pokusů. Zkus to znovu za ${formatRemaining(remaining)}.`;
+    if (input) input.disabled = true;
+    if (btn) btn.disabled = true;
+    if (!window._pinLockTimer) {
+      window._pinLockTimer = setInterval(() => {
+        if (pinLockRemainingMs() <= 0) {
+          clearInterval(window._pinLockTimer);
+          window._pinLockTimer = null;
+          clearPinLockout();
+          err.textContent = '';
+          if (input) { input.disabled = false; input.focus(); }
+          if (btn) btn.disabled = false;
+        } else {
+          updatePinLockUI();
+        }
+      }, 1000);
+    }
+    return true;
+  }
+  if (input) input.disabled = false;
+  if (btn) btn.disabled = false;
+  return false;
+}
+
+function checkPin() {
+  const err = document.getElementById('pinError');
+  if (updatePinLockUI()) { document.getElementById('pinInput').value = ''; return; }
+  const val = document.getElementById('pinInput').value.trim();
   const memberName = Object.keys(MEMBER_PINS).find(name => MEMBER_PINS[name] === val && val !== '');
   if (val && val === APP_PIN) {
     isGuest = false; isAdmin = true; currentUser = null;
@@ -1269,11 +1546,22 @@ function checkPin() {
     isGuest = true; isAdmin = false; currentUser = null;
     saveSession('guest', null);
   } else {
-    err.textContent = 'Špatný PIN, zkus to znovu.';
+    const st = getPinLockout();
+    st.count = (st.count || 0) + 1;
+    if (st.count >= PIN_LOCKOUT_MAX_ATTEMPTS) {
+      st.lockUntil = Date.now() + PIN_LOCKOUT_MS;
+      st.count = 0;
+      savePinLockout(st);
+      updatePinLockUI();
+    } else {
+      savePinLockout(st);
+      err.textContent = `Špatný PIN, zkus to znovu. (${PIN_LOCKOUT_MAX_ATTEMPTS - st.count} ${PIN_LOCKOUT_MAX_ATTEMPTS - st.count === 1 ? 'pokus' : 'pokusy'} do zamčení)`;
+    }
     document.getElementById('pinInput').value = '';
     document.getElementById('pinInput').focus();
     return;
   }
+  clearPinLockout();
   document.getElementById('pinGate').hidden = true;
   startApp();
 }
@@ -1301,7 +1589,7 @@ document.addEventListener('DOMContentLoaded', () => {
     startApp();
   } else {
     gate.hidden = false;
-    pinInput.focus();
+    if (!updatePinLockUI()) pinInput.focus();
   }
 });
 </script>

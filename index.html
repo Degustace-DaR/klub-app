@@ -601,8 +601,11 @@ function openRumDetail(rumId) {
     ` : '<div class="empty-note">Zatím bez hodnocení.</div>'}
     ${rum.cena ? `<div class="muted" style="margin-top:14px;font-size:13px;">Cena: ${esc(String(rum.cena))} Kč</div>` : ''}
     ${rum.cukr ? `<div class="muted" style="font-size:13px;${(rum.cena)?'':'margin-top:14px;'}">Cukr: ${esc(String(rum.cukr))} g/l</div>` : ''}
-    ${isGuest ? '' : `
     <div class="btn-row" style="margin-top:18px;">
+      <button class="btn btn-ghost" onclick="closeRumDetail()">← Zpět</button>
+    </div>
+    ${isGuest ? '' : `
+    <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-primary" onclick="closeRumDetail(); goTab('degustace'); presetRatingRum('${rum.id}')">+ Přidat hodnocení</button>
     </div>
     `}

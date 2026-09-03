@@ -2087,6 +2087,40 @@ function renderStatistika() {
     `<div class="stat-row"><span class="stat-row-main">${esc(o.puvod)}</span><span class="stat-row-sub">${o.rums} rumů · ${o.count} hodn. · průměr ${o.avg}</span></div>`
   ).join('') : '<div class="empty-note">Zatím žádná data.</div>';
 
+  html += '<div class="stat-section-title">Účast na degustacích</div>';
+  const totalUcast = state.ucasti.length;
+  if (totalUcast === 0) {
+    html += '<div class="empty-note">Zatím žádná evidovaná účast.</div>';
+  } else {
+    const avgLidi = (state.ucasti.reduce((s,u)=>s+(u.ucastnici||[]).length,0) / totalUcast).toFixed(1);
+    const ucastCounts = {};
+    state.ucasti.forEach(u => (u.ucastnici||[]).forEach(jm => { ucastCounts[jm] = (ucastCounts[jm]||0) + 1; }));
+    const ucastRows = Object.keys(ucastCounts).map(jm => ({
+      jmeno: jm, count: ucastCounts[jm], pct: Math.round(ucastCounts[jm] / totalUcast * 100),
+    })).sort((a,b) => b.count - a.count || a.jmeno.localeCompare(b.jmeno, 'cs'));
+    const mistoCounts = {};
+    state.ucasti.forEach(u => { const k = u.misto || 'Neuvedeno'; mistoCounts[k] = (mistoCounts[k]||0) + 1; });
+    const mistoRows = Object.keys(mistoCounts).map(k => ({ misto: k, count: mistoCounts[k] })).sort((a,b) => b.count - a.count);
+    const nejlepsi = ucastRows[0];
+
+    html += '<div class="stat-grid">';
+    html += statTile(totalUcast, 'degustací evidováno');
+    html += statTile(avgLidi, 'průměr účastníků', true);
+    html += statTile(nejlepsi ? `${esc(nejlepsi.jmeno)}` : '–', 'nejlepší docházka', true);
+    html += statTile(mistoRows[0] ? esc(mistoRows[0].misto) : '–', 'nejčastější místo', true);
+    html += '</div>';
+
+    html += '<div class="stat-section-title">Žebříček docházky</div>';
+    html += ucastRows.map(r =>
+      `<div class="stat-row"><span class="stat-row-main">${esc(r.jmeno)}</span><span class="stat-row-sub">${r.count}× · ${r.pct}&nbsp;% degustací</span></div>`
+    ).join('');
+
+    html += '<div class="stat-section-title">Podle místa</div>';
+    html += mistoRows.map(m =>
+      `<div class="stat-row"><span class="stat-row-main">${esc(m.misto)}</span><span class="stat-row-sub">${m.count}×</span></div>`
+    ).join('');
+  }
+
   if (!isGuest) {
     const pricedRums = state.rums.filter(r=>r.cena);
     const avgPrice = pricedRums.length ? Math.round(pricedRums.reduce((s,r)=>s+Number(r.cena||0),0)/pricedRums.length) : null;

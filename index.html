@@ -210,6 +210,11 @@
     border-radius:999px; padding:8px 15px; font-size:14px; cursor:pointer;
   }
   .member-chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .termin-chip { font-family: var(--font-mono); }
+  .termin-chip.resp-a { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+  .termin-chip.resp-n { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+  .termin-chip.resp-maybe { background: var(--info-soft); border-color: var(--info); color: var(--info); }
+  .termin-chip.resp-empty { opacity: 0.55; }
   .slider-row { margin-bottom: 14px; }
   .slider-head { display:flex; justify-content:space-between; font-size:13px; color: var(--ink-soft); margin-bottom:4px; }
   .slider-head b { font-family: var(--font-mono); color: var(--ink); font-size:15px; }
@@ -329,6 +334,7 @@
     <button class="tab-btn" data-tab="ucet" onclick="goTab('ucet')">💰 Účet</button>
     <button class="tab-btn" data-tab="wishlist" onclick="goTab('wishlist')">⭐ Wishlist</button>
     <button class="tab-btn" data-tab="humidor" onclick="goTab('humidor')">🚬 Humidor</button>
+    <button class="tab-btn" data-tab="terminy" onclick="goTab('terminy')">🗓️ Termíny</button>
     <button class="tab-btn" data-tab="statistika" onclick="goTab('statistika')">📊 Statistika</button>
   </nav>
 </header>
@@ -409,6 +415,13 @@
     <div class="card" id="newCigarSection" style="margin-top:16px;"></div>
   </div>
 
+  <div class="view" id="view-terminy">
+    <h2 class="view-title">Termíny</h2>
+    <div id="koloList"></div>
+    <div class="card" id="newKoloSection" style="margin-top:16px;"></div>
+    <div class="card" id="terminUcastniciSection" style="margin-top:16px;"></div>
+  </div>
+
   <div class="view" id="view-statistika">
     <h2 class="view-title">Statistika</h2>
     <div class="stat-filters">
@@ -443,6 +456,10 @@
 
 <div class="overlay" id="rumDetailOverlay" hidden onclick="if(event.target===this) closeRumDetail()">
   <div class="sheet" id="rumDetailSheet"></div>
+</div>
+
+<div class="overlay" id="koloDetailOverlay" hidden onclick="if(event.target===this) closeKoloDetail()">
+  <div class="sheet" id="koloDetailSheet"></div>
 </div>
 
 <div class="overlay" id="cigarDetailOverlay" hidden onclick="if(event.target===this) closeCigarDetail()">
@@ -509,7 +526,7 @@ let db = null;
 let isGuest = false;
 let isAdmin = false;
 let currentUser = null;
-let state = { members: [], rums: [], ratings: [], ledger: [], wishlist: [], cigars: [], cigarLog: [] };
+let state = { members: [], rums: [], ratings: [], ledger: [], wishlist: [], cigars: [], cigarLog: [], terminUcastnici: [], terminKola: [] };
 let ui = {
   tab: 'rumy',
   selectedRatingRumId: null,
@@ -530,6 +547,10 @@ let ui = {
   cigarLogMember: null,
   cigarLogDatum: null,
   editingCigarLogId: null,
+  detailKoloId: null,
+  showNewKoloTerminy: false,
+  newKoloDatumy: ['', ''],
+  showTerminUcastnikForm: false,
 };
 
 function uid(prefix) {
@@ -552,6 +573,7 @@ function goTab(tab) {
   if (tab === 'ucet') renderUcet();
   if (tab === 'wishlist') renderWishlist();
   if (tab === 'humidor') renderHumidor();
+  if (tab === 'terminy') renderTerminy();
   if (tab === 'statistika') renderStatistika();
   if (tab === 'info') renderInfo();
   if (tab === 'klub') renderKlub();
@@ -1498,6 +1520,238 @@ async function deleteCigar(cigarId) {
   logChange('Smazán doutník', `${cigar.vyrobce}${cigar.model ? ' – ' + cigar.model : ''}${relatedLog.length ? ' (+' + relatedLog.length + ' záznamů)' : ''}`);
 }
 
+/* ---------------- TERMINY tab ---------------- */
+const TERMIN_MEMBER_ORDER = ['Krchňáček', 'Váverka', 'Kříž', 'Zámečník', 'Eibensteiner', 'Mlýnský'];
+
+function sortedTerminUcastnici() {
+  return state.terminUcastnici.slice().sort((a, b) => {
+    const ia = TERMIN_MEMBER_ORDER.indexOf(a.jmeno), ib = TERMIN_MEMBER_ORDER.indexOf(b.jmeno);
+    const ra = ia === -1 ? TERMIN_MEMBER_ORDER.length : ia;
+    const rb = ib === -1 ? TERMIN_MEMBER_ORDER.length : ib;
+    return ra !== rb ? ra - rb : (a.jmeno || '').localeCompare(b.jmeno || '', 'cs');
+  });
+}
+
+function formatDatumCz(iso) {
+  if (!iso) return '';
+  const DNY = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
+  const d = new Date(iso + 'T00:00:00');
+  if (isNaN(d.getTime())) return iso;
+  return `${DNY[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+}
+
+function terminRespClass(val) {
+  if (val === 'A') return 'resp-a';
+  if (val === 'N') return 'resp-n';
+  if (val) return 'resp-maybe';
+  return 'resp-empty';
+}
+
+function terminRespLabel(jmeno, val) {
+  if (!val) return jmeno + ': –';
+  if (val === 'A' || val === 'N') return jmeno + ': ' + val;
+  return jmeno + ': ' + val;
+}
+
+function koloSummary(kolo) {
+  const datumy = kolo.datumy || [];
+  if (datumy.length === 0) return '';
+  return datumy.length === 1 ? formatDatumCz(datumy[0]) : formatDatumCz(datumy[0]) + ' – ' + formatDatumCz(datumy[datumy.length - 1]);
+}
+
+function renderTerminy() {
+  const list = document.getElementById('koloList');
+  const rows = [...state.terminKola].sort((a, b) => (b._seq || 0) - (a._seq || 0));
+  renderNewKoloSection();
+  renderTerminUcastniciSection();
+  if (rows.length === 0) {
+    list.innerHTML = '<div class="empty-note">Zatím žádné kolo domlouvání termínu.</div>';
+    return;
+  }
+  list.innerHTML = rows.map(k => {
+    const statusHtml = k.vybrano
+      ? `<span class="origin-badge" style="background:var(--good-soft);color:var(--good);border-color:var(--good);">✅ ${esc(formatDatumCz(k.vybrano))}</span>`
+      : `<span class="origin-badge">⏳ bez rozhodnutí</span>`;
+    return `
+    <div class="card rum-card" onclick="openKoloDetail('${k.id}')">
+      <div class="rum-main">
+        <div class="rum-name">${esc(koloSummary(k))}</div>
+        <div class="rum-sub">${(k.datumy || []).length} termínů ke zvážení</div>
+      </div>
+      <div>${statusHtml}</div>
+    </div>
+  `;
+  }).join('');
+}
+
+function renderNewKoloSection() {
+  const el = document.getElementById('newKoloSection');
+  if (!el) return;
+  if (isGuest) { el.innerHTML = ''; return; }
+  if (!ui.showNewKoloTerminy) {
+    el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewKoloTerminy=true; ui.newKoloDatumy=['','']; renderNewKoloSection();">+ Nové kolo domlouvání termínu</button>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="field"><label>Navrhované termíny</label>
+      ${ui.newKoloDatumy.map((d, i) => `<input class="input" type="date" style="margin-bottom:6px;" value="${esc(d)}" oninput="ui.newKoloDatumy[${i}]=this.value;">`).join('')}
+    </div>
+    <div class="btn-row" style="margin-top:2px;">
+      <button class="btn btn-ghost btn-sm" onclick="ui.newKoloDatumy.push(''); renderNewKoloSection();">+ Přidat další datum</button>
+    </div>
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn btn-primary btn-sm" onclick="createNewKolo()">Vytvořit kolo</button>
+      <button class="btn btn-ghost btn-sm" onclick="ui.showNewKoloTerminy=false; renderNewKoloSection();">Zpět</button>
+    </div>`;
+}
+
+async function createNewKolo() {
+  const datumy = [...new Set(ui.newKoloDatumy.filter(d => d))].sort();
+  if (datumy.length === 0) { toast('Zadej aspoň jeden termín'); return; }
+  await db.collection('termin_kola').add({ datumy, odpovedi: {}, vybrano: null, poznamka: '', _seq: Date.now() });
+  ui.showNewKoloTerminy = false;
+  toast('Kolo vytvořeno');
+  logChange('Vytvořeno kolo termínů', datumy.join(', '));
+}
+
+function renderTerminUcastniciSection() {
+  const el = document.getElementById('terminUcastniciSection');
+  if (!el) return;
+  if (isGuest) { el.innerHTML = ''; return; }
+  const ucastnici = sortedTerminUcastnici();
+  let html = `<div class="rum-name" style="margin-bottom:8px;">Účastníci domlouvání</div>`;
+  html += `<div class="member-chips">${ucastnici.map(u => `<span class="member-chip">${esc(u.jmeno)}</span>`).join('')}</div>`;
+  if (!ui.showTerminUcastnikForm) {
+    html += `<button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="ui.showTerminUcastnikForm=true; renderTerminUcastniciSection();">+ Přidat účastníka</button>`;
+  } else {
+    html += `
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <input class="input" id="newTerminUcastnikJmeno" placeholder="Jméno">
+        <button class="btn btn-primary btn-sm" onclick="addTerminUcastnik()" style="flex-shrink:0;">Přidat</button>
+      </div>
+      <div class="btn-row" style="margin-top:8px;"><button class="btn btn-ghost btn-sm" onclick="ui.showTerminUcastnikForm=false; renderTerminUcastniciSection();">Zpět</button></div>
+    `;
+  }
+  el.innerHTML = html;
+}
+
+async function addTerminUcastnik() {
+  const jmeno = document.getElementById('newTerminUcastnikJmeno').value.trim();
+  if (!jmeno) return;
+  await db.collection('termin_ucastnici').add({ jmeno });
+  ui.showTerminUcastnikForm = false;
+  toast('Účastník přidán');
+  logChange('Přidán účastník termínů', jmeno);
+}
+
+function openKoloDetail(koloId) {
+  ui.detailKoloId = koloId;
+  renderKoloDetail();
+  document.getElementById('koloDetailOverlay').hidden = false;
+}
+function closeKoloDetail() { document.getElementById('koloDetailOverlay').hidden = true; }
+
+async function toggleTerminResponse(koloId, jmeno, datum) {
+  if (isGuest) return;
+  const kolo = state.terminKola.find(k => k.id === koloId);
+  if (!kolo) return;
+  const current = (kolo.odpovedi && kolo.odpovedi[jmeno]) ? kolo.odpovedi[jmeno][datum] : undefined;
+  const cycle = { undefined: 'A', '': 'A', 'A': 'N', 'N': '?', '?': null };
+  const next = Object.prototype.hasOwnProperty.call(cycle, current) ? cycle[current] : 'A';
+  const path = `odpovedi.${jmeno}.${datum}`;
+  await db.collection('termin_kola').doc(koloId).update({ [path]: next });
+}
+
+async function setKoloVybrano(koloId, datum) {
+  if (isGuest) return;
+  await db.collection('termin_kola').doc(koloId).update({ vybrano: datum });
+  toast(datum ? 'Termín vybrán' : 'Výběr zrušen');
+  const kolo = state.terminKola.find(k => k.id === koloId);
+  logChange(datum ? 'Vybrán termín' : 'Zrušen vybraný termín', datum ? formatDatumCz(datum) : (kolo ? koloSummary(kolo) : koloId));
+}
+
+async function addKoloDatum(koloId) {
+  const input = document.getElementById('newKoloDetailDatum');
+  const datum = input.value;
+  if (!datum) { toast('Vyber datum'); return; }
+  await db.collection('termin_kola').doc(koloId).update({ datumy: firebase.firestore.FieldValue.arrayUnion(datum) });
+  input.value = '';
+}
+
+async function removeKoloDatum(koloId, datum) {
+  if (!confirm('Odebrat tenhle termín z nabídky?')) return;
+  const kolo = state.terminKola.find(k => k.id === koloId);
+  const updates = { datumy: firebase.firestore.FieldValue.arrayRemove(datum) };
+  if (kolo && kolo.vybrano === datum) updates.vybrano = null;
+  await db.collection('termin_kola').doc(koloId).update(updates);
+}
+
+async function deleteKolo(koloId) {
+  if (!isAdmin) return;
+  if (!confirm('Opravdu smazat celé tohle kolo domlouvání termínu?')) return;
+  await db.collection('termin_kola').doc(koloId).delete();
+  closeKoloDetail();
+  toast('Kolo smazáno');
+  logChange('Smazáno kolo termínů', koloId);
+}
+
+function renderKoloDetail() {
+  const kolo = state.terminKola.find(k => k.id === ui.detailKoloId);
+  if (!kolo) { closeKoloDetail(); return; }
+  const ucastnici = sortedTerminUcastnici();
+  const datumy = [...(kolo.datumy || [])].sort();
+
+  const html = `
+    <div class="sheet-head">
+      <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.5rem;margin:0;">Kolo termínů</h2>
+      <button class="sheet-close" onclick="closeKoloDetail()">×</button>
+    </div>
+    ${datumy.map(datum => {
+      const isVybrano = kolo.vybrano === datum;
+      const chips = ucastnici.map(u => {
+        const val = (kolo.odpovedi && kolo.odpovedi[u.jmeno]) ? kolo.odpovedi[u.jmeno][datum] : null;
+        const cls = terminRespClass(val);
+        const click = isGuest ? '' : ` onclick="toggleTerminResponse('${kolo.id}','${esc(u.jmeno).replace(/'/g,"\\'")}','${datum}')"`;
+        return `<button class="member-chip termin-chip ${cls}"${click}>${esc(terminRespLabel(u.jmeno, val))}</button>`;
+      }).join('');
+      return `
+      <div class="card" style="margin-bottom:8px;${isVybrano ? 'border-color:var(--good);' : ''}">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <b>${esc(formatDatumCz(datum))}</b>
+          ${isGuest ? (isVybrano ? '<span class="origin-badge" style="background:var(--good-soft);color:var(--good);border-color:var(--good);">✅ vybráno</span>' : '') : `
+            <div style="display:flex; gap:6px;">
+              ${isVybrano
+                ? `<button class="btn btn-ghost btn-sm" onclick="setKoloVybrano('${kolo.id}', null)">✅ vybráno (zrušit)</button>`
+                : `<button class="btn btn-ghost btn-sm" onclick="setKoloVybrano('${kolo.id}', '${datum}')">Vybrat</button>`}
+              <button class="btn btn-danger btn-sm" onclick="removeKoloDatum('${kolo.id}', '${datum}')">×</button>
+            </div>
+          `}
+        </div>
+        <div class="member-chips" style="margin-top:8px;">${chips}</div>
+      </div>
+    `;
+    }).join('')}
+    ${isGuest ? '' : `
+    <div class="field" style="margin-top:4px;">
+      <label>Přidat další navrhovaný termín</label>
+      <div style="display:flex; gap:8px;">
+        <input class="input" type="date" id="newKoloDetailDatum">
+        <button class="btn btn-primary btn-sm" onclick="addKoloDatum('${kolo.id}')" style="flex-shrink:0;">Přidat</button>
+      </div>
+    </div>
+    `}
+    <div class="btn-row" style="margin-top:18px;">
+      <button class="btn btn-ghost" onclick="closeKoloDetail()">← Zpět</button>
+    </div>
+    ${isAdmin ? `
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn btn-danger" onclick="deleteKolo('${kolo.id}')">Smazat kolo</button>
+    </div>
+    ` : ''}
+  `;
+  document.getElementById('koloDetailSheet').innerHTML = html;
+}
+
 /* ---------------- STATISTIKA tab ---------------- */
 function statTile(val, lbl, small) {
   return `<div class="stat-tile"><div class="val${small?' small':''}">${val}</div><div class="lbl">${lbl}</div></div>`;
@@ -1632,6 +1886,7 @@ function renderInfo() {
       <div class="stat-row"><span class="stat-row-main">💰 Účet</span><span class="stat-row-sub">zůstatek a transakce klubu</span></div>
       <div class="stat-row"><span class="stat-row-main">⭐ Wishlist</span><span class="stat-row-sub">tipy na příští nákup</span></div>
       <div class="stat-row"><span class="stat-row-main">🚬 Humidor</span><span class="stat-row-sub">evidence doutníků a kouření</span></div>
+      <div class="stat-row"><span class="stat-row-main">🗓️ Termíny</span><span class="stat-row-sub">domlouvání dalších degustací</span></div>
       <div class="stat-row"><span class="stat-row-main">📊 Statistika</span><span class="stat-row-sub">přehledy a žebříčky</span></div>
       <div class="stat-row"><span class="stat-row-main">👥 Klub</span><span class="stat-row-sub">členové, export dat</span></div>
     </div>
@@ -1712,6 +1967,16 @@ async function exportToExcel() {
     const c = state.cigars.find(x => x.id === l.cigarId);
     return { vyrobce: c ? c.vyrobce : '', model: c ? c.model : '', cislo: l.cislo, datum: l.datum || '', clen: l.clen || '' };
   }));
+  addSheet('Terminy', state.terminKola.flatMap(k => {
+    const rozsah = (k.datumy && k.datumy.length) ? (k.datumy[0] + ' – ' + k.datumy[k.datumy.length-1]) : '';
+    const out = [];
+    (k.datumy || []).forEach(datum => {
+      Object.keys(k.odpovedi || {}).forEach(jmeno => {
+        out.push({ kolo: rozsah, datum, jmeno, odpoved: (k.odpovedi[jmeno] || {})[datum] || '', vybrano: k.vybrano === datum ? 'ano' : '' });
+      });
+    });
+    return out;
+  }));
   try {
     const snap = await db.collection('activity_log').orderBy('cas', 'desc').get();
     const logRows = snap.docs.map(d => {
@@ -1754,6 +2019,19 @@ async function maybeSeedHumidor() {
   await seedRef.set({ done: true, at: new Date().toISOString() });
 }
 
+const SEED_TERMINY = {"members":["Krchňáček","Váverka","Kříž","Zámečník","Eibensteiner","Mlýnský"],"kola":[{"datumy":["2025-04-17","2025-04-18","2025-04-19","2025-04-25","2025-04-26","2025-04-30","2025-05-01","2025-05-02","2025-05-03","2025-05-07","2025-05-08","2025-05-09","2025-05-10"],"odpovedi":{"Krchňáček":{"2025-04-17":"A","2025-04-18":"A","2025-04-19":"A","2025-04-25":"A","2025-04-26":"A","2025-04-30":"A","2025-05-01":"A","2025-05-02":"A","2025-05-03":"A","2025-05-07":"A","2025-05-08":"A","2025-05-09":"A","2025-05-10":"A"},"Váverka":{"2025-04-17":"N","2025-04-18":"A","2025-04-19":"A","2025-04-25":"A","2025-04-26":"A","2025-04-30":"A","2025-05-01":"N","2025-05-02":"N","2025-05-03":"N","2025-05-07":"N","2025-05-08":"A","2025-05-09":"A","2025-05-10":"A"},"Kříž":{"2025-04-17":"N","2025-04-18":"N ???","2025-04-19":"N ???","2025-04-25":"A","2025-04-26":"A","2025-04-30":"A","2025-05-01":"A","2025-05-02":"A","2025-05-03":"A","2025-05-07":"A","2025-05-08":"A","2025-05-09":"A","2025-05-10":"A"},"Zámečník":{"2025-04-17":"N","2025-04-18":"A","2025-04-19":"N","2025-04-25":"N","2025-04-26":"N","2025-04-30":"A","2025-05-01":"A","2025-05-02":"A","2025-05-03":"A","2025-05-07":"A","2025-05-08":"N","2025-05-09":"N","2025-05-10":"N"},"Eibensteiner":{"2025-04-17":"N","2025-04-18":"A","2025-04-19":"N","2025-04-25":"A","2025-04-26":"N","2025-04-30":"N","2025-05-01":"N","2025-05-02":"A","2025-05-03":"N","2025-05-07":"A","2025-05-08":"N","2025-05-09":"N","2025-05-10":"N"},"Mlýnský":{"2025-04-17":"A","2025-04-18":"A","2025-04-19":"A","2025-04-25":"A","2025-04-26":"A","2025-04-30":"A","2025-05-01":"A","2025-05-02":"A","2025-05-03":"A","2025-05-07":"A","2025-05-08":"A","2025-05-09":"A","2025-05-10":"A"}},"vybrano":"2025-04-30","id":"kolo_1","_seq":0,"poznamka":""},{"datumy":["2025-05-30","2025-05-31","2025-06-06","2025-06-07","2025-06-13","2025-06-14"],"odpovedi":{"Krchňáček":{"2025-05-30":"A","2025-05-31":"A","2025-06-06":"A","2025-06-07":"A","2025-06-13":"N","2025-06-14":"A"},"Váverka":{"2025-05-30":"A","2025-05-31":"A","2025-06-06":"A","2025-06-07":"A","2025-06-13":"N","2025-06-14":"N"},"Kříž":{"2025-05-30":"A","2025-05-31":"A","2025-06-06":"N","2025-06-07":"N","2025-06-13":"A","2025-06-14":"N"},"Zámečník":{"2025-05-30":"A","2025-05-31":"A","2025-06-06":"N","2025-06-07":"N","2025-06-13":"N","2025-06-14":"A"},"Eibensteiner":{"2025-05-30":"N","2025-05-31":"N","2025-06-06":"A","2025-06-07":"N","2025-06-13":"A","2025-06-14":"N"},"Mlýnský":{"2025-05-30":"A","2025-05-31":"A","2025-06-06":"A","2025-06-07":"A","2025-06-13":"A","2025-06-14":"A"}},"vybrano":"2025-05-30","id":"kolo_2","_seq":1,"poznamka":""},{"datumy":["2025-07-04","2025-07-05","2025-07-11","2025-07-12","2025-07-18","2025-07-19","2025-07-25","2025-07-26"],"odpovedi":{"Krchňáček":{"2025-07-04":"A","2025-07-05":"A","2025-07-11":"A","2025-07-12":"N","2025-07-18":"A","2025-07-19":"N","2025-07-25":"A","2025-07-26":"A"},"Váverka":{"2025-07-04":"N","2025-07-05":"N","2025-07-11":"N","2025-07-12":"N","2025-07-18":"A","2025-07-19":"A","2025-07-25":"A","2025-07-26":"N"},"Kříž":{"2025-07-04":"N","2025-07-05":"N","2025-07-11":"N","2025-07-12":"N","2025-07-18":"A","2025-07-19":"N","2025-07-25":"N","2025-07-26":"N"},"Zámečník":{"2025-07-04":"50 na 50","2025-07-05":"N","2025-07-11":"N","2025-07-12":"A","2025-07-18":"A","2025-07-19":"N","2025-07-25":"A","2025-07-26":"A"},"Eibensteiner":{"2025-07-04":"N","2025-07-05":"N","2025-07-11":"N","2025-07-12":"N","2025-07-18":"A","2025-07-19":"N","2025-07-25":"N","2025-07-26":"N"},"Mlýnský":{"2025-07-04":"A","2025-07-05":"A","2025-07-11":"A","2025-07-12":"A","2025-07-18":"A","2025-07-19":"A","2025-07-25":"A","2025-07-26":"A"}},"vybrano":"2025-07-18","id":"kolo_3","_seq":2,"poznamka":""},{"datumy":["2025-08-22","2025-08-23","2025-08-29","2025-08-30","2025-09-05","2025-09-06","2025-09-12","2025-09-13"],"odpovedi":{"Krchňáček":{"2025-08-22":"N","2025-08-23":"N","2025-08-29":"A","2025-08-30":"A","2025-09-05":"A","2025-09-06":"A","2025-09-12":"A","2025-09-13":"A"},"Váverka":{"2025-08-22":"N","2025-08-23":"N","2025-08-29":"N","2025-08-30":"A","2025-09-05":"A","2025-09-06":"A","2025-09-12":"A","2025-09-13":"A"},"Kříž":{"2025-08-22":"N","2025-08-23":"N","2025-08-29":"N","2025-08-30":"N","2025-09-05":"A","2025-09-06":"N","2025-09-12":"N","2025-09-13":"N"},"Zámečník":{"2025-08-22":"N","2025-08-23":"N","2025-08-29":"A","2025-08-30":"?","2025-09-05":"A","2025-09-06":"N","2025-09-12":"N","2025-09-13":"N"},"Eibensteiner":{"2025-08-22":"N","2025-08-23":"N","2025-08-29":"N","2025-08-30":"N","2025-09-05":"A","2025-09-06":"N","2025-09-12":"A","2025-09-13":"N"},"Mlýnský":{"2025-08-22":"A","2025-08-23":"A","2025-08-29":"A","2025-08-30":"A","2025-09-05":"N","2025-09-06":"A","2025-09-12":"A","2025-09-13":"A"}},"vybrano":"2025-09-05","id":"kolo_4","_seq":3,"poznamka":""},{"datumy":["2025-10-10","2025-10-11","2025-10-17","2025-10-18","2025-10-24","2025-10-25","2025-10-27"],"odpovedi":{"Krchňáček":{"2025-10-10":"A","2025-10-11":"N","2025-10-17":"A","2025-10-18":"A","2025-10-24":"A","2025-10-25":"A","2025-10-27":"A"},"Váverka":{"2025-10-10":"A","2025-10-11":"N","2025-10-17":"N","2025-10-18":"N","2025-10-24":"A","2025-10-25":"A","2025-10-27":"N"},"Kříž":{"2025-10-10":"na chvilu","2025-10-11":"N","2025-10-17":"A","2025-10-18":"A","2025-10-24":"N","2025-10-25":"N","2025-10-27":"A"},"Zámečník":{"2025-10-10":"A","2025-10-11":"N","2025-10-17":"N","2025-10-18":"N","2025-10-24":"N","2025-10-25":"A","2025-10-27":"A"},"Eibensteiner":{"2025-10-10":"N","2025-10-11":"N","2025-10-17":"N","2025-10-18":"N","2025-10-24":"N","2025-10-25":"N","2025-10-27":"N"},"Mlýnský":{"2025-10-10":"A","2025-10-11":"A","2025-10-17":"A","2025-10-18":"A","2025-10-24":"A","2025-10-25":"A","2025-10-27":"A"}},"vybrano":"2025-10-10","id":"kolo_5","_seq":4,"poznamka":""},{"datumy":["2025-11-14","2025-11-15","2025-11-21","2025-11-22","2025-11-28","2025-11-29"],"odpovedi":{"Krchňáček":{"2025-11-14":"A","2025-11-15":"A","2025-11-21":"A","2025-11-22":"A","2025-11-28":"A","2025-11-29":"A"},"Váverka":{"2025-11-14":"A","2025-11-15":"N","2025-11-21":"A","2025-11-22":"A","2025-11-28":"N","2025-11-29":"A"},"Kříž":{"2025-11-14":"A","2025-11-15":"A","2025-11-21":"?","2025-11-22":"A","2025-11-28":"?","2025-11-29":"A"},"Zámečník":{"2025-11-14":"A","2025-11-15":"N","2025-11-21":"A","2025-11-22":"N","2025-11-28":"A","2025-11-29":"N"},"Eibensteiner":{"2025-11-14":"A"},"Mlýnský":{"2025-11-14":"A","2025-11-15":"A","2025-11-21":"A","2025-11-22":"A","2025-11-28":"A","2025-11-29":"A"}},"vybrano":"2025-11-14","id":"kolo_6","_seq":5,"poznamka":""},{"datumy":["2025-12-12","2025-12-13","2025-12-19","2025-12-20","2025-12-26","2025-12-27","2025-12-28","2025-12-29","2025-12-30","2026-01-02","2026-01-03"],"odpovedi":{"Krchňáček":{"2025-12-12":"N","2025-12-13":"A","2025-12-19":"A","2025-12-20":"A","2025-12-26":"N","2025-12-27":"N","2025-12-28":"N","2025-12-29":"A","2025-12-30":"A","2026-01-02":"A","2026-01-03":"A"},"Váverka":{"2025-12-12":"N","2025-12-13":"A","2025-12-19":"?","2025-12-20":"A","2025-12-26":"N","2025-12-27":"N","2025-12-28":"N","2025-12-29":"?","2025-12-30":"N","2026-01-02":"A","2026-01-03":"A"},"Kříž":{"2025-12-12":"A","2025-12-13":"A","2025-12-19":"N","2025-12-20":"N","2025-12-26":"N","2025-12-27":"N","2025-12-28":"N","2025-12-29":"N","2025-12-30":"N","2026-01-02":"A","2026-01-03":"A"},"Zámečník":{"2025-12-12":"A","2025-12-13":"A","2025-12-19":"A","2025-12-20":"N","2025-12-26":"N","2025-12-27":"A","2025-12-28":"A","2025-12-29":"A","2025-12-30":"N","2026-01-02":"A","2026-01-03":"A"},"Eibensteiner":{"2025-12-12":"N","2025-12-13":"N","2025-12-19":"N","2025-12-20":"N","2025-12-26":"N","2025-12-27":"N","2025-12-28":"N","2025-12-29":"N","2025-12-30":"N","2026-01-02":"A","2026-01-03":"N"},"Mlýnský":{"2025-12-12":"A","2025-12-13":"A","2025-12-19":"A","2025-12-20":"A","2025-12-26":"N","2025-12-27":"A","2025-12-28":"A","2025-12-29":"A","2025-12-30":"A","2026-01-02":"A","2026-01-03":"A"}},"vybrano":"2026-01-02","id":"kolo_7","_seq":6,"poznamka":""},{"datumy":["2026-02-06","2026-02-07","2026-02-13","2026-02-14","2026-02-20","2026-02-21","2026-02-27","2026-02-28"],"odpovedi":{"Krchňáček":{"2026-02-06":"A","2026-02-07":"A","2026-02-13":"A","2026-02-14":"A","2026-02-20":"A","2026-02-21":"A","2026-02-27":"A","2026-02-28":"A"},"Váverka":{"2026-02-06":"A","2026-02-07":"A","2026-02-13":"N","2026-02-14":"N","2026-02-20":"A","2026-02-21":"N","2026-02-27":"A","2026-02-28":"N"},"Kříž":{"2026-02-06":"N","2026-02-07":"N","2026-02-13":"N","2026-02-14":"N","2026-02-20":"N","2026-02-21":"N","2026-02-27":"A","2026-02-28":"N"},"Zámečník":{"2026-02-06":"N","2026-02-07":"N","2026-02-13":"?","2026-02-14":"N","2026-02-20":"N","2026-02-21":"?","2026-02-27":"A","2026-02-28":"N"},"Eibensteiner":{"2026-02-06":"N","2026-02-07":"N","2026-02-13":"N","2026-02-14":"N","2026-02-20":"N","2026-02-21":"N","2026-02-27":"A","2026-02-28":"N"},"Mlýnský":{"2026-02-06":"A","2026-02-07":"A","2026-02-13":"A","2026-02-14":"A","2026-02-20":"A","2026-02-21":"A","2026-02-27":"A","2026-02-28":"A"}},"vybrano":"2026-02-27","id":"kolo_8","_seq":7,"poznamka":""},{"datumy":["2026-04-02","2026-04-03","2026-04-05","2026-04-10","2026-04-11","2026-04-17","2026-04-18"],"odpovedi":{"Krchňáček":{"2026-04-02":"A","2026-04-03":"A","2026-04-05":"A","2026-04-10":"A","2026-04-11":"A","2026-04-17":"A","2026-04-18":"A"},"Váverka":{"2026-04-02":"N","2026-04-03":"A","2026-04-05":"A","2026-04-10":"N","2026-04-11":"N","2026-04-17":"A","2026-04-18":"A"},"Kříž":{"2026-04-02":"A","2026-04-03":"A","2026-04-05":"A","2026-04-10":"A","2026-04-11":"A","2026-04-17":"A","2026-04-18":"A"},"Zámečník":{"2026-04-02":"N","2026-04-03":"A","2026-04-05":"A","2026-04-10":"N","2026-04-11":"50/50","2026-04-17":"N","2026-04-18":"A"},"Eibensteiner":{"2026-04-02":"N","2026-04-03":"50/50","2026-04-05":"N","2026-04-10":"N","2026-04-11":"N","2026-04-17":"A","2026-04-18":"N"},"Mlýnský":{"2026-04-02":"A","2026-04-03":"A","2026-04-05":"A","2026-04-10":"A","2026-04-11":"A","2026-04-17":"A","2026-04-18":"A"}},"vybrano":"2026-04-03","id":"kolo_9","_seq":8,"poznamka":""},{"datumy":["2026-05-07","2026-05-08","2026-05-09","2026-05-15","2026-05-16","2026-05-22","2026-05-23"],"odpovedi":{"Krchňáček":{"2026-05-07":"A","2026-05-08":"A","2026-05-09":"A","2026-05-15":"A","2026-05-16":"A","2026-05-22":"A","2026-05-23":"N"},"Váverka":{"2026-05-07":"N","2026-05-08":"?","2026-05-09":"A","2026-05-15":"A","2026-05-16":"A","2026-05-22":"N","2026-05-23":"N"},"Kříž":{"2026-05-15":"A"},"Zámečník":{"2026-05-07":"A","2026-05-08":"N","2026-05-09":"A","2026-05-15":"A","2026-05-16":"A","2026-05-22":"N","2026-05-23":"N"},"Eibensteiner":{"2026-05-07":"N","2026-05-08":"N","2026-05-09":"N","2026-05-15":"A","2026-05-16":"N","2026-05-22":"N","2026-05-23":"N"},"Mlýnský":{"2026-05-07":"A","2026-05-08":"A","2026-05-09":"A","2026-05-15":"A","2026-05-16":"A","2026-05-22":"A","2026-05-23":"A"}},"vybrano":"2026-05-15","id":"kolo_10","_seq":9,"poznamka":""},{"datumy":["2026-06-19","2026-06-20","2026-06-26","2026-06-27","2026-07-03","2026-07-04"],"odpovedi":{"Krchňáček":{"2026-06-19":"A","2026-06-20":"A","2026-06-26":"A","2026-06-27":"A","2026-07-03":"N","2026-07-04":"N"},"Váverka":{"2026-06-19":"A","2026-06-20":"A","2026-06-26":"N","2026-06-27":"N","2026-07-03":"N","2026-07-04":"N"},"Kříž":{"2026-06-19":"A","2026-06-20":"N","2026-06-26":"N","2026-06-27":"N","2026-07-03":"N","2026-07-04":"N"},"Zámečník":{"2026-06-19":"A","2026-06-20":"N","2026-06-26":"N","2026-06-27":"?","2026-07-03":"A","2026-07-04":"?"},"Eibensteiner":{"2026-06-19":"A","2026-06-20":"N","2026-06-26":"N","2026-06-27":"N","2026-07-03":"N","2026-07-04":"N"},"Mlýnský":{"2026-06-19":"A","2026-06-20":"A","2026-06-26":"A","2026-06-27":"A","2026-07-03":"A","2026-07-04":"A"}},"vybrano":"2026-06-19","id":"kolo_11","_seq":10,"poznamka":""},{"datumy":["2026-07-24","2026-07-25","2026-07-31","2026-08-01","2026-08-07","2026-08-08"],"odpovedi":{"Krchňáček":{"2026-07-24":"A","2026-07-25":"A","2026-07-31":"A","2026-08-01":"A","2026-08-07":"A","2026-08-08":"A"},"Váverka":{"2026-07-24":"A","2026-07-25":"A","2026-07-31":"N","2026-08-01":"N","2026-08-07":"N","2026-08-08":"N"},"Kříž":{"2026-07-24":"A","2026-07-25":"A","2026-07-31":"-","2026-08-01":"-","2026-08-07":"-","2026-08-08":"-"},"Zámečník":{"2026-07-24":"50/50","2026-07-25":"A","2026-07-31":"N","2026-08-01":"N","2026-08-07":"A","2026-08-08":"N"},"Eibensteiner":{"2026-07-24":"N","2026-07-25":"N","2026-07-31":"N","2026-08-01":"N","2026-08-07":"N","2026-08-08":"N"},"Mlýnský":{"2026-07-24":"A","2026-07-25":"A","2026-07-31":"A","2026-08-01":"A","2026-08-07":"A","2026-08-08":"A"}},"vybrano":"2026-07-25","id":"kolo_12","_seq":11,"poznamka":""},{"datumy":["2026-08-28","2026-08-29","2026-09-04","2026-09-05","2026-09-11","2026-09-12"],"odpovedi":{"Krchňáček":{"2026-08-28":"A","2026-08-29":"A","2026-09-04":"A","2026-09-05":"A","2026-09-11":"A","2026-09-12":"A"},"Váverka":{"2026-08-28":"N","2026-08-29":"N","2026-09-04":"A","2026-09-11":"A","2026-09-12":"N"},"Kříž":{"2026-08-28":"A","2026-08-29":"A","2026-09-04":"N","2026-09-05":"N","2026-09-11":"N","2026-09-12":"N"},"Zámečník":{"2026-08-28":"N","2026-08-29":"N","2026-09-04":"A","2026-09-05":"N","2026-09-11":"N","2026-09-12":"N"},"Eibensteiner":{"2026-08-28":"N","2026-08-29":"N","2026-09-04":"A","2026-09-05":"N","2026-09-11":"N","2026-09-12":"N"},"Mlýnský":{"2026-08-28":"A","2026-08-29":"A","2026-09-04":"A","2026-09-05":"N","2026-09-11":"A","2026-09-12":"A"}},"vybrano":"2026-09-04","id":"kolo_13","_seq":12,"poznamka":""},{"datumy":["2026-10-09","2026-10-10","2026-10-16","2026-10-17","2026-10-23","2026-10-24","2026-10-30","2026-10-31"],"odpovedi":{"Krchňáček":{"2026-10-09":"A","2026-10-10":"A","2026-10-16":"A","2026-10-17":"A","2026-10-23":"A","2026-10-24":"N","2026-10-30":"A","2026-10-31":"A"},"Váverka":{},"Kříž":{},"Zámečník":{"2026-10-09":"N","2026-10-10":"N","2026-10-16":"A","2026-10-17":"N","2026-10-23":"N","2026-10-24":"N","2026-10-30":"A","2026-10-31":"N"},"Eibensteiner":{"2026-10-09":"N","2026-10-10":"N","2026-10-16":"N","2026-10-17":"N","2026-10-23":"N","2026-10-24":"N","2026-10-30":"A","2026-10-31":"N"},"Mlýnský":{"2026-10-09":"A","2026-10-10":"A","2026-10-16":"A","2026-10-17":"A","2026-10-23":"A","2026-10-24":"A","2026-10-30":"A","2026-10-31":"A"}},"vybrano":null,"id":"kolo_14","_seq":13,"poznamka":""}]};
+
+async function maybeSeedTerminy() {
+  const seedRef = db.doc('meta/seed_terminy');
+  const snap = await seedRef.get();
+  if (snap.exists) return;
+  const jobs = [];
+  SEED_TERMINY.members.forEach((jmeno, i) => jobs.push(db.collection('termin_ucastnici').add({ jmeno })));
+  SEED_TERMINY.kola.forEach(k => jobs.push(db.collection('termin_kola').doc(k.id).set({ datumy: k.datumy, odpovedi: k.odpovedi, vybrano: k.vybrano, poznamka: k.poznamka || '', _seq: k._seq })));
+  await Promise.all(jobs);
+  await seedRef.set({ done: true, at: new Date().toISOString() });
+}
+
 function subscribeAll() {
   db.collection('members').onSnapshot(snap => { state.members = fromSnap(snap); rerenderActive(); },
     () => toast('Chyba při načítání členů'));
@@ -1769,6 +2047,10 @@ function subscribeAll() {
     () => toast('Chyba při načítání humidoru'));
   db.collection('cigar_log').onSnapshot(snap => { state.cigarLog = fromSnap(snap); rerenderActive(); if (!document.getElementById('cigarDetailOverlay').hidden) renderCigarDetail(); },
     () => toast('Chyba při načítání kouření'));
+  db.collection('termin_ucastnici').onSnapshot(snap => { state.terminUcastnici = fromSnap(snap); rerenderActive(); },
+    () => toast('Chyba při načítání účastníků termínů'));
+  db.collection('termin_kola').onSnapshot(snap => { state.terminKola = fromSnap(snap); rerenderActive(); if (!document.getElementById('koloDetailOverlay').hidden) renderKoloDetail(); },
+    () => toast('Chyba při načítání termínů'));
 }
 
 function rerenderActive() {
@@ -1777,6 +2059,7 @@ function rerenderActive() {
   else if (ui.tab === 'ucet') renderUcet();
   else if (ui.tab === 'wishlist') renderWishlist();
   else if (ui.tab === 'humidor') renderHumidor();
+  else if (ui.tab === 'terminy') renderTerminy();
   else if (ui.tab === 'statistika') renderStatistika();
   else if (ui.tab === 'info') renderInfo();
   else if (ui.tab === 'klub') renderKlub();
@@ -1815,6 +2098,9 @@ async function init() {
   try {
     await maybeSeedHumidor();
   } catch(e) { console.error('Seed humidor:', e); }
+  try {
+    await maybeSeedTerminy();
+  } catch(e) { console.error('Seed terminy:', e); }
   subscribeAll();
 }
 

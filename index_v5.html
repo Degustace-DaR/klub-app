@@ -376,7 +376,8 @@
 
   <div class="view" id="view-klub">
     <h2 class="view-title">Klub</h2>
-    <div class="card">
+    <div id="memberList"></div>
+    <div class="card" style="margin-top:16px;">
       <div class="field"><label>Přidat člena</label>
         <div style="display:flex; gap:8px;">
           <input class="input" id="newMemberName" placeholder="Jméno">
@@ -384,7 +385,6 @@
         </div>
       </div>
     </div>
-    <div id="memberList"></div>
     <div class="card muted" style="font-size:12.5px; margin-top:16px;" id="clubStats"></div>
     <button class="btn btn-ghost" style="margin-top:12px;" onclick="exportToExcel()">⬇️ Exportovat všechna data (Excel)</button>
     <button class="btn btn-ghost" style="margin-top:8px;" onclick="lockApp()">🔒 Zamknout appku (znovu vyžádat PIN)</button>
@@ -952,9 +952,17 @@ async function addMember() {
   toast('Člen přidán');
 }
 
+const CLUB_MEMBER_ORDER = ['Broněk','Libor','Jirka','Tonda','Tomáš','Mirek','Host 1','Host 2'];
 function renderKlub() {
   const list = document.getElementById('memberList');
-  list.innerHTML = state.members.map(m => {
+  const sortedMembers = [...state.members].sort((a,b) => {
+    const ia = CLUB_MEMBER_ORDER.indexOf(a.jmeno), ib = CLUB_MEMBER_ORDER.indexOf(b.jmeno);
+    const ra = ia === -1 ? CLUB_MEMBER_ORDER.length : ia;
+    const rb = ib === -1 ? CLUB_MEMBER_ORDER.length : ib;
+    if (ra !== rb) return ra - rb;
+    return (a.jmeno||'').localeCompare(b.jmeno||'');
+  });
+  list.innerHTML = sortedMembers.map(m => {
     const rs = state.ratings.filter(r => r.clen === m.jmeno);
     const avg = rs.length ? (rs.reduce((s,r)=>s+Number(r.celkem||0),0)/rs.length).toFixed(1) : '–';
     return `

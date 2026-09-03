@@ -606,10 +606,33 @@ function openRumDetail(rumId) {
       <button class="btn btn-primary" onclick="closeRumDetail(); goTab('degustace'); presetRatingRum('${rum.id}')">+ Přidat hodnocení</button>
     </div>
     `}
+    ${isAdmin ? `
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn btn-danger" onclick="deleteRum('${rum.id}')">Smazat rum</button>
+    </div>
+    ` : ''}
   `;
   document.getElementById('rumDetailOverlay').hidden = false;
 }
 function closeRumDetail() { document.getElementById('rumDetailOverlay').hidden = true; }
+
+async function deleteRum(rumId) {
+  if (!isAdmin) return;
+  const rum = state.rums.find(r => r.id === rumId);
+  if (!rum) return;
+  const relatedRatings = state.ratings.filter(r => r.rumId === rumId);
+  const warn = relatedRatings.length
+    ? `Opravdu smazat rum "${rum.nazev}${rum.znacka?' – '+rum.znacka:''}"? Smaže se i všech ${relatedRatings.length} hodnocení k němu.`
+    : `Opravdu smazat rum "${rum.nazev}${rum.znacka?' – '+rum.znacka:''}"?`;
+  if (!confirm(warn)) return;
+  const batch = db.batch();
+  batch.delete(db.collection('rums').doc(rumId));
+  relatedRatings.forEach(r => batch.delete(db.collection('ratings').doc(r.id)));
+  await batch.commit();
+  closeRumDetail();
+  toast('Rum smazán');
+  logChange('Smazán rum', `${rum.nazev}${rum.znacka?' – '+rum.znacka:''}${relatedRatings.length?' (+'+relatedRatings.length+' hodnocení)':''}`);
+}
 
 /* ---------------- DEGUSTACE (add rating) tab ---------------- */
 function presetRatingRum(rumId) {

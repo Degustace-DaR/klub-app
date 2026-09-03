@@ -369,7 +369,7 @@
   <div class="view" id="view-wishlist">
     <h2 class="view-title">Wishlist</h2>
     <div class="filter-chips" id="wishFilters"></div>
-    <button class="btn btn-ghost" style="margin-bottom:12px;" onclick="toggleWishForm()">+ Přidat kandidáta</button>
+    <button class="btn btn-ghost" id="wishToggleBtn" style="margin-bottom:12px;" onclick="toggleWishForm()">+ Přidat kandidáta</button>
     <div class="card" id="wishForm" hidden></div>
     <div id="wishList"></div>
   </div>
@@ -874,19 +874,24 @@ function toggleWishForm() {
   ui.wishFormOpen = !ui.wishFormOpen;
   const el = document.getElementById('wishForm');
   el.hidden = !ui.wishFormOpen;
+  document.getElementById('wishToggleBtn').hidden = ui.wishFormOpen;
   if (ui.wishFormOpen) {
     el.innerHTML = `
-      <div class="field"><label>Značka</label><input class="input" id="wishZnacka"></div>
+      <div class="field"><label>Značka rumu</label><input class="input" id="wishZnacka" placeholder="např. HAVANA CLUB"></div>
       <div class="row2">
-        <div class="field"><label>Název</label><input class="input" id="wishNazev"></div>
+        <div class="field"><label>Název rumu</label><input class="input" id="wishNazev" placeholder="Anejo Especial"></div>
         <div class="field"><label>Původ</label><input class="input" id="wishPuvod"></div>
       </div>
       <div class="row2">
-        <div class="field"><label>Cena (Kč)</label><input class="input" type="number" id="wishCena"></div>
-        <div class="field"><label>Cukr (g/l)</label><input class="input" type="number" id="wishCukr"></div>
+        <div class="field"><label>Cena</label><input class="input" type="number" id="wishCena"></div>
+        <div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="wishAbv" placeholder="40"></div>
       </div>
+      <div class="field"><label>Cukr (g/l)</label><input class="input" type="number" id="wishCukr"></div>
       <div class="field"><label>Poznámka</label><textarea class="input" id="wishPoznamka"></textarea></div>
-      <button class="btn btn-primary" onclick="addWish()">Přidat na wishlist</button>
+      <div class="btn-row" style="margin-top:4px;">
+        <button class="btn btn-primary btn-sm" onclick="addWish()">Přidat na wishlist</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleWishForm()">Zrušit</button>
+      </div>
     `;
   }
 }
@@ -894,11 +899,13 @@ function toggleWishForm() {
 async function addWish() {
   const nazev = document.getElementById('wishNazev').value.trim();
   if (!nazev) { toast('Zadej název'); return; }
+  const abv = document.getElementById('wishAbv').value;
   await db.collection('wishlist').add({
     znacka: document.getElementById('wishZnacka').value.trim(),
     nazev,
     puvod: document.getElementById('wishPuvod').value.trim(),
     cena: Number(document.getElementById('wishCena').value) || null,
+    abv: abv ? Number(abv) : null,
     cukr: Number(document.getElementById('wishCukr').value) || null,
     poznamka: document.getElementById('wishPoznamka').value.trim(),
     priorita: 'střední', stav: 'kandidát', _seq: Date.now(),
@@ -923,12 +930,18 @@ function renderWishlist() {
   if (ui.wishFilter !== 'vše') rows = rows.filter(w => (w.stav||'kandidát') === ui.wishFilter);
   const list = document.getElementById('wishList');
   if (rows.length === 0) { list.innerHTML = '<div class="empty-note">Nic tu není.</div>'; return; }
-  list.innerHTML = rows.map(w => `
+  list.innerHTML = rows.map(w => {
+    const subParts = [];
+    if (w.abv) subParts.push(esc(String(w.abv))+'% obj.');
+    if (w.puvod) subParts.push('<span class="origin-badge">'+esc(w.puvod)+'</span>');
+    if (w.cena) subParts.push(esc(String(w.cena))+' Kč');
+    if (w.cukr!=null) subParts.push('cukr '+esc(String(w.cukr))+' g/l');
+    return `
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <div>
-          <div class="rum-name">${esc(w.nazev)} ${w.znacka?'<span class="muted" style="font-weight:400;">– '+esc(w.znacka)+'</span>':''}</div>
-          <div class="rum-sub">${w.puvod?'<span class="origin-badge">'+esc(w.puvod)+'</span>':''}${w.cena?esc(String(w.cena))+' Kč':''}${w.cukr!=null?' · cukr '+esc(String(w.cukr))+' g/l':''}</div>
+          <div class="rum-name">${esc(w.znacka)} ${w.nazev?'<span class="muted" style="font-weight:400;">– '+esc(w.nazev)+'</span>':''}</div>
+          <div class="rum-sub">${subParts.join(' · ')}</div>
           ${w.poznamka ? '<div class="muted" style="font-size:12.5px;margin-top:4px;">'+esc(w.poznamka)+'</div>' : ''}
         </div>
         <span class="status-pill status-${(w.stav||'kandidát').replace('á','a').replace('í','i')}">${esc(w.stav||'kandidát')}</span>
@@ -940,7 +953,8 @@ function renderWishlist() {
         <button class="btn btn-danger btn-sm" style="flex:0 0 auto;" onclick="deleteWish('${w.id}')">Smazat</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 /* ---------------- KLUB tab ---------------- */

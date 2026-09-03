@@ -224,6 +224,9 @@
   }
   .recent-item { display:flex; justify-content:space-between; font-size:13.5px; padding:8px 0; border-bottom:1px solid var(--line); }
   .recent-item:last-child { border-bottom:none; }
+  .recent-item.clickable { cursor:pointer; }
+  .recent-item.clickable:active { background: var(--surface-2, rgba(0,0,0,0.04)); }
+  .recent-list-scroll { max-height: 265px; overflow-y: auto; }
 
   /* ledger */
   .balance-hero { text-align:center; padding: 18px 10px; }
@@ -871,13 +874,33 @@ async function submitRating() {
 
 function renderRecentRatings() {
   const el = document.getElementById('recentRatings');
-  const recent = [...state.ratings].sort((a,b)=>(b._seq||0)-(a._seq||0)).slice(0,8);
+  const recent = [...state.ratings].sort((a,b)=>(b._seq||0)-(a._seq||0)).slice(0,100);
   if (recent.length === 0) { el.innerHTML = ''; return; }
+  const editable = !isGuest;
   el.innerHTML = '<div class="muted" style="font-size:12px;margin-bottom:6px;">Naposledy přidáno</div>' +
+    '<div class="recent-list-scroll">' +
     recent.map(r => {
       const rum = state.rums.find(x=>x.id===r.rumId);
-      return `<div class="recent-item"><span>${esc(r.clen)} – ${esc(rum?rum.nazev:'?')}</span><b>${r.celkem}</b></div>`;
-    }).join('');
+      const cls = 'recent-item' + (editable ? ' clickable' : '');
+      const click = editable ? ` onclick="editRecentRating('${r.id}')"` : '';
+      return `<div class="${cls}"${click}><span>${esc(r.clen)} – ${esc(rum?rum.nazev:'?')}</span><b>${r.celkem}</b></div>`;
+    }).join('') +
+    '</div>';
+}
+
+function editRecentRating(ratingId) {
+  if (isGuest) return;
+  const r = state.ratings.find(x => x.id === ratingId);
+  if (!r) return;
+  ui.selectedRatingRumId = r.rumId;
+  ui.selectedMember = r.clen;
+  ui.scores = {
+    barva: Number(r.barva)||15, aroma: Number(r.aroma)||15, chut: Number(r.chut)||15,
+    plnost: Number(r.plnost)||15, dojezd: Number(r.dojezd)||15
+  };
+  ui.showNewRum = false;
+  renderDegustaceForm();
+  document.getElementById('degustaceForm').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 /* ---------------- UCET tab ---------------- */

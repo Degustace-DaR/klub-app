@@ -641,6 +641,16 @@ async function deleteRum(rumId) {
 }
 
 /* ---------------- DEGUSTACE (add rating) tab ---------------- */
+function backToRatingStart() {
+  ui.selectedRatingRumId = null;
+  ui.selectedMember = currentUser || null;
+  ui.showNewRum = false;
+  ui.showNewMember = false;
+  ui.scores = { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 };
+  renderDegustaceForm();
+  document.getElementById('view-degustace').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function presetRatingRum(rumId) {
   ui.selectedRatingRumId = rumId;
   renderDegustaceForm();
@@ -713,7 +723,7 @@ function renderDegustaceForm() {
     html += '</div>';
     html += `<div class="total-box"><span class="muted">Celkem</span><span class="num">${total}</span></div>`;
     html += `<button class="btn btn-primary" onclick="submitRating()">${dup ? 'Přepsat hodnocení' : 'Uložit hodnocení'}</button>`;
-    html += `<div class="btn-row" style="margin-top:8px;"><button class="btn btn-ghost" onclick="goTab('rumy')">← Zpět</button></div>`;
+    html += `<div class="btn-row" style="margin-top:8px;"><button class="btn btn-ghost" onclick="backToRatingStart()">← Zpět</button></div>`;
   }
   html += '</div>';
 

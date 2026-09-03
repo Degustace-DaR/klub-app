@@ -328,6 +328,7 @@
     <button class="tab-btn" data-tab="degustace" onclick="goTab('degustace')">➕ Hodnocení</button>
     <button class="tab-btn" data-tab="ucet" onclick="goTab('ucet')">💰 Účet</button>
     <button class="tab-btn" data-tab="wishlist" onclick="goTab('wishlist')">⭐ Wishlist</button>
+    <button class="tab-btn" data-tab="humidor" onclick="goTab('humidor')">🚬 Humidor</button>
     <button class="tab-btn" data-tab="statistika" onclick="goTab('statistika')">📊 Statistika</button>
   </nav>
 </header>
@@ -393,6 +394,21 @@
     <div id="wishList"></div>
   </div>
 
+  <div class="view" id="view-humidor">
+    <h2 class="view-title">Humidor</h2>
+    <div class="search-row">
+      <input class="input" id="cigarSearch" placeholder="Hledat podle výrobce, modelu…" oninput="renderHumidor()">
+      <select class="input" id="cigarSort" onchange="renderHumidor()">
+        <option value="new" selected>Nejnovější</option>
+        <option value="zbyva">Nejvíc zbývá</option>
+        <option value="vykoureno">Nejvíc vykouřeno</option>
+        <option value="name">Podle názvu</option>
+      </select>
+    </div>
+    <div id="cigarList"></div>
+    <div class="card" id="newCigarSection" style="margin-top:16px;"></div>
+  </div>
+
   <div class="view" id="view-statistika">
     <h2 class="view-title">Statistika</h2>
     <div class="stat-filters">
@@ -427,6 +443,10 @@
 
 <div class="overlay" id="rumDetailOverlay" hidden onclick="if(event.target===this) closeRumDetail()">
   <div class="sheet" id="rumDetailSheet"></div>
+</div>
+
+<div class="overlay" id="cigarDetailOverlay" hidden onclick="if(event.target===this) closeCigarDetail()">
+  <div class="sheet" id="cigarDetailSheet"></div>
 </div>
 
 <div class="overlay" id="ledgerEditOverlay" hidden onclick="if(event.target===this) closeLedgerEdit()">
@@ -489,7 +509,7 @@ let db = null;
 let isGuest = false;
 let isAdmin = false;
 let currentUser = null;
-let state = { members: [], rums: [], ratings: [], ledger: [], wishlist: [] };
+let state = { members: [], rums: [], ratings: [], ledger: [], wishlist: [], cigars: [], cigarLog: [] };
 let ui = {
   tab: 'rumy',
   selectedRatingRumId: null,
@@ -503,6 +523,13 @@ let ui = {
   detailRumId: null,
   statMember: 'vse',
   statOrigin: 'vse',
+  showNewCigarHumidor: false,
+  detailCigarId: null,
+  cigarShowNakupForm: false,
+  cigarShowLogForm: false,
+  cigarLogMember: null,
+  cigarLogDatum: null,
+  editingCigarLogId: null,
 };
 
 function uid(prefix) {
@@ -524,6 +551,7 @@ function goTab(tab) {
   if (tab === 'degustace') renderDegustaceForm();
   if (tab === 'ucet') renderUcet();
   if (tab === 'wishlist') renderWishlist();
+  if (tab === 'humidor') renderHumidor();
   if (tab === 'statistika') renderStatistika();
   if (tab === 'info') renderInfo();
   if (tab === 'klub') renderKlub();
@@ -1157,6 +1185,319 @@ function renderWishlist() {
   }).join('');
 }
 
+/* ---------------- HUMIDOR tab ---------------- */
+function cigarKoupeno(cigar) {
+  return (cigar.nakupy || []).reduce((s, n) => s + (Number(n.pocet) || 0), 0);
+}
+
+function cigarLatestCenaKs(cigar) {
+  const nakupy = cigar.nakupy || [];
+  if (nakupy.length === 0) return null;
+  const sorted = [...nakupy].sort((a, b) => (a.datum || '').localeCompare(b.datum || ''));
+  return sorted[sorted.length - 1].cena_ks || null;
+}
+
+function cigarLogSorted(cigarId) {
+  return state.cigarLog.filter(l => l.cigarId === cigarId).sort((a, b) => (a.cislo || 0) - (b.cislo || 0));
+}
+
+function cigarLastSmoked(cigarId) {
+  const logs = cigarLogSorted(cigarId);
+  return logs.length ? logs[logs.length - 1] : null;
+}
+
+function sortedActiveMembers() {
+  return state.members.filter(m => m.aktivni !== false).slice().sort((a, b) => {
+    const ia = CLUB_MEMBER_ORDER.indexOf(a.jmeno), ib = CLUB_MEMBER_ORDER.indexOf(b.jmeno);
+    const ra = ia === -1 ? CLUB_MEMBER_ORDER.length : ia;
+    const rb = ib === -1 ? CLUB_MEMBER_ORDER.length : ib;
+    return ra !== rb ? ra - rb : a.jmeno.localeCompare(b.jmeno, 'cs');
+  });
+}
+
+function renderHumidor() {
+  const search = (document.getElementById('cigarSearch').value || '').toLowerCase();
+  const sort = document.getElementById('cigarSort').value;
+  let rows = state.cigars.map(c => {
+    const koupeno = cigarKoupeno(c);
+    const vykoureno = state.cigarLog.filter(l => l.cigarId === c.id).length;
+    return { cigar: c, koupeno, vykoureno, zbyva: koupeno - vykoureno };
+  });
+  if (search) {
+    rows = rows.filter(({ cigar }) =>
+      (cigar.vyrobce || '').toLowerCase().includes(search) ||
+      (cigar.model || '').toLowerCase().includes(search)
+    );
+  }
+  rows.sort((a, b) => {
+    if (sort === 'name') return (a.cigar.vyrobce || '').localeCompare(b.cigar.vyrobce || '');
+    if (sort === 'zbyva') return b.zbyva - a.zbyva;
+    if (sort === 'vykoureno') return b.vykoureno - a.vykoureno;
+    return (b.cigar._seq || 0) - (a.cigar._seq || 0);
+  });
+
+  const list = document.getElementById('cigarList');
+  renderNewCigarSection();
+  if (rows.length === 0) {
+    list.innerHTML = '<div class="empty-note">Žádný doutník neodpovídá hledání.</div>';
+    return;
+  }
+  list.innerHTML = rows.map(({ cigar, koupeno, zbyva }) => {
+    const last = cigarLastSmoked(cigar.id);
+    const cenaKs = cigarLatestCenaKs(cigar);
+    const subBits = [];
+    if (cenaKs) subBits.push(Math.round(cenaKs) + ' Kč/ks');
+    if (last) subBits.push('naposledy ' + esc(last.datum || '') + ' – ' + esc(last.clen || ''));
+    const zbyvaClass = zbyva <= 0 ? 'score-none' : (zbyva <= 2 ? 'score-mid' : 'score-good');
+    return `
+    <div class="card rum-card" onclick="openCigarDetail('${cigar.id}')">
+      <div class="rum-main">
+        <div class="rum-name">${esc(cigar.vyrobce)}${cigar.model ? ' <span class="muted" style="font-weight:400;font-size:0.85em;">– ' + esc(cigar.model) + '</span>' : ''}</div>
+        <div class="rum-sub">${subBits.join(' · ')}</div>
+      </div>
+      <div class="rum-score">
+        <div class="num ${zbyvaClass}">${zbyva}</div>
+        <div class="cnt">z ${koupeno} ks</div>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+function renderNewCigarSection() {
+  const el = document.getElementById('newCigarSection');
+  if (!el) return;
+  if (isGuest) { el.innerHTML = ''; return; }
+  if (!ui.showNewCigarHumidor) {
+    el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewCigarHumidor=true; renderNewCigarSection();">+ Nový doutník, který ještě není v seznamu</button>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="field"><label>Výrobce</label><input class="input" id="newCigarVyrobce" placeholder="např. ALEC BRADLEY"></div>
+    <div class="field"><label>Model / vitola</label><input class="input" id="newCigarModel" placeholder="Robusto"></div>
+    <div class="row2">
+      <div class="field"><label>Datum nákupu</label><input class="input" type="date" id="newCigarDatum" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Počet ks</label><input class="input" type="number" id="newCigarPocet" placeholder="7"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Cena/ks</label><input class="input" type="number" id="newCigarCenaKs" placeholder="190"></div>
+      <div class="field"><label>Cena celkem za nákup</label><input class="input" type="number" id="newCigarCenaCelkem" placeholder="1177"></div>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button class="btn btn-primary btn-sm" onclick="createNewCigar()">Přidat doutník</button>
+      <button class="btn btn-ghost btn-sm" onclick="ui.showNewCigarHumidor=false; renderNewCigarSection();">Zpět</button>
+    </div>`;
+}
+
+async function createNewCigar() {
+  const vyrobce = document.getElementById('newCigarVyrobce').value.trim();
+  if (!vyrobce) { toast('Zadej výrobce'); return; }
+  const model = document.getElementById('newCigarModel').value.trim();
+  const datum = document.getElementById('newCigarDatum').value;
+  const pocet = Number(document.getElementById('newCigarPocet').value) || 0;
+  const cenaKs = Number(document.getElementById('newCigarCenaKs').value) || null;
+  const cenaCelkem = Number(document.getElementById('newCigarCenaCelkem').value) || null;
+  const nakupy = pocet > 0 ? [{ datum, pocet, cena_ks: cenaKs, cena_celkem: cenaCelkem }] : [];
+  await db.collection('cigars').add({ vyrobce, model, nakupy, poznamka: '', _seq: Date.now() });
+  ui.showNewCigarHumidor = false;
+  toast('Doutník přidán do humidoru');
+  logChange('Přidán doutník', `${vyrobce}${model ? ' – ' + model : ''}`);
+}
+
+function openCigarDetail(cigarId) {
+  ui.detailCigarId = cigarId;
+  ui.cigarShowNakupForm = false;
+  ui.cigarShowLogForm = false;
+  ui.cigarLogMember = currentUser || null;
+  ui.cigarLogDatum = null;
+  ui.editingCigarLogId = null;
+  renderCigarDetail();
+  document.getElementById('cigarDetailOverlay').hidden = false;
+}
+function closeCigarDetail() { document.getElementById('cigarDetailOverlay').hidden = true; }
+
+function renderCigarLogRowHtml(l) {
+  if (!isGuest && ui.editingCigarLogId === l.id) {
+    const members = sortedActiveMembers().map(m => m.jmeno);
+    if (!members.includes(l.clen)) members.push(l.clen);
+    return `
+      <div class="card" style="margin:8px 0;">
+        <div class="row2">
+          <div class="field"><label>Datum</label><input class="input" type="date" id="editCigarLogDatum" value="${esc(l.datum || '')}"></div>
+          <div class="field"><label>Kdo</label>
+            <select class="input" id="editCigarLogClen">
+              ${members.map(name => `<option value="${esc(name)}" ${l.clen === name ? 'selected' : ''}>${esc(name)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary btn-sm" onclick="saveCigarLogEdit('${l.id}')">Uložit</button>
+          <button class="btn btn-ghost btn-sm" onclick="ui.editingCigarLogId=null; renderCigarDetail();">Zpět</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCigarLogEntry('${l.id}')">Smazat</button>
+        </div>
+      </div>`;
+  }
+  const click = isGuest ? '' : ` onclick="ui.editingCigarLogId='${l.id}'; renderCigarDetail();"`;
+  const style = isGuest ? ' style="cursor:default;"' : '';
+  return `<div class="ledger-row"${click}${style}><span class="stat-row-main">č. ${l.cislo} · ${esc(l.datum || '')}</span><span>${esc(l.clen || '')}</span></div>`;
+}
+
+function renderCigarLogFormHtml() {
+  if (!ui.cigarShowLogForm) {
+    return `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.cigarShowLogForm=true; if(!ui.cigarLogMember) ui.cigarLogMember=currentUser||null; renderCigarDetail();">+ Zapsat vykouření</button>`;
+  }
+  const members = sortedActiveMembers();
+  const datumVal = ui.cigarLogDatum || new Date().toISOString().slice(0, 10);
+  return `
+    <div class="card" style="margin-top:8px;">
+      <div class="field"><label>Kdo kouřil</label><div class="member-chips">
+        ${members.map(m => `<button class="member-chip ${ui.cigarLogMember === m.jmeno ? 'active' : ''}" onclick="ui.cigarLogDatum=document.getElementById('newCigarLogDatum').value; ui.cigarLogMember='${esc(m.jmeno).replace(/'/g,"\\'")}'; renderCigarDetail();">${esc(m.jmeno)}</button>`).join('')}
+      </div></div>
+      <div class="field"><label>Datum</label><input class="input" type="date" id="newCigarLogDatum" value="${datumVal}"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-sm" onclick="submitCigarLog()">Zapsat</button>
+        <button class="btn btn-ghost btn-sm" onclick="ui.cigarShowLogForm=false; renderCigarDetail();">Zpět</button>
+      </div>
+    </div>`;
+}
+
+async function submitCigarLog() {
+  const cigar = state.cigars.find(c => c.id === ui.detailCigarId);
+  if (!cigar || !ui.cigarLogMember) { toast('Vyber, kdo kouřil'); return; }
+  const datum = document.getElementById('newCigarLogDatum').value;
+  const existing = cigarLogSorted(cigar.id);
+  const cislo = existing.length ? existing[existing.length - 1].cislo + 1 : 1;
+  await db.collection('cigar_log').add({ cigarId: cigar.id, cislo, datum, clen: ui.cigarLogMember, _seq: Date.now() });
+  ui.cigarShowLogForm = false;
+  ui.cigarLogDatum = null;
+  toast('Vykouření zapsáno');
+  logChange('Zapsáno vykouření doutníku', `${ui.cigarLogMember} → ${cigar.vyrobce}${cigar.model ? ' – ' + cigar.model : ''} (č. ${cislo})`);
+  renderCigarDetail();
+}
+
+async function saveCigarLogEdit(logId) {
+  const datum = document.getElementById('editCigarLogDatum').value;
+  const clen = document.getElementById('editCigarLogClen').value;
+  await db.collection('cigar_log').doc(logId).update({ datum, clen });
+  ui.editingCigarLogId = null;
+  toast('Záznam upraven');
+  logChange('Upraven záznam kouření', `${clen} (${datum})`);
+  renderCigarDetail();
+}
+
+async function deleteCigarLogEntry(logId) {
+  if (!confirm('Opravdu smazat tenhle záznam kouření?')) return;
+  const l = state.cigarLog.find(x => x.id === logId);
+  await db.collection('cigar_log').doc(logId).delete();
+  ui.editingCigarLogId = null;
+  toast('Záznam smazán');
+  logChange('Smazán záznam kouření', l ? `${l.clen} (č. ${l.cislo})` : logId);
+  renderCigarDetail();
+}
+
+function renderCigarNakupFormHtml() {
+  if (!ui.cigarShowNakupForm) {
+    return `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.cigarShowNakupForm=true; renderCigarDetail();">+ Přidat nákup (dokoupení)</button>`;
+  }
+  return `
+    <div class="card" style="margin-top:8px;">
+      <div class="row2">
+        <div class="field"><label>Datum</label><input class="input" type="date" id="newCigarNakupDatum" value="${new Date().toISOString().slice(0,10)}"></div>
+        <div class="field"><label>Počet ks</label><input class="input" type="number" id="newCigarNakupPocet" placeholder="7"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Cena/ks</label><input class="input" type="number" id="newCigarNakupCenaKs"></div>
+        <div class="field"><label>Cena celkem</label><input class="input" type="number" id="newCigarNakupCenaCelkem"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-sm" onclick="addCigarNakup()">Přidat nákup</button>
+        <button class="btn btn-ghost btn-sm" onclick="ui.cigarShowNakupForm=false; renderCigarDetail();">Zpět</button>
+      </div>
+    </div>`;
+}
+
+async function addCigarNakup() {
+  const cigar = state.cigars.find(c => c.id === ui.detailCigarId);
+  if (!cigar) return;
+  const datum = document.getElementById('newCigarNakupDatum').value;
+  const pocet = Number(document.getElementById('newCigarNakupPocet').value) || 0;
+  if (!pocet) { toast('Zadej počet kusů'); return; }
+  const cenaKs = Number(document.getElementById('newCigarNakupCenaKs').value) || null;
+  const cenaCelkem = Number(document.getElementById('newCigarNakupCenaCelkem').value) || null;
+  const nakupy = [...(cigar.nakupy || []), { datum, pocet, cena_ks: cenaKs, cena_celkem: cenaCelkem }];
+  await db.collection('cigars').doc(cigar.id).update({ nakupy });
+  ui.cigarShowNakupForm = false;
+  toast('Nákup přidán');
+  logChange('Přidán nákup doutníků', `${cigar.vyrobce}${cigar.model ? ' – ' + cigar.model : ''} (${pocet} ks)`);
+  renderCigarDetail();
+}
+
+function renderCigarDetail() {
+  const cigar = state.cigars.find(c => c.id === ui.detailCigarId);
+  if (!cigar) { closeCigarDetail(); return; }
+  const koupeno = cigarKoupeno(cigar);
+  const logs = cigarLogSorted(cigar.id);
+  const vykoureno = logs.length;
+  const zbyva = koupeno - vykoureno;
+  const cenaKs = cigarLatestCenaKs(cigar);
+  const zbyvaClass = zbyva <= 0 ? 'score-none' : (zbyva <= 2 ? 'score-mid' : 'score-good');
+
+  const html = `
+    <div class="sheet-head">
+      <div>
+        <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.6rem;margin:0;">${esc(cigar.vyrobce)}</h2>
+        ${cigar.model ? `<div style="font-size:16px;font-weight:500;color:var(--ink-soft);margin-top:3px;">${esc(cigar.model)}</div>` : ''}
+      </div>
+      <button class="sheet-close" onclick="closeCigarDetail()">×</button>
+    </div>
+    <div style="text-align:center; margin: 10px 0 18px;">
+      <div class="num ${zbyvaClass}" style="font-family:var(--font-display);font-weight:700;font-size:2.2rem;">${zbyva}</div>
+      <div class="muted" style="font-size:12px;">zbývá ks z ${koupeno} nakoupených${cenaKs ? ' · ' + Math.round(cenaKs) + ' Kč/ks' : ''}</div>
+    </div>
+
+    <div class="stat-section-title" style="margin-top:4px;">Nákupy</div>
+    ${cigar.nakupy && cigar.nakupy.length ? cigar.nakupy.map(n => `
+      <div class="stat-row">
+        <span class="stat-row-main">${esc(n.datum || '')} · ${esc(String(n.pocet || 0))} ks</span>
+        <span class="stat-row-sub">${n.cena_celkem ? esc(String(n.cena_celkem)) + ' Kč celkem' : ''}${n.cena_ks ? ' (' + esc(String(n.cena_ks)) + ' Kč/ks)' : ''}</span>
+      </div>
+    `).join('') : '<div class="empty-note" style="padding:14px 0;">Zatím žádný nákup.</div>'}
+    ${isGuest ? '' : renderCigarNakupFormHtml()}
+
+    <div class="stat-section-title">Kouření</div>
+    ${logs.length ? logs.map(l => renderCigarLogRowHtml(l)).join('') : '<div class="empty-note" style="padding:14px 0;">Zatím nikdo nekouřil.</div>'}
+    ${isGuest ? '' : renderCigarLogFormHtml()}
+
+    <div class="btn-row" style="margin-top:18px;">
+      <button class="btn btn-ghost" onclick="closeCigarDetail()">← Zpět</button>
+    </div>
+    ${isAdmin ? `
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn btn-danger" onclick="deleteCigar('${cigar.id}')">Smazat doutník</button>
+    </div>
+    ` : ''}
+  `;
+  document.getElementById('cigarDetailSheet').innerHTML = html;
+}
+
+async function deleteCigar(cigarId) {
+  if (!isAdmin) return;
+  const cigar = state.cigars.find(c => c.id === cigarId);
+  if (!cigar) return;
+  const relatedLog = state.cigarLog.filter(l => l.cigarId === cigarId);
+  const warn = relatedLog.length
+    ? `Opravdu smazat doutník "${cigar.vyrobce}${cigar.model ? ' – ' + cigar.model : ''}"? Smaže se i všech ${relatedLog.length} záznamů o kouření.`
+    : `Opravdu smazat doutník "${cigar.vyrobce}${cigar.model ? ' – ' + cigar.model : ''}"?`;
+  if (!confirm(warn)) return;
+  const batch = db.batch();
+  batch.delete(db.collection('cigars').doc(cigarId));
+  relatedLog.forEach(l => batch.delete(db.collection('cigar_log').doc(l.id)));
+  await batch.commit();
+  closeCigarDetail();
+  toast('Doutník smazán');
+  logChange('Smazán doutník', `${cigar.vyrobce}${cigar.model ? ' – ' + cigar.model : ''}${relatedLog.length ? ' (+' + relatedLog.length + ' záznamů)' : ''}`);
+}
+
 /* ---------------- STATISTIKA tab ---------------- */
 function statTile(val, lbl, small) {
   return `<div class="stat-tile"><div class="val${small?' small':''}">${val}</div><div class="lbl">${lbl}</div></div>`;
@@ -1290,6 +1631,7 @@ function renderInfo() {
       <div class="stat-row"><span class="stat-row-main">➕ Hodnocení</span><span class="stat-row-sub">zadání nové ochutnávky</span></div>
       <div class="stat-row"><span class="stat-row-main">💰 Účet</span><span class="stat-row-sub">zůstatek a transakce klubu</span></div>
       <div class="stat-row"><span class="stat-row-main">⭐ Wishlist</span><span class="stat-row-sub">tipy na příští nákup</span></div>
+      <div class="stat-row"><span class="stat-row-main">🚬 Humidor</span><span class="stat-row-sub">evidence doutníků a kouření</span></div>
       <div class="stat-row"><span class="stat-row-main">📊 Statistika</span><span class="stat-row-sub">přehledy a žebříčky</span></div>
       <div class="stat-row"><span class="stat-row-main">👥 Klub</span><span class="stat-row-sub">členové, export dat</span></div>
     </div>
@@ -1363,6 +1705,13 @@ async function exportToExcel() {
   addSheet('Hodnoceni', state.ratings);
   addSheet('Ucet', state.ledger);
   addSheet('Wishlist', state.wishlist);
+  addSheet('Humidor_doutniky', state.cigars.flatMap(c => (c.nakupy && c.nakupy.length ? c.nakupy : [{}]).map(n => ({
+    vyrobce: c.vyrobce || '', model: c.model || '', datum: n.datum || '', pocet: n.pocet || '', cena_ks: n.cena_ks || '', cena_celkem: n.cena_celkem || '',
+  }))));
+  addSheet('Humidor_koureni', state.cigarLog.map(l => {
+    const c = state.cigars.find(x => x.id === l.cigarId);
+    return { vyrobce: c ? c.vyrobce : '', model: c ? c.model : '', cislo: l.cislo, datum: l.datum || '', clen: l.clen || '' };
+  }));
   try {
     const snap = await db.collection('activity_log').orderBy('cas', 'desc').get();
     const logRows = snap.docs.map(d => {
@@ -1392,6 +1741,19 @@ async function maybeSeed() {
   await seedRef.set({ done: true, at: new Date().toISOString() });
 }
 
+const SEED_HUMIDOR = {"cigars":[{"id":"cigar_1","vyrobce":"FLOR DE LAS ANTILLAS","model":"Toro","nakupy":[{"datum":"2025-02-06","pocet":10,"cena_ks":210.0,"cena_celkem":1880}],"poznamka":""},{"id":"cigar_2","vyrobce":"ALEC BRADLEY","model":"Black Market Esteli Robusto","nakupy":[{"datum":"2025-04-03","pocet":7,"cena_ks":180.0,"cena_celkem":1088}],"poznamka":""},{"id":"cigar_3","vyrobce":"ALEC BRADLEY","model":"Kintsugi Robusto","nakupy":[{"datum":"2025-04-03","pocet":7,"cena_ks":200.0,"cena_celkem":1239}],"poznamka":""},{"id":"cigar_4","vyrobce":"ALEC BRADLEY","model":"Project 40 Robusto","nakupy":[{"datum":"2025-04-03","pocet":7,"cena_ks":155.0,"cena_celkem":931}],"poznamka":""},{"id":"cigar_5","vyrobce":"OLIVA","model":"Serie V Lancero","nakupy":[{"datum":"2025-04-24","pocet":24,"cena_ks":160.0,"cena_celkem":3350}],"poznamka":""},{"id":"cigar_6","vyrobce":"PLASENCIA","model":"Reserva Original Piramide","nakupy":[{"datum":"2025-07-02","pocet":7,"cena_ks":245.0,"cena_celkem":1555}],"poznamka":""},{"id":"cigar_7","vyrobce":"INDIAN MOTORCYCLE","model":"Maduro Churchill","nakupy":[{"datum":"2025-07-02","pocet":7,"cena_ks":235.0,"cena_celkem":1485}],"poznamka":""},{"id":"cigar_8","vyrobce":"BLACKENED","model":"M81 Toro","nakupy":[{"datum":"2025-08-15","pocet":7,"cena_ks":310.0,"cena_celkem":2050},{"datum":"2026-08-20","pocet":20,"cena_ks":310.0,"cena_celkem":5500}],"poznamka":""},{"id":"cigar_9","vyrobce":"BLACKENED","model":"S84 Toro","nakupy":[{"datum":"2025-08-15","pocet":6,"cena_ks":310.0,"cena_celkem":1760},{"datum":"2026-08-20","pocet":20,"cena_ks":310.0,"cena_celkem":5500}],"poznamka":""},{"id":"cigar_10","vyrobce":"HENRY CLAY","model":"War Hawk Corona","nakupy":[{"datum":"2025-11-12","pocet":7,"cena_ks":182.0,"cena_celkem":1130}],"poznamka":""},{"id":"cigar_11","vyrobce":"ROCKY PATEL","model":"Decade Robusto","nakupy":[{"datum":"2025-11-12","pocet":7,"cena_ks":243.0,"cena_celkem":1550}],"poznamka":""},{"id":"cigar_12","vyrobce":"E.P. CARRILLO","model":"La Historia El Senador","nakupy":[{"datum":"2025-11-12","pocet":7,"cena_ks":233.0,"cena_celkem":1480}],"poznamka":""},{"id":"cigar_13","vyrobce":"PERDOMO","model":"Fresco Sun Grown Robusto","nakupy":[{"datum":"2025-11-12","pocet":7,"cena_ks":187.0,"cena_celkem":1165}],"poznamka":""},{"id":"cigar_14","vyrobce":"ALEC BRADLEY","model":"Gatekeeper Robusto","nakupy":[{"datum":"2025-12-17","pocet":7,"cena_ks":192.0,"cena_celkem":1195}],"poznamka":""},{"id":"cigar_15","vyrobce":"DON PEPIN","model":"Blue Original Invictos","nakupy":[{"datum":"2025-12-17","pocet":7,"cena_ks":227.0,"cena_celkem":1447}],"poznamka":""},{"id":"cigar_16","vyrobce":"LA ANTIGUEDAD","model":"Robusto","nakupy":[{"datum":"2025-12-17","pocet":7,"cena_ks":209.0,"cena_celkem":1324}],"poznamka":""},{"id":"cigar_17","vyrobce":"LA ANTIGUEDAD","model":"Toro","nakupy":[{"datum":"2025-12-17","pocet":7,"cena_ks":229.0,"cena_celkem":1464}],"poznamka":""},{"id":"cigar_18","vyrobce":"LA FLOR DOMINICANA","model":"Double Ligero Chiselito Maduro","nakupy":[{"datum":"2025-12-17","pocet":7,"cena_ks":161.0,"cena_celkem":977}],"poznamka":""},{"id":"cigar_19","vyrobce":"ALEC BRADLEY","model":"Black Market Perfecto","nakupy":[{"datum":"2026-02-11","pocet":7,"cena_ks":190.0,"cena_celkem":1169}],"poznamka":""},{"id":"cigar_20","vyrobce":"LA FLOR DOMINICANA","model":"Coronado Corona Especial","nakupy":[{"datum":"2026-02-11","pocet":7,"cena_ks":147.0,"cena_celkem":875}],"poznamka":""},{"id":"cigar_21","vyrobce":"ALEC BRADLEY","model":"Black Market Esteli Churchill","nakupy":[{"datum":"2026-02-11","pocet":7,"cena_ks":168.0,"cena_celkem":1022}],"poznamka":""},{"id":"cigar_22","vyrobce":"MY FATHER","model":"La Opulencia Corona","nakupy":[{"datum":"2026-02-11","pocet":7,"cena_ks":219.0,"cena_celkem":1379}],"poznamka":""},{"id":"cigar_23","vyrobce":"PLASENCIA","model":"Reserva Original Toro","nakupy":[{"datum":"2026-03-16","pocet":14,"cena_ks":187.0,"cena_celkem":2282}],"poznamka":""},{"id":"cigar_24","vyrobce":"PLASENCIA","model":"Reserva Original Corona","nakupy":[{"datum":"2026-03-16","pocet":14,"cena_ks":172.0,"cena_celkem":2072}],"poznamka":""},{"id":"cigar_25","vyrobce":"CUABA","model":"Exclusivos","nakupy":[{"datum":"2026-04-14","pocet":6,"cena_ks":230.0,"cena_celkem":2534}],"poznamka":""},{"id":"cigar_26","vyrobce":"JUAN LOPEZ","model":"Seleccion No.1","nakupy":[{"datum":"2026-04-14","pocet":6,"cena_ks":260.0,"cena_celkem":2714}],"poznamka":""},{"id":"cigar_27","vyrobce":"PUNCH","model":"Triunfos","nakupy":[{"datum":"2026-04-14","pocet":6,"cena_ks":205.0,"cena_celkem":2354}],"poznamka":""},{"id":"cigar_28","vyrobce":"LEAF BY OSCAR","model":"Corojo Toro","nakupy":[{"datum":"2026-08-18","pocet":10,"cena_ks":235.0,"cena_celkem":2130}],"poznamka":""},{"id":"cigar_29","vyrobce":"LEAF BY OSCAR","model":"Sumatra Toro","nakupy":[{"datum":"2026-08-18","pocet":10,"cena_ks":285.0,"cena_celkem":2630}],"poznamka":""},{"id":"cigar_30","vyrobce":"ALEC BRADLEY","model":"Blind Faith Robusto","nakupy":[{"datum":"6.2.2025/3.4.2025","pocet":7,"cena_ks":190.0,"cena_celkem":1177}],"poznamka":""},{"id":"cigar_31","vyrobce":"ALEC BRADLEY","model":"American Sun Grown Robusto","nakupy":[{"datum":"6.2.2025/3.4.2025","pocet":7,"cena_ks":155.0,"cena_celkem":919}],"poznamka":""},{"id":"cigar_32","vyrobce":"FLOR DE LAS ANTILLAS","model":"Robusto","nakupy":[{"datum":"6.2.2025/3.4.2025","pocet":7,"cena_ks":205.0,"cena_celkem":1273}],"poznamka":""}],"log":[{"id":"cigarlog_1","cigarId":"cigar_1","cislo":1,"datum":"2025-04-30","clen":"Broněk"},{"id":"cigarlog_2","cigarId":"cigar_1","cislo":2,"datum":"2025-04-30","clen":"Broněk"},{"id":"cigarlog_3","cigarId":"cigar_1","cislo":3,"datum":"2025-04-30","clen":"Tonda"},{"id":"cigarlog_4","cigarId":"cigar_1","cislo":4,"datum":"2025-04-30","clen":"Mirek"},{"id":"cigarlog_5","cigarId":"cigar_1","cislo":5,"datum":"2025-07-18","clen":"Jirka"},{"id":"cigarlog_6","cigarId":"cigar_1","cislo":6,"datum":"2026-04-03","clen":"Jirka"},{"id":"cigarlog_7","cigarId":"cigar_1","cislo":7,"datum":"2026-04-03","clen":"Mirek"},{"id":"cigarlog_8","cigarId":"cigar_1","cislo":8,"datum":"2026-04-03","clen":"Tonda"},{"id":"cigarlog_9","cigarId":"cigar_1","cislo":9,"datum":"2026-06-19","clen":"Michal"},{"id":"cigarlog_10","cigarId":"cigar_1","cislo":10,"datum":"2026-06-19","clen":"Tomáš"},{"id":"cigarlog_11","cigarId":"cigar_2","cislo":1,"datum":"2025-07-18","clen":"Tomáš"},{"id":"cigarlog_12","cigarId":"cigar_2","cislo":2,"datum":"2025-07-18","clen":"Tonda"},{"id":"cigarlog_13","cigarId":"cigar_2","cislo":3,"datum":"2025-07-18","clen":"Broněk"},{"id":"cigarlog_14","cigarId":"cigar_2","cislo":4,"datum":"2025-07-18","clen":"Jirka"},{"id":"cigarlog_15","cigarId":"cigar_2","cislo":5,"datum":"2025-07-18","clen":"Mirek"},{"id":"cigarlog_16","cigarId":"cigar_2","cislo":6,"datum":"2025-07-18","clen":"Michal"},{"id":"cigarlog_17","cigarId":"cigar_2","cislo":7,"datum":"2026-01-02","clen":"Tonda"},{"id":"cigarlog_18","cigarId":"cigar_3","cislo":1,"datum":"2025-09-05","clen":"Broněk"},{"id":"cigarlog_19","cigarId":"cigar_3","cislo":2,"datum":"2025-09-05","clen":"Tomáš"},{"id":"cigarlog_20","cigarId":"cigar_3","cislo":3,"datum":"2025-09-05","clen":"Mirek"},{"id":"cigarlog_21","cigarId":"cigar_3","cislo":4,"datum":"2025-09-05","clen":"Michal"},{"id":"cigarlog_22","cigarId":"cigar_3","cislo":5,"datum":"2025-09-05","clen":"Tonda"},{"id":"cigarlog_23","cigarId":"cigar_3","cislo":6,"datum":"2025-09-05","clen":"Libor"},{"id":"cigarlog_24","cigarId":"cigar_3","cislo":7,"datum":"2025-09-05","clen":"Jirka"},{"id":"cigarlog_25","cigarId":"cigar_4","cislo":1,"datum":"2025-05-30","clen":"Broněk"},{"id":"cigarlog_26","cigarId":"cigar_4","cislo":2,"datum":"2025-05-30","clen":"Tomáš"},{"id":"cigarlog_27","cigarId":"cigar_4","cislo":3,"datum":"2025-05-30","clen":"Tonda"},{"id":"cigarlog_28","cigarId":"cigar_4","cislo":4,"datum":"2025-05-30","clen":"Mirek"},{"id":"cigarlog_29","cigarId":"cigar_4","cislo":5,"datum":"2025-07-18","clen":"Jirka"},{"id":"cigarlog_30","cigarId":"cigar_4","cislo":6,"datum":"2025-10-10","clen":"Mirek"},{"id":"cigarlog_31","cigarId":"cigar_4","cislo":7,"datum":"2026-01-02","clen":"Tomáš"},{"id":"cigarlog_32","cigarId":"cigar_5","cislo":1,"datum":"2025-04-30","clen":"Broněk"},{"id":"cigarlog_33","cigarId":"cigar_5","cislo":2,"datum":"2025-04-30","clen":"Tomáš"},{"id":"cigarlog_34","cigarId":"cigar_5","cislo":3,"datum":"2025-04-30","clen":"Tonda"},{"id":"cigarlog_35","cigarId":"cigar_5","cislo":4,"datum":"2025-04-30","clen":"Mirek"},{"id":"cigarlog_36","cigarId":"cigar_5","cislo":5,"datum":"2025-04-30","clen":"Michal"},{"id":"cigarlog_37","cigarId":"cigar_5","cislo":6,"datum":"2025-07-18","clen":"Jirka"},{"id":"cigarlog_38","cigarId":"cigar_5","cislo":7,"datum":"2025-10-10","clen":"Libor"},{"id":"cigarlog_39","cigarId":"cigar_5","cislo":8,"datum":"2025-10-10","clen":"Tomáš"},{"id":"cigarlog_40","cigarId":"cigar_5","cislo":9,"datum":"2025-10-10","clen":"Broněk"},{"id":"cigarlog_41","cigarId":"cigar_5","cislo":10,"datum":"2026-02-27","clen":"Broněk"},{"id":"cigarlog_42","cigarId":"cigar_5","cislo":11,"datum":"2026-02-27","clen":"Jirka"},{"id":"cigarlog_43","cigarId":"cigar_5","cislo":12,"datum":"2026-02-27","clen":"Mirek"},{"id":"cigarlog_44","cigarId":"cigar_5","cislo":13,"datum":"2026-02-27","clen":"Tomáš"},{"id":"cigarlog_45","cigarId":"cigar_5","cislo":14,"datum":"2026-02-27","clen":"Libor"},{"id":"cigarlog_46","cigarId":"cigar_5","cislo":15,"datum":"2026-06-19","clen":"Tomáš"},{"id":"cigarlog_47","cigarId":"cigar_6","cislo":1,"datum":"2025-07-18","clen":"Broněk"},{"id":"cigarlog_48","cigarId":"cigar_6","cislo":2,"datum":"2025-07-18","clen":"Libor"},{"id":"cigarlog_49","cigarId":"cigar_6","cislo":3,"datum":"2025-07-18","clen":"Jirka"},{"id":"cigarlog_50","cigarId":"cigar_6","cislo":4,"datum":"2025-07-18","clen":"Tomáš"},{"id":"cigarlog_51","cigarId":"cigar_6","cislo":5,"datum":"2025-07-18","clen":"Tonda"},{"id":"cigarlog_52","cigarId":"cigar_6","cislo":6,"datum":"2025-07-18","clen":"Mirek"},{"id":"cigarlog_53","cigarId":"cigar_6","cislo":7,"datum":"2025-07-18","clen":"Michal"},{"id":"cigarlog_54","cigarId":"cigar_7","cislo":1,"datum":"2025-07-18","clen":"Broněk"},{"id":"cigarlog_55","cigarId":"cigar_7","cislo":2,"datum":"2025-07-18","clen":"Jirka"},{"id":"cigarlog_56","cigarId":"cigar_7","cislo":3,"datum":"2025-07-18","clen":"Tonda"},{"id":"cigarlog_57","cigarId":"cigar_7","cislo":4,"datum":"2025-07-18","clen":"Tomáš"},{"id":"cigarlog_58","cigarId":"cigar_7","cislo":5,"datum":"2025-07-18","clen":"Mirek"},{"id":"cigarlog_59","cigarId":"cigar_8","cislo":1,"datum":"2025-09-05","clen":"Libor"},{"id":"cigarlog_60","cigarId":"cigar_8","cislo":2,"datum":"2025-09-05","clen":"Michal"},{"id":"cigarlog_61","cigarId":"cigar_8","cislo":3,"datum":"2025-09-05","clen":"Tonda"},{"id":"cigarlog_62","cigarId":"cigar_8","cislo":4,"datum":"2025-09-05","clen":"Tomáš"},{"id":"cigarlog_63","cigarId":"cigar_8","cislo":5,"datum":"2025-09-05","clen":"Broněk"},{"id":"cigarlog_64","cigarId":"cigar_8","cislo":6,"datum":"2025-09-05","clen":"Broněk"},{"id":"cigarlog_65","cigarId":"cigar_8","cislo":7,"datum":"2052-09-05","clen":"Jirka"},{"id":"cigarlog_66","cigarId":"cigar_9","cislo":1,"datum":"2025-09-05","clen":"Jirka"},{"id":"cigarlog_67","cigarId":"cigar_9","cislo":2,"datum":"2025-09-05","clen":"Broněk"},{"id":"cigarlog_68","cigarId":"cigar_9","cislo":3,"datum":"2025-09-05","clen":"Tomáš"},{"id":"cigarlog_69","cigarId":"cigar_9","cislo":4,"datum":"2025-09-05","clen":"Tonda"},{"id":"cigarlog_70","cigarId":"cigar_9","cislo":5,"datum":"2025-10-10","clen":"Tonda"},{"id":"cigarlog_71","cigarId":"cigar_9","cislo":6,"datum":"2025-10-13","clen":"Michal"},{"id":"cigarlog_72","cigarId":"cigar_10","cislo":1,"datum":"2025-11-14","clen":"Broněk"},{"id":"cigarlog_73","cigarId":"cigar_10","cislo":2,"datum":"2025-11-14","clen":"Tomáš"},{"id":"cigarlog_74","cigarId":"cigar_10","cislo":3,"datum":"2025-11-14","clen":"Tonda"},{"id":"cigarlog_75","cigarId":"cigar_10","cislo":4,"datum":"2025-11-14","clen":"Jirka"},{"id":"cigarlog_76","cigarId":"cigar_10","cislo":5,"datum":"2025-11-14","clen":"Mirek"},{"id":"cigarlog_77","cigarId":"cigar_10","cislo":6,"datum":"2025-11-14","clen":"Libor"},{"id":"cigarlog_78","cigarId":"cigar_10","cislo":7,"datum":"2026-01-02","clen":"Mirek"},{"id":"cigarlog_79","cigarId":"cigar_11","cislo":1,"datum":"2025-11-14","clen":"Broněk"},{"id":"cigarlog_80","cigarId":"cigar_11","cislo":2,"datum":"2025-11-14","clen":"Tomáš"},{"id":"cigarlog_81","cigarId":"cigar_11","cislo":3,"datum":"2025-11-14","clen":"Tonda"},{"id":"cigarlog_82","cigarId":"cigar_11","cislo":4,"datum":"2025-11-14","clen":"Jirka"},{"id":"cigarlog_83","cigarId":"cigar_11","cislo":5,"datum":"2025-11-14","clen":"Mirek"},{"id":"cigarlog_84","cigarId":"cigar_11","cislo":6,"datum":"2025-11-14","clen":"Libor"},{"id":"cigarlog_85","cigarId":"cigar_11","cislo":7,"datum":"2026-01-02","clen":"Jirka"},{"id":"cigarlog_86","cigarId":"cigar_12","cislo":1,"datum":"2026-01-02","clen":"Jirka"},{"id":"cigarlog_87","cigarId":"cigar_12","cislo":2,"datum":"2026-01-02","clen":"Broněk"},{"id":"cigarlog_88","cigarId":"cigar_12","cislo":3,"datum":"2026-01-02","clen":"Tomáš"},{"id":"cigarlog_89","cigarId":"cigar_12","cislo":4,"datum":"2026-01-02","clen":"Mirek"},{"id":"cigarlog_90","cigarId":"cigar_12","cislo":5,"datum":"2026-01-02","clen":"Libor"},{"id":"cigarlog_91","cigarId":"cigar_12","cislo":6,"datum":"2026-01-02","clen":"Tonda"},{"id":"cigarlog_92","cigarId":"cigar_12","cislo":7,"datum":"2026-04-03","clen":"Tomáš"},{"id":"cigarlog_93","cigarId":"cigar_13","cislo":1,"datum":"2025-11-14","clen":"Broněk"},{"id":"cigarlog_94","cigarId":"cigar_13","cislo":2,"datum":"2025-11-14","clen":"Tomáš"},{"id":"cigarlog_95","cigarId":"cigar_13","cislo":3,"datum":"2025-11-14","clen":"Tonda"},{"id":"cigarlog_96","cigarId":"cigar_13","cislo":4,"datum":"2025-11-14","clen":"Jirka"},{"id":"cigarlog_97","cigarId":"cigar_13","cislo":5,"datum":"2025-11-14","clen":"Mirek"},{"id":"cigarlog_98","cigarId":"cigar_13","cislo":6,"datum":"2025-11-14","clen":"Libor"},{"id":"cigarlog_99","cigarId":"cigar_13","cislo":7,"datum":"2026-01-02","clen":"Broněk"},{"id":"cigarlog_100","cigarId":"cigar_14","cislo":1,"datum":"2026-05-15","clen":"Broněk"},{"id":"cigarlog_101","cigarId":"cigar_14","cislo":2,"datum":"2026-05-15","clen":"Jirka"},{"id":"cigarlog_102","cigarId":"cigar_14","cislo":3,"datum":"2026-05-15","clen":"Mirek"},{"id":"cigarlog_103","cigarId":"cigar_14","cislo":4,"datum":"2026-05-15","clen":"Tonda"},{"id":"cigarlog_104","cigarId":"cigar_14","cislo":5,"datum":"2026-05-15","clen":"Tomáš"},{"id":"cigarlog_105","cigarId":"cigar_14","cislo":6,"datum":"2026-05-15","clen":"Libor"},{"id":"cigarlog_106","cigarId":"cigar_14","cislo":7,"datum":"2026-05-28","clen":"Mirek"},{"id":"cigarlog_107","cigarId":"cigar_15","cislo":1,"datum":"2026-02-27","clen":"Libor"},{"id":"cigarlog_108","cigarId":"cigar_15","cislo":2,"datum":"2026-02-27","clen":"Broněk"},{"id":"cigarlog_109","cigarId":"cigar_15","cislo":3,"datum":"2026-02-27","clen":"Jirka"},{"id":"cigarlog_110","cigarId":"cigar_15","cislo":4,"datum":"2026-02-27","clen":"Mirek"},{"id":"cigarlog_111","cigarId":"cigar_15","cislo":5,"datum":"2026-02-27","clen":"Tomáš"},{"id":"cigarlog_112","cigarId":"cigar_15","cislo":6,"datum":"2026-02-27","clen":"Tonda"},{"id":"cigarlog_113","cigarId":"cigar_15","cislo":7,"datum":"2026-04-03","clen":"Libor"},{"id":"cigarlog_114","cigarId":"cigar_16","cislo":1,"datum":"2026-01-02","clen":"Libor"},{"id":"cigarlog_115","cigarId":"cigar_16","cislo":2,"datum":"2026-01-02","clen":"Tomáš"},{"id":"cigarlog_116","cigarId":"cigar_16","cislo":3,"datum":"2026-01-02","clen":"Tonda"},{"id":"cigarlog_117","cigarId":"cigar_16","cislo":4,"datum":"2026-01-02","clen":"Broněk"},{"id":"cigarlog_118","cigarId":"cigar_16","cislo":5,"datum":"2026-01-02","clen":"Jirka"},{"id":"cigarlog_119","cigarId":"cigar_16","cislo":6,"datum":"2026-01-02","clen":"Mirek"},{"id":"cigarlog_120","cigarId":"cigar_16","cislo":7,"datum":"2026-02-27","clen":"Jirka"},{"id":"cigarlog_121","cigarId":"cigar_17","cislo":1,"datum":"2026-07-25","clen":"Libor"},{"id":"cigarlog_122","cigarId":"cigar_17","cislo":2,"datum":"2026-07-25","clen":"Tonda"},{"id":"cigarlog_123","cigarId":"cigar_17","cislo":3,"datum":"2026-07-25","clen":"Tomáš"},{"id":"cigarlog_124","cigarId":"cigar_17","cislo":4,"datum":"2026-07-25","clen":"Broněk"},{"id":"cigarlog_125","cigarId":"cigar_17","cislo":5,"datum":"2026-07-25","clen":"Mirek"},{"id":"cigarlog_126","cigarId":"cigar_18","cislo":1,"datum":"2026-04-03","clen":"Libor"},{"id":"cigarlog_127","cigarId":"cigar_18","cislo":2,"datum":"2026-04-03","clen":"Broněk"},{"id":"cigarlog_128","cigarId":"cigar_18","cislo":3,"datum":"2026-04-03","clen":"Jirka"},{"id":"cigarlog_129","cigarId":"cigar_18","cislo":4,"datum":"2026-04-03","clen":"Mirek"},{"id":"cigarlog_130","cigarId":"cigar_18","cislo":5,"datum":"2026-04-03","clen":"Tonda"},{"id":"cigarlog_131","cigarId":"cigar_18","cislo":6,"datum":"2026-04-03","clen":"Tomáš"},{"id":"cigarlog_132","cigarId":"cigar_18","cislo":7,"datum":"2026-05-15","clen":"Mirek"},{"id":"cigarlog_133","cigarId":"cigar_19","cislo":1,"datum":"2026-05-15","clen":"Broněk"},{"id":"cigarlog_134","cigarId":"cigar_19","cislo":2,"datum":"2026-05-15","clen":"Jirka"},{"id":"cigarlog_135","cigarId":"cigar_19","cislo":3,"datum":"2026-05-15","clen":"Mirek"},{"id":"cigarlog_136","cigarId":"cigar_19","cislo":4,"datum":"2026-05-15","clen":"Tonda"},{"id":"cigarlog_137","cigarId":"cigar_19","cislo":5,"datum":"2026-05-15","clen":"Tomáš"},{"id":"cigarlog_138","cigarId":"cigar_19","cislo":6,"datum":"2026-05-15","clen":"Libor"},{"id":"cigarlog_139","cigarId":"cigar_20","cislo":1,"datum":"2026-06-19","clen":"Tonda"},{"id":"cigarlog_140","cigarId":"cigar_21","cislo":1,"datum":"2026-07-25","clen":"Broněk"},{"id":"cigarlog_141","cigarId":"cigar_21","cislo":2,"datum":"2026-07-25","clen":"Libor"},{"id":"cigarlog_142","cigarId":"cigar_21","cislo":3,"datum":"2026-07-25","clen":"Tonda"},{"id":"cigarlog_143","cigarId":"cigar_21","cislo":4,"datum":"2026-07-25","clen":"Tomáš"},{"id":"cigarlog_144","cigarId":"cigar_21","cislo":5,"datum":"2026-07-25","clen":"Mirek"},{"id":"cigarlog_145","cigarId":"cigar_22","cislo":1,"datum":"2026-02-27","clen":"Libor"},{"id":"cigarlog_146","cigarId":"cigar_22","cislo":2,"datum":"2026-02-27","clen":"Broněk"},{"id":"cigarlog_147","cigarId":"cigar_22","cislo":3,"datum":"2026-02-27","clen":"Jirka"},{"id":"cigarlog_148","cigarId":"cigar_22","cislo":4,"datum":"2026-02-27","clen":"Mirek"},{"id":"cigarlog_149","cigarId":"cigar_22","cislo":5,"datum":"2026-02-27","clen":"Tomáš"},{"id":"cigarlog_150","cigarId":"cigar_22","cislo":6,"datum":"2026-04-03","clen":"Broněk"},{"id":"cigarlog_151","cigarId":"cigar_22","cislo":7,"datum":"2026-04-03","clen":"Tomáš"},{"id":"cigarlog_152","cigarId":"cigar_23","cislo":1,"datum":"2026-05-15","clen":"Tomáš"},{"id":"cigarlog_153","cigarId":"cigar_23","cislo":2,"datum":"2026-05-15","clen":"Broněk"},{"id":"cigarlog_154","cigarId":"cigar_23","cislo":3,"datum":"2026-05-15","clen":"Jirka"},{"id":"cigarlog_155","cigarId":"cigar_23","cislo":4,"datum":"2026-05-15","clen":"Tonda"},{"id":"cigarlog_156","cigarId":"cigar_23","cislo":5,"datum":"2026-05-15","clen":"Libor"},{"id":"cigarlog_157","cigarId":"cigar_24","cislo":1,"datum":"2026-04-03","clen":"Broněk"},{"id":"cigarlog_158","cigarId":"cigar_24","cislo":2,"datum":"2026-04-03","clen":"Mirek"},{"id":"cigarlog_159","cigarId":"cigar_24","cislo":3,"datum":"2026-04-03","clen":"Jirka"},{"id":"cigarlog_160","cigarId":"cigar_24","cislo":4,"datum":"2026-04-03","clen":"Michal"},{"id":"cigarlog_161","cigarId":"cigar_24","cislo":5,"datum":"2026-04-03","clen":"Tonda"},{"id":"cigarlog_162","cigarId":"cigar_24","cislo":6,"datum":"2026-04-03","clen":"Tomáš"},{"id":"cigarlog_163","cigarId":"cigar_24","cislo":7,"datum":"2026-04-03","clen":"Libor"},{"id":"cigarlog_164","cigarId":"cigar_24","cislo":8,"datum":"2026-06-19","clen":"Jirka"},{"id":"cigarlog_165","cigarId":"cigar_24","cislo":9,"datum":"2026-06-19","clen":"Libor"},{"id":"cigarlog_166","cigarId":"cigar_24","cislo":10,"datum":"2026-07-25","clen":"Libor"},{"id":"cigarlog_167","cigarId":"cigar_24","cislo":11,"datum":"2026-07-25","clen":"Tomáš"},{"id":"cigarlog_168","cigarId":"cigar_24","cislo":12,"datum":"2026-07-25","clen":"Mirek"},{"id":"cigarlog_169","cigarId":"cigar_25","cislo":1,"datum":"2026-06-19","clen":"Libor"},{"id":"cigarlog_170","cigarId":"cigar_25","cislo":2,"datum":"2026-06-19","clen":"Jirka"},{"id":"cigarlog_171","cigarId":"cigar_25","cislo":3,"datum":"2026-06-19","clen":"Mirek"},{"id":"cigarlog_172","cigarId":"cigar_25","cislo":4,"datum":"2026-06-19","clen":"Tomáš"},{"id":"cigarlog_173","cigarId":"cigar_25","cislo":5,"datum":"2026-06-19","clen":"Michal"},{"id":"cigarlog_174","cigarId":"cigar_26","cislo":1,"datum":"2026-06-19","clen":"Libor"},{"id":"cigarlog_175","cigarId":"cigar_26","cislo":2,"datum":"2026-06-19","clen":"Jirka"},{"id":"cigarlog_176","cigarId":"cigar_26","cislo":3,"datum":"2026-06-19","clen":"Mirek"},{"id":"cigarlog_177","cigarId":"cigar_26","cislo":4,"datum":"2026-06-19","clen":"Tomáš"},{"id":"cigarlog_178","cigarId":"cigar_26","cislo":5,"datum":"2026-06-19","clen":"Tonda"},{"id":"cigarlog_179","cigarId":"cigar_26","cislo":6,"datum":"2026-06-19","clen":"Broněk"},{"id":"cigarlog_180","cigarId":"cigar_27","cislo":1,"datum":"2026-06-19","clen":"Libor"},{"id":"cigarlog_181","cigarId":"cigar_27","cislo":2,"datum":"2026-06-19","clen":"Jirka"},{"id":"cigarlog_182","cigarId":"cigar_27","cislo":3,"datum":"2026-06-19","clen":"Mirek"},{"id":"cigarlog_183","cigarId":"cigar_27","cislo":4,"datum":"2026-06-19","clen":"Tomáš"},{"id":"cigarlog_184","cigarId":"cigar_27","cislo":5,"datum":"2026-06-19","clen":"Tonda"},{"id":"cigarlog_185","cigarId":"cigar_27","cislo":6,"datum":"2026-06-19","clen":"Broněk"},{"id":"cigarlog_186","cigarId":"cigar_30","cislo":1,"datum":"2025-05-30","clen":"Broněk"},{"id":"cigarlog_187","cigarId":"cigar_30","cislo":2,"datum":"2025-05-30","clen":"Tomáš"},{"id":"cigarlog_188","cigarId":"cigar_30","cislo":3,"datum":"2025-05-30","clen":"Tonda"},{"id":"cigarlog_189","cigarId":"cigar_30","cislo":4,"datum":"2025-05-30","clen":"Mirek"},{"id":"cigarlog_190","cigarId":"cigar_30","cislo":5,"datum":"2025-07-18","clen":"Jirka"},{"id":"cigarlog_191","cigarId":"cigar_30","cislo":6,"datum":"2025-10-10","clen":"Broněk"},{"id":"cigarlog_192","cigarId":"cigar_30","cislo":7,"datum":"2026-01-02","clen":"Libor"},{"id":"cigarlog_193","cigarId":"cigar_31","cislo":1,"datum":"2025-04-30","clen":"Broněk"},{"id":"cigarlog_194","cigarId":"cigar_31","cislo":2,"datum":"2025-04-30","clen":"Tomáš"},{"id":"cigarlog_195","cigarId":"cigar_31","cislo":3,"datum":"2025-04-30","clen":"Tonda"},{"id":"cigarlog_196","cigarId":"cigar_31","cislo":4,"datum":"2025-04-30","clen":"Mirek"},{"id":"cigarlog_197","cigarId":"cigar_31","cislo":5,"datum":"2025-04-30","clen":"Michal"},{"id":"cigarlog_198","cigarId":"cigar_31","cislo":6,"datum":"2025-07-18","clen":"Jirka"},{"id":"cigarlog_199","cigarId":"cigar_31","cislo":7,"datum":"2025-10-10","clen":"Tonda"},{"id":"cigarlog_200","cigarId":"cigar_32","cislo":1,"datum":"2025-10-10","clen":"Broněk"},{"id":"cigarlog_201","cigarId":"cigar_32","cislo":2,"datum":"2025-10-10","clen":"Tomáš"},{"id":"cigarlog_202","cigarId":"cigar_32","cislo":3,"datum":"2025-10-10","clen":"Mirek"},{"id":"cigarlog_203","cigarId":"cigar_32","cislo":4,"datum":"2025-10-10","clen":"Tonda"},{"id":"cigarlog_204","cigarId":"cigar_32","cislo":5,"datum":"2025-10-10","clen":"Libor"},{"id":"cigarlog_205","cigarId":"cigar_32","cislo":6,"datum":"2026-02-27","clen":"Broněk"},{"id":"cigarlog_206","cigarId":"cigar_32","cislo":7,"datum":"2026-02-27","clen":"Tomáš"}]};
+
+async function maybeSeedHumidor() {
+  const seedRef = db.doc('meta/seed_humidor');
+  const snap = await seedRef.get();
+  if (snap.exists) return;
+  const jobs = [];
+  SEED_HUMIDOR.cigars.forEach((c,i) => jobs.push(db.collection('cigars').doc(c.id).set({ vyrobce: c.vyrobce, model: c.model, nakupy: c.nakupy, poznamka: c.poznamka||'', _seq: i })));
+  SEED_HUMIDOR.log.forEach((l,i) => jobs.push(db.collection('cigar_log').doc(l.id).set({ cigarId: l.cigarId, cislo: l.cislo, datum: l.datum, clen: l.clen, _seq: i })));
+  await Promise.all(jobs);
+  await seedRef.set({ done: true, at: new Date().toISOString() });
+}
+
 function subscribeAll() {
   db.collection('members').onSnapshot(snap => { state.members = fromSnap(snap); rerenderActive(); },
     () => toast('Chyba při načítání členů'));
@@ -1403,6 +1765,10 @@ function subscribeAll() {
     () => toast('Chyba při načítání účtu'));
   db.collection('wishlist').onSnapshot(snap => { state.wishlist = fromSnap(snap); rerenderActive(); },
     () => toast('Chyba při načítání wishlistu'));
+  db.collection('cigars').onSnapshot(snap => { state.cigars = fromSnap(snap); rerenderActive(); if (!document.getElementById('cigarDetailOverlay').hidden) renderCigarDetail(); },
+    () => toast('Chyba při načítání humidoru'));
+  db.collection('cigar_log').onSnapshot(snap => { state.cigarLog = fromSnap(snap); rerenderActive(); if (!document.getElementById('cigarDetailOverlay').hidden) renderCigarDetail(); },
+    () => toast('Chyba při načítání kouření'));
 }
 
 function rerenderActive() {
@@ -1410,6 +1776,7 @@ function rerenderActive() {
   else if (ui.tab === 'degustace') renderDegustaceForm();
   else if (ui.tab === 'ucet') renderUcet();
   else if (ui.tab === 'wishlist') renderWishlist();
+  else if (ui.tab === 'humidor') renderHumidor();
   else if (ui.tab === 'statistika') renderStatistika();
   else if (ui.tab === 'info') renderInfo();
   else if (ui.tab === 'klub') renderKlub();
@@ -1445,6 +1812,9 @@ async function init() {
   try {
     await maybeSeed();
   } catch(e) { /* seeding races are harmless; ignore */ console.error('Seed:', e); }
+  try {
+    await maybeSeedHumidor();
+  } catch(e) { console.error('Seed humidor:', e); }
   subscribeAll();
 }
 

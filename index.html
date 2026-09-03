@@ -326,11 +326,11 @@
     <div class="search-row">
       <input class="input" id="rumSearch" placeholder="Hledat podle názvu, značky, původu…" oninput="renderRumy()">
       <select class="input" id="rumSort" onchange="renderRumy()">
+        <option value="new" selected>Nejnovější</option>
         <option value="score_desc">Nejlépe hodnocené</option>
         <option value="score_asc">Nejhůře hodnocené</option>
         <option value="name">Podle názvu</option>
         <option value="count">Podle počtu hodnocení</option>
-        <option value="new">Nejnovější</option>
       </select>
     </div>
     <div id="rumList"></div>
@@ -974,6 +974,7 @@ function openLedgerEdit(id) {
     </div>
     <div class="btn-row" style="margin-top:14px;">
       <button class="btn btn-primary" onclick="saveLedgerEdit('${id}')">Uložit změny</button>
+      <button class="btn btn-ghost" onclick="closeLedgerEdit()">← Zpět</button>
       <button class="btn btn-danger" onclick="deleteLedgerEntry('${id}')">Smazat</button>
     </div>
   `;
@@ -1106,19 +1107,13 @@ function renderWishlist() {
     if (w.cukr!=null) subParts.push('cukr '+esc(String(w.cukr))+' g/l');
     return `
     <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div>
-          <div class="rum-name">${esc(w.znacka)} ${w.nazev?'<span class="muted" style="font-weight:400;">– '+esc(w.nazev)+'</span>':''}</div>
-          <div class="rum-sub">${subParts.join(' · ')}</div>
-          ${w.poznamka ? '<div class="muted" style="font-size:12.5px;margin-top:4px;">'+esc(w.poznamka)+'</div>' : ''}
-        </div>
-        <span class="status-pill status-${(w.stav||'kandidát').replace('á','a').replace('í','i')}">${esc(w.stav||'kandidát')}</span>
+      <div>
+        <div class="rum-name">${esc(w.znacka)} ${w.nazev?'<span class="muted" style="font-weight:400;">– '+esc(w.nazev)+'</span>':''}</div>
+        <div class="rum-sub">${subParts.join(' · ')}</div>
+        ${w.poznamka ? '<div class="muted" style="font-size:12.5px;margin-top:4px;">'+esc(w.poznamka)+'</div>' : ''}
       </div>
       ${isGuest ? '' : `
       <div class="btn-row" style="margin-top:10px; flex-wrap:wrap;">
-        <button class="btn btn-ghost btn-sm" style="flex:0 0 auto;" onclick="setWishStatus('${w.id}','kandidát')">Kandidát</button>
-        <button class="btn btn-ghost btn-sm" style="flex:0 0 auto;" onclick="setWishStatus('${w.id}','koupeno')">Koupeno</button>
-        <button class="btn btn-ghost btn-sm" style="flex:0 0 auto;" onclick="setWishStatus('${w.id}','zamítnuto')">Zamítnuto</button>
         <button class="btn btn-danger btn-sm" style="flex:0 0 auto;" onclick="deleteWish('${w.id}')">Smazat</button>
       </div>
       `}

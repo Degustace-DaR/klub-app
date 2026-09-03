@@ -457,6 +457,7 @@
     <div class="card muted" style="font-size:12.5px; margin-top:16px;" id="clubStats"></div>
     <button class="btn btn-ghost" id="exportBtn" style="margin-top:12px;" onclick="exportToExcel()">⬇️ Exportovat všechna data (Excel)</button>
     <button class="btn btn-ghost" id="historyBtn" hidden style="margin-top:8px;" onclick="openHistory()">📋 Přehled změn (jen pro admina)</button>
+    <div id="puvodCleanupSection" style="margin-top:8px;"></div>
     <button class="btn btn-ghost" style="margin-top:8px;" onclick="lockApp()">🔒 Zamknout appku (znovu vyžádat PIN)</button>
   </div>
 </main>
@@ -569,6 +570,10 @@ let ui = {
   newUcastLidi: [],
   newUcastDalsi: '',
   detailUcastId: null,
+  showPuvodCleanup: false,
+  puvodGroups: null,
+  puvodCanon: {},
+  puvodChecked: {},
 };
 
 function uid(prefix) {
@@ -2214,6 +2219,117 @@ function renderKlub() {
 
   document.getElementById('clubStats').innerHTML =
     `Celkem v katalogu: <b>${state.rums.length}</b> rumů · <b>${state.ratings.length}</b> hodnocení · <b>${state.members.length}</b> členů`;
+
+  renderPuvodCleanupSection();
+}
+
+/* ---------------- Sjednocení názvů původu (admin) ---------------- */
+function levenshtein(a, b) {
+  a = a.toLowerCase(); b = b.toLowerCase();
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+    }
+  }
+  return dp[m][n];
+}
+
+function findPuvodGroups() {
+  const counts = {};
+  state.rums.forEach(r => { const p = (r.puvod || '').trim(); if (p) counts[p] = (counts[p] || 0) + 1; });
+  const names = Object.keys(counts);
+  const parent = {};
+  names.forEach(n => parent[n] = n);
+  function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+  function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; }
+  for (let i = 0; i < names.length; i++) {
+    for (let j = i + 1; j < names.length; j++) {
+      const a = names[i], b = names[j];
+      if (a.toLowerCase() === b.toLowerCase()) { union(a, b); continue; }
+      if (a.length < 4 || b.length < 4) continue;
+      if (levenshtein(a, b) <= 2) union(a, b);
+    }
+  }
+  const groups = {};
+  names.forEach(n => { const r = find(n); (groups[r] = groups[r] || []).push(n); });
+  return Object.values(groups).filter(g => g.length > 1).map(g => ({
+    variants: g.map(v => ({ jmeno: v, count: counts[v] })).sort((a, b) => b.count - a.count),
+  }));
+}
+
+function checkPuvodDuplicates() {
+  ui.puvodGroups = findPuvodGroups();
+  ui.showPuvodCleanup = true;
+  ui.puvodCanon = {};
+  ui.puvodChecked = {};
+  ui.puvodGroups.forEach((g, gi) => {
+    ui.puvodCanon[gi] = g.variants[0].jmeno;
+    g.variants.forEach(v => { ui.puvodChecked[gi + '_' + v.jmeno] = true; });
+  });
+  renderPuvodCleanupSection();
+}
+
+function renderPuvodCleanupSection() {
+  const el = document.getElementById('puvodCleanupSection');
+  if (!el) return;
+  if (!isAdmin) { el.innerHTML = ''; return; }
+  if (!ui.showPuvodCleanup) {
+    el.innerHTML = `<button class="btn btn-ghost" onclick="checkPuvodDuplicates()">🔎 Zkontrolovat podobné názvy původu</button>`;
+    return;
+  }
+  if (!ui.puvodGroups || ui.puvodGroups.length === 0) {
+    el.innerHTML = `
+      <div class="card muted" style="font-size:13px;">Žádné podobné názvy původu nenalezeny.</div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showPuvodCleanup=false; renderPuvodCleanupSection();">Zpět</button>`;
+    return;
+  }
+  let html = `<div class="rum-name" style="margin-bottom:8px;">Možné duplicity v původu (${ui.puvodGroups.length})</div>`;
+  html += ui.puvodGroups.map((g, gi) => {
+    const rowsHtml = g.variants.map(v => {
+      const key = gi + '_' + v.jmeno;
+      const checked = ui.puvodChecked[key] ? 'checked' : '';
+      return `
+        <label style="display:flex; align-items:center; gap:8px; padding:4px 0;">
+          <input type="checkbox" ${checked} onchange="ui.puvodChecked['${key}']=this.checked;">
+          <span style="flex:1;">${esc(v.jmeno)}</span>
+          <span class="muted" style="font-size:12px;">${v.count}× rum</span>
+        </label>`;
+    }).join('');
+    return `
+      <div class="card" style="margin-bottom:8px;">
+        ${rowsHtml}
+        <div class="field" style="margin-top:8px;"><label>Sjednotit na</label>
+          <input class="input" value="${esc(ui.puvodCanon[gi])}" oninput="ui.puvodCanon[${gi}]=this.value;">
+        </div>
+        <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="mergePuvodGroup(${gi})">Sloučit vybrané</button>
+      </div>`;
+  }).join('');
+  html += `<button class="btn btn-ghost btn-sm" onclick="ui.showPuvodCleanup=false; ui.puvodGroups=null; renderPuvodCleanupSection();">Zavřít</button>`;
+  el.innerHTML = html;
+}
+
+async function mergePuvodGroup(gi) {
+  if (!isAdmin) return;
+  const group = ui.puvodGroups[gi];
+  if (!group) return;
+  const canon = (ui.puvodCanon[gi] || '').trim();
+  if (!canon) { toast('Zadej cílový název'); return; }
+  const variantsToMerge = group.variants.filter(v => ui.puvodChecked[gi + '_' + v.jmeno] && v.jmeno !== canon).map(v => v.jmeno);
+  if (variantsToMerge.length === 0) { toast('Nic ke sloučení (odškrtnuto, nebo už sjednoceno)'); return; }
+  const affected = state.rums.filter(r => variantsToMerge.includes((r.puvod || '').trim()));
+  if (affected.length === 0) { toast('Žádné rumy k úpravě'); return; }
+  if (!confirm(`Sjednotit "${variantsToMerge.join('", "')}" → "${canon}" u ${affected.length} rumů?`)) return;
+  const batch = db.batch();
+  affected.forEach(r => { batch.update(db.collection('rums').doc(r.id), { puvod: canon }); r.puvod = canon; });
+  await batch.commit();
+  toast('Sjednoceno');
+  logChange('Sjednocen původ', `${variantsToMerge.join(', ')} → ${canon} (${affected.length}×)`);
+  checkPuvodDuplicates();
 }
 
 

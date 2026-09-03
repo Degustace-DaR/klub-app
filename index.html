@@ -339,9 +339,6 @@
   <div class="view" id="view-degustace">
     <h2 class="view-title">Přidat hodnocení</h2>
     <div id="degustaceForm"></div>
-    <div class="btn-row" style="margin-top:8px;">
-      <button class="btn btn-ghost" onclick="goTab('rumy')">← Zpět</button>
-    </div>
     <div class="card" id="recentRatings" style="margin-top:16px;"></div>
   </div>
 
@@ -716,6 +713,7 @@ function renderDegustaceForm() {
     html += '</div>';
     html += `<div class="total-box"><span class="muted">Celkem</span><span class="num">${total}</span></div>`;
     html += `<button class="btn btn-primary" onclick="submitRating()">${dup ? 'Přepsat hodnocení' : 'Uložit hodnocení'}</button>`;
+    html += `<div class="btn-row" style="margin-top:8px;"><button class="btn btn-ghost" onclick="goTab('rumy')">← Zpět</button></div>`;
   }
   html += '</div>';
 

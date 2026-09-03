@@ -482,6 +482,8 @@
 <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
 <!-- SheetJS pro export do Excelu -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<!-- SortableJS pro přesouvání položek na wishlistu (drag & drop) -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script>
 /* ======================================================================
    FIREBASE KONFIGURACE — VLOŽ SEM SVOJE ÚDAJE Z FIREBASE KONZOLE
@@ -1181,9 +1183,9 @@ async function deleteWish(id) {
 }
 
 function renderWishlist() {
-  let rows = state.wishlist;
+  let rows = [...state.wishlist].sort((a, b) => (a._seq || 0) - (b._seq || 0));
   const list = document.getElementById('wishList');
-  if (rows.length === 0) { list.innerHTML = '<div class="empty-note">Nic tu není.</div>'; return; }
+  if (rows.length === 0) { list.innerHTML = '<div class="empty-note">Nic tu není.</div>'; initWishSortable(); return; }
   list.innerHTML = rows.map(w => {
     const subParts = [];
     if (w.abv) subParts.push(esc(String(w.abv))+'% obj.');
@@ -1191,20 +1193,46 @@ function renderWishlist() {
     if (w.cena) subParts.push(esc(String(w.cena))+' Kč');
     if (w.cukr!=null) subParts.push('cukr '+esc(String(w.cukr))+' g/l');
     return `
-    <div class="card">
-      <div>
-        <div class="rum-name">${esc(w.znacka)} ${w.nazev?'<span class="muted" style="font-weight:400;">– '+esc(w.nazev)+'</span>':''}</div>
-        <div class="rum-sub">${subParts.join(' · ')}</div>
-        ${w.poznamka ? '<div class="muted" style="font-size:12.5px;margin-top:4px;">'+esc(w.poznamka)+'</div>' : ''}
+    <div class="card wish-card" data-id="${w.id}">
+      <div style="display:flex; gap:8px; align-items:flex-start;">
+        ${isGuest ? '' : '<div class="drag-handle" style="cursor:grab; touch-action:none; user-select:none; color:var(--ink-faint); font-size:18px; line-height:1.4; padding:2px 4px 2px 0; flex-shrink:0;">⠿</div>'}
+        <div style="flex:1; min-width:0;">
+          <div class="rum-name">${esc(w.znacka)} ${w.nazev?'<span class="muted" style="font-weight:400;">– '+esc(w.nazev)+'</span>':''}</div>
+          <div class="rum-sub">${subParts.join(' · ')}</div>
+          ${w.poznamka ? '<div class="muted" style="font-size:12.5px;margin-top:4px;">'+esc(w.poznamka)+'</div>' : ''}
+          ${isGuest ? '' : `
+          <div class="btn-row" style="margin-top:10px; flex-wrap:wrap;">
+            <button class="btn btn-danger btn-sm" style="flex:0 0 auto;" onclick="deleteWish('${w.id}')">Smazat</button>
+          </div>
+          `}
+        </div>
       </div>
-      ${isGuest ? '' : `
-      <div class="btn-row" style="margin-top:10px; flex-wrap:wrap;">
-        <button class="btn btn-danger btn-sm" style="flex:0 0 auto;" onclick="deleteWish('${w.id}')">Smazat</button>
-      </div>
-      `}
     </div>
   `;
   }).join('');
+  initWishSortable();
+}
+
+let wishSortable = null;
+function initWishSortable() {
+  const el = document.getElementById('wishList');
+  if (!el) return;
+  if (wishSortable) { wishSortable.destroy(); wishSortable = null; }
+  if (isGuest || typeof Sortable === 'undefined') return;
+  wishSortable = new Sortable(el, {
+    handle: '.drag-handle',
+    animation: 150,
+    onEnd: saveWishOrder,
+  });
+}
+
+async function saveWishOrder() {
+  const el = document.getElementById('wishList');
+  const ids = Array.from(el.children).map(c => c.dataset.id).filter(Boolean);
+  const batch = db.batch();
+  ids.forEach((id, i) => batch.update(db.collection('wishlist').doc(id), { _seq: i }));
+  await batch.commit();
+  logChange('Přeuspořádán wishlist', ids.length + ' položek');
 }
 
 /* ---------------- HUMIDOR tab ---------------- */

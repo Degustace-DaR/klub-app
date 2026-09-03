@@ -80,7 +80,7 @@
   .brand { display:flex; align-items:center; gap:9px; }
   .brand-glass { font-size: 22px; line-height:1; }
   .brand-name { font-family: var(--font-display); font-weight:600; font-size:1.25rem; }
-  .sync-dot { width:7px; height:7px; border-radius:50%; background: var(--ink-faint); display:inline-block; margin-right:5px; }
+  .sync-dot { width:10px; height:10px; border-radius:50%; background: var(--ink-faint); display:inline-block; margin-right:5px; }
   .sync-dot.live { background: var(--good); box-shadow:0 0 0 3px var(--good-soft); }
   .sync-label { font-family: var(--font-mono); font-size:10.5px; color:var(--ink-faint); display:flex; align-items:center; }
   .balance-chip {
@@ -301,7 +301,6 @@
     </div>
     <div class="head-row" style="gap:10px;">
       <span class="sync-label" id="syncLabel"><span class="sync-dot" id="syncDot"></span>připojování…</span>
-      <span class="balance-chip" id="balanceChip" onclick="goTab('ucet')">Účet: <b id="balanceChipVal">–</b></span>
     </div>
   </div>
   <nav class="tabs">
@@ -578,8 +577,8 @@ function openRumDetail(rumId) {
   document.getElementById('rumDetailSheet').innerHTML = `
     <div class="sheet-head">
       <div>
-        <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.35rem;margin:0;">${esc(rum.nazev)}</h2>
-        <div class="muted" style="font-size:13px;margin-top:2px;">${esc(rum.znacka||'')} ${rum.puvod?'· '+esc(rum.puvod):''}${rum.abv?' · '+esc(String(rum.abv))+' %':''}</div>
+        <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.75rem;margin:0;">${esc(rum.nazev)}</h2>
+        <div style="font-size:17px;font-weight:500;color:var(--ink-soft);margin-top:3px;">${[rum.znacka?esc(rum.znacka):null, rum.puvod?esc(rum.puvod):null, rum.abv?esc(String(rum.abv))+' %':null].filter(Boolean).join(' · ')}</div>
       </div>
       <button class="sheet-close" onclick="closeRumDetail()">×</button>
     </div>
@@ -601,15 +600,41 @@ function openRumDetail(rumId) {
     ` : '<div class="empty-note">Zatím bez hodnocení.</div>'}
     ${rum.cena ? `<div class="muted" style="margin-top:14px;font-size:13px;">Cena: ${esc(String(rum.cena))} Kč</div>` : ''}
     ${rum.cukr ? `<div class="muted" style="font-size:13px;${(rum.cena)?'':'margin-top:14px;'}">Cukr: ${esc(String(rum.cukr))} g/l</div>` : ''}
-    ${isGuest ? '' : `
     <div class="btn-row" style="margin-top:18px;">
+      <button class="btn btn-ghost" onclick="closeRumDetail()">← Zpět</button>
+    </div>
+    ${isGuest ? '' : `
+    <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-primary" onclick="closeRumDetail(); goTab('degustace'); presetRatingRum('${rum.id}')">+ Přidat hodnocení</button>
     </div>
     `}
+    ${isAdmin ? `
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn btn-danger" onclick="deleteRum('${rum.id}')">Smazat rum</button>
+    </div>
+    ` : ''}
   `;
   document.getElementById('rumDetailOverlay').hidden = false;
 }
 function closeRumDetail() { document.getElementById('rumDetailOverlay').hidden = true; }
+
+async function deleteRum(rumId) {
+  if (!isAdmin) return;
+  const rum = state.rums.find(r => r.id === rumId);
+  if (!rum) return;
+  const relatedRatings = state.ratings.filter(r => r.rumId === rumId);
+  const warn = relatedRatings.length
+    ? `Opravdu smazat rum "${rum.nazev}${rum.znacka?' – '+rum.znacka:''}"? Smaže se i všech ${relatedRatings.length} hodnocení k němu.`
+    : `Opravdu smazat rum "${rum.nazev}${rum.znacka?' – '+rum.znacka:''}"?`;
+  if (!confirm(warn)) return;
+  const batch = db.batch();
+  batch.delete(db.collection('rums').doc(rumId));
+  relatedRatings.forEach(r => batch.delete(db.collection('ratings').doc(r.id)));
+  await batch.commit();
+  closeRumDetail();
+  toast('Rum smazán');
+  logChange('Smazán rum', `${rum.nazev}${rum.znacka?' – '+rum.znacka:''}${relatedRatings.length?' (+'+relatedRatings.length+' hodnocení)':''}`);
+}
 
 /* ---------------- DEGUSTACE (add rating) tab ---------------- */
 function presetRatingRum(rumId) {
@@ -938,8 +963,9 @@ async function deleteLedgerEntry(id) {
 }
 
 function updateBalanceChip() {
-  const bal = currentBalance();
   const chip = document.getElementById('balanceChip');
+  if (!chip) return; // odstraněno z hlavičky
+  const bal = currentBalance();
   chip.className = 'balance-chip ' + (bal < 0 ? 'neg' : 'pos');
   document.getElementById('balanceChipVal').textContent = Math.round(bal).toLocaleString('cs-CZ') + ' Kč';
 }
@@ -1189,7 +1215,7 @@ async function init() {
     document.getElementById('syncLabel').innerHTML = '<span class="sync-dot"></span>offline';
     return;
   }
-  document.getElementById('syncLabel').innerHTML = '<span class="sync-dot live"></span>živě';
+  document.getElementById('syncLabel').innerHTML = '<span class="sync-dot live"></span>databáze';
   try {
     await maybeSeed();
   } catch(e) { /* seeding races are harmless; ignore */ console.error('Seed:', e); }

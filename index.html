@@ -699,12 +699,14 @@ function renderDegustaceForm() {
 
   if (rum) {
     html += '<div class="field"><label>2. Kdo hodnotí</label><div class="member-chips">';
-    html += state.members.filter(m=>m.aktivni!==false).map(m => `<button class="member-chip ${ui.selectedMember===m.jmeno?'active':''}" onclick="ui.selectedMember='${esc(m.jmeno).replace(/'/g,"\\'")}'; renderDegustaceForm();">${esc(m.jmeno)}</button>`).join('');
+    const ratingMembers = state.members.filter(m=>m.aktivni!==false).slice().sort((a,b) => {
+      const ia = CLUB_MEMBER_ORDER.indexOf(a.jmeno), ib = CLUB_MEMBER_ORDER.indexOf(b.jmeno);
+      const ra = ia === -1 ? CLUB_MEMBER_ORDER.length : ia;
+      const rb = ib === -1 ? CLUB_MEMBER_ORDER.length : ib;
+      return ra !== rb ? ra - rb : a.jmeno.localeCompare(b.jmeno, 'cs');
+    });
+    html += ratingMembers.map(m => `<button class="member-chip ${ui.selectedMember===m.jmeno?'active':''}" onclick="ui.selectedMember='${esc(m.jmeno).replace(/'/g,"\\'")}'; renderDegustaceForm();">${esc(m.jmeno)}</button>`).join('');
     html += '</div>';
-    html += `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showNewMember=!ui.showNewMember; renderDegustaceForm();">${ui.showNewMember?'Zrušit':'+ Nový člen'}</button>`;
-    if (ui.showNewMember) {
-      html += `<div style="display:flex; gap:8px; margin-top:8px;"><input class="input" id="quickMemberName" placeholder="Jméno"><button class="btn btn-primary btn-sm" onclick="quickAddMember()">Přidat</button></div>`;
-    }
     html += '</div>';
   }
 
@@ -736,7 +738,7 @@ function renderRatingRumPicker() {
   const el = document.getElementById('rumPickList');
   if (!el) return;
   const q = (document.getElementById('rumPickSearch')?.value || '').toLowerCase();
-  let rows = state.rums;
+  let rows = [...state.rums].sort((a,b) => (b._seq||0) - (a._seq||0));
   if (q) rows = rows.filter(r => (r.nazev||'').toLowerCase().includes(q) || (r.znacka||'').toLowerCase().includes(q));
   rows = rows.slice(0, 40);
   el.innerHTML = rows.map(r => `

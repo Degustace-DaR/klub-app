@@ -210,6 +210,7 @@
     border-radius:999px; padding:8px 15px; font-size:14px; cursor:pointer;
   }
   .member-chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .member-chip:disabled { opacity: 0.4; cursor: not-allowed; }
   .termin-chip { font-family: var(--font-mono); }
   .termin-chip.resp-a { background: var(--good-soft); border-color: var(--good); color: var(--good); }
   .termin-chip.resp-n { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
@@ -795,8 +796,15 @@ function renderDegustaceForm() {
       const rb = ib === -1 ? CLUB_MEMBER_ORDER.length : ib;
       return ra !== rb ? ra - rb : a.jmeno.localeCompare(b.jmeno, 'cs');
     });
-    html += ratingMembers.map(m => `<button class="member-chip ${ui.selectedMember===m.jmeno?'active':''}" onclick="ui.selectedMember='${esc(m.jmeno).replace(/'/g,"\\'")}'; renderDegustaceForm();">${esc(m.jmeno)}</button>`).join('');
+    const restrictToSelf = !isAdmin && !!currentUser;
+    html += ratingMembers.map(m => {
+      const locked = restrictToSelf && m.jmeno !== currentUser;
+      const cls = 'member-chip' + (ui.selectedMember===m.jmeno ? ' active' : '');
+      const click = locked ? '' : ` onclick="ui.selectedMember='${esc(m.jmeno).replace(/'/g,"\\'")}'; renderDegustaceForm();"`;
+      return `<button class="${cls}"${click} ${locked ? 'disabled' : ''}>${esc(m.jmeno)}</button>`;
+    }).join('');
     html += '</div>';
+    if (restrictToSelf) html += `<div class="muted" style="font-size:12px;margin-top:4px;">Hodnotíš jen za sebe (${esc(currentUser)}).</div>`;
     html += '</div>';
   }
 
@@ -974,6 +982,10 @@ async function quickAddMember() {
 async function submitRating() {
   const rum = state.rums.find(r => r.id === ui.selectedRatingRumId);
   if (!rum || !ui.selectedMember) return;
+  if (!isAdmin && currentUser && ui.selectedMember !== currentUser) {
+    toast('Můžeš uložit hodnocení jen za sebe (' + currentUser + ')');
+    return;
+  }
   const crit = ['barva','aroma','chut','plnost','dojezd'];
   const celkem = crit.reduce((s,k)=>s+Number(ui.scores[k]||0),0);
   const body = {
@@ -1002,11 +1014,11 @@ function renderRecentRatings() {
   const el = document.getElementById('recentRatings');
   const recent = [...state.ratings].sort((a,b)=>(b._seq||0)-(a._seq||0)).slice(0,100);
   if (recent.length === 0) { el.innerHTML = ''; return; }
-  const editable = !isGuest;
   el.innerHTML = '<div class="muted" style="font-size:12px;margin-bottom:6px;">Naposledy přidáno</div>' +
     '<div class="recent-list-scroll">' +
     recent.map(r => {
       const rum = state.rums.find(x=>x.id===r.rumId);
+      const editable = !isGuest && (isAdmin || r.clen === currentUser);
       const cls = 'recent-item' + (editable ? ' clickable' : '');
       const click = editable ? ` onclick="editRecentRating('${r.id}')"` : '';
       return `<div class="${cls}"${click}><span>${esc(r.clen)} – ${esc(rum?rum.nazev:'?')}</span><b>${r.celkem}</b></div>`;
@@ -1018,6 +1030,10 @@ function editRecentRating(ratingId) {
   if (isGuest) return;
   const r = state.ratings.find(x => x.id === ratingId);
   if (!r) return;
+  if (!isAdmin && r.clen !== currentUser) {
+    toast('Můžeš upravit jen svoje hodnocení (' + currentUser + ')');
+    return;
+  }
   ui.selectedRatingRumId = r.rumId;
   ui.selectedMember = r.clen;
   ui.scores = {

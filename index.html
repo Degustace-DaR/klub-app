@@ -108,6 +108,14 @@
   .tab-btn:not(.active):hover { background: var(--surface); color: var(--ink); }
   .tab-btn.tab-btn-sm { padding:5px 9px; font-size:11.5px; }
 
+  /* ---------- rum/doutník přepínač ---------- */
+  .toggle-row { display:flex; gap:0; border:1px solid var(--line-strong); border-radius:999px; padding:3px; margin-top:12px; }
+  .toggle-seg {
+    flex:1; text-align:center; padding:7px 0; border-radius:999px; font-size:13px; font-weight:600;
+    color: var(--ink-faint); background:transparent; border:none; cursor:pointer;
+  }
+  .toggle-seg.active { background: var(--accent); color: var(--accent-ink); }
+
   main { padding: 14px 14px 8px; max-width: 720px; margin: 0 auto; }
   .view { display:none; }
   .view.active { display:block; }
@@ -330,8 +338,12 @@
     <button class="tab-btn tab-btn-sm" data-tab="ucast" onclick="goTab('ucast')">🙋 Účast</button>
     <button class="tab-btn tab-btn-sm" data-tab="klub" onclick="goTab('klub')">👥 Klub</button>
   </div>
+  <div class="toggle-row" id="typToggleRow">
+    <button class="toggle-seg active" data-typ="rum" onclick="setTyp('rum')">🥃 Rum</button>
+    <button class="toggle-seg" data-typ="doutnik" onclick="setTyp('doutnik')">🚬 Doutník</button>
+  </div>
   <nav class="tabs">
-    <button class="tab-btn active" data-tab="rumy" onclick="goTab('rumy')">🥃 Rumy</button>
+    <button class="tab-btn active" data-tab="rumy" onclick="goTab('rumy')" id="rumyTabBtn">🥃 Rumy</button>
     <button class="tab-btn" data-tab="degustace" onclick="goTab('degustace')">➕ Hodnocení</button>
     <button class="tab-btn" data-tab="ucet" onclick="goTab('ucet')">💰 Účet</button>
     <button class="tab-btn" data-tab="wishlist" onclick="goTab('wishlist')">⭐ Wishlist</button>
@@ -348,7 +360,7 @@
   </div>
 
   <div class="view active" id="view-rumy">
-    <h2 class="view-title">Rumy</h2>
+    <h2 class="view-title" id="rumyViewTitle">Rumy</h2>
     <div class="search-row">
       <input class="input" id="rumSearch" placeholder="Hledat podle názvu, značky, původu…" oninput="renderRumy()">
       <select class="input" id="rumSort" onchange="renderRumy()">
@@ -364,13 +376,13 @@
   </div>
 
   <div class="view" id="view-degustace">
-    <h2 class="view-title">Přidat hodnocení</h2>
+    <h2 class="view-title" id="degustaceViewTitle">Přidat hodnocení</h2>
     <div id="degustaceForm"></div>
     <div class="card" id="recentRatings" style="margin-top:16px;"></div>
   </div>
 
   <div class="view" id="view-ucet">
-    <h2 class="view-title">Účet klubu</h2>
+    <h2 class="view-title" id="ucetViewTitle">Účet klubu</h2>
     <div class="card balance-hero">
       <div class="muted" style="font-size:12.5px;">aktuální zůstatek</div>
       <div class="num" id="ucetBalanceBig">–</div>
@@ -396,7 +408,7 @@
   </div>
 
   <div class="view" id="view-wishlist">
-    <h2 class="view-title">Wishlist</h2>
+    <h2 class="view-title" id="wishlistViewTitle">Wishlist</h2>
     <button class="btn btn-ghost" id="wishToggleBtn" style="margin-bottom:12px;" onclick="toggleWishForm()">+ Přidat kandidáta</button>
     <div class="card" id="wishForm" hidden></div>
     <div id="wishList"></div>
@@ -547,7 +559,7 @@ const PERM_MAZANI = ['Broněk'];             // mazání rumů a položek wishli
 function hasPerm(names) {
   return isAdmin || (!!currentUser && names.includes(currentUser));
 }
-let state = { members: [], rums: [], ratings: [], ledger: [], wishlist: [], cigars: [], cigarLog: [], terminUcastnici: [], terminKola: [], ucasti: [] };
+let state = { members: [], rums: [], ratings: [], ledger: [], wishlist: [], cigars: [], cigarLog: [], terminUcastnici: [], terminKola: [], ucasti: [], cigarRatings: [], ledgerDoutniky: [] };
 let ui = {
   tab: 'rumy',
   selectedRatingRumId: null,
@@ -582,6 +594,8 @@ let ui = {
   puvodGroups: null,
   puvodCanon: {},
   puvodChecked: {},
+  typ: 'rum',
+  cigarScores: { vzhled: 8, vune: 8, tah: 8, chut: 15, kour: 15, horeni: 15, popel: 8 },
 };
 
 function uid(prefix) {
@@ -600,7 +614,8 @@ function goTab(tab) {
   ui.tab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + tab));
-  if (tab === 'degustace') renderDegustaceForm();
+  if (tab === 'rumy') renderRumy();
+  if (tab === 'degustace') renderActiveDegustaceForm();
   if (tab === 'ucet') renderUcet();
   if (tab === 'wishlist') renderWishlist();
   if (tab === 'humidor') renderHumidor();
@@ -609,6 +624,33 @@ function goTab(tab) {
   if (tab === 'statistika') renderStatistika();
   if (tab === 'info') renderInfo();
   if (tab === 'klub') renderKlub();
+}
+
+/* ---------------- Rum / Doutník přepínač ---------------- */
+function syncTypUI() {
+  document.querySelectorAll('.toggle-seg').forEach(el => el.classList.toggle('active', el.dataset.typ === ui.typ));
+  const isDoutnik = ui.typ === 'doutnik';
+  const rumyBtn = document.getElementById('rumyTabBtn');
+  if (rumyBtn) rumyBtn.innerHTML = isDoutnik ? '🚬 Doutníky' : '🥃 Rumy';
+  const rumyTitle = document.getElementById('rumyViewTitle');
+  if (rumyTitle) rumyTitle.textContent = isDoutnik ? 'Doutníky' : 'Rumy';
+  const degTitle = document.getElementById('degustaceViewTitle');
+  if (degTitle) degTitle.textContent = isDoutnik ? 'Přidat hodnocení doutníku' : 'Přidat hodnocení';
+  const ucetTitle = document.getElementById('ucetViewTitle');
+  if (ucetTitle) ucetTitle.textContent = isDoutnik ? 'Účet klubu – Doutníky' : 'Účet klubu';
+  const wishTitle = document.getElementById('wishlistViewTitle');
+  if (wishTitle) wishTitle.textContent = isDoutnik ? 'Wishlist – Doutníky' : 'Wishlist';
+}
+
+function setTyp(t) {
+  ui.typ = t;
+  syncTypUI();
+  rerenderActive();
+}
+
+function renderActiveDegustaceForm() {
+  if (ui.typ === 'doutnik') renderCigarDegustaceForm();
+  else renderDegustaceForm();
 }
 
 /* ---------------- derived data helpers ---------------- */
@@ -630,6 +672,25 @@ function rumStats(rumId) {
   };
 }
 
+const RUM_CRIT = [['barva','Barva',20],['aroma','Aroma',20],['chut','Chuť',20],['plnost','Plnost',20],['dojezd','Dojezd',20]];
+const CIGAR_CRIT = [['vzhled','Vzhled',10],['vune','Vůně',10],['tah','Tah',10],['chut','Chuť',20],['kour','Kouř',20],['horeni','Hoření',20],['popel','Popel',10]];
+
+function ratingsForCigar(rumId) {
+  return state.cigarRatings.filter(r => r.rumId === rumId);
+}
+
+function cigarStats(rumId) {
+  const rs = ratingsForCigar(rumId);
+  if (rs.length === 0) return null;
+  const avg = (key) => ceilTo05(rs.reduce((s,r)=>s+(Number(r[key])||0),0) / rs.length);
+  return {
+    count: rs.length,
+    vzhled: avg('vzhled'), vune: avg('vune'), tah: avg('tah'), chut: avg('chut'), kour: avg('kour'), horeni: avg('horeni'), popel: avg('popel'),
+    celkem: avg('celkem'),
+    perPerson: rs.map(r => ({clen: r.clen, celkem: r.celkem})),
+  };
+}
+
 function scoreClass(score) {
   if (score == null) return 'score-none';
   if (score >= 95) return 'score-gold';
@@ -637,15 +698,21 @@ function scoreClass(score) {
   return 'score-mid';
 }
 
-function currentBalance() {
-  return state.ledger.reduce((s,l)=>s + (Number(l.castka)||0), 0);
+function ledgerCollectionName() { return ui.typ === 'doutnik' ? 'ledger_doutniky' : 'ledger'; }
+function ledgerSourceArray() { return ui.typ === 'doutnik' ? state.ledgerDoutniky : state.ledger; }
+
+function currentBalance(typ) {
+  const t = typ || ui.typ;
+  const src = t === 'doutnik' ? state.ledgerDoutniky : state.ledger;
+  return src.reduce((s,l)=>s + (Number(l.castka)||0), 0);
 }
 
 /* ---------------- RUMY tab ---------------- */
 function renderRumy() {
   const search = (document.getElementById('rumSearch').value || '').toLowerCase();
   const sort = document.getElementById('rumSort').value;
-  let rows = state.rums.map(r => ({ rum: r, stats: rumStats(r.id) }));
+  const isDoutnik = ui.typ === 'doutnik';
+  let rows = state.rums.filter(r => (r.typ||'rum') === ui.typ).map(r => ({ rum: r, stats: isDoutnik ? cigarStats(r.id) : rumStats(r.id) }));
   if (search) {
     rows = rows.filter(({rum}) =>
       (rum.nazev||'').toLowerCase().includes(search) ||
@@ -664,7 +731,7 @@ function renderRumy() {
   const list = document.getElementById('rumList');
   renderNewRumSection();
   if (rows.length === 0) {
-    list.innerHTML = '<div class="empty-note">Žádný rum neodpovídá hledání.</div>';
+    list.innerHTML = `<div class="empty-note">Žádný ${isDoutnik?'doutník':'rum'} neodpovídá hledání.</div>`;
     return;
   }
   list.innerHTML = rows.map(({rum, stats}, i) => {
@@ -694,13 +761,14 @@ function esc(s) {
 function openRumDetail(rumId) {
   ui.detailRumId = rumId;
   const rum = state.rums.find(r => r.id === rumId);
-  const stats = rumStats(rumId);
-  const crit = [['barva','Barva'],['aroma','Aroma'],['chut','Chuť'],['plnost','Plnost'],['dojezd','Dojezd']];
+  const isDoutnik = (rum.typ||'rum') === 'doutnik';
+  const stats = isDoutnik ? cigarStats(rumId) : rumStats(rumId);
+  const crit = isDoutnik ? CIGAR_CRIT : RUM_CRIT;
   document.getElementById('rumDetailSheet').innerHTML = `
     <div class="sheet-head">
       <div>
         <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.75rem;margin:0;">${esc(rum.nazev)}</h2>
-        <div style="font-size:17px;font-weight:500;color:var(--ink-soft);margin-top:3px;">${[rum.znacka?esc(rum.znacka):null, rum.abv?esc(String(rum.abv))+' %':null].filter(Boolean).join(' · ')}</div>
+        <div style="font-size:17px;font-weight:500;color:var(--ink-soft);margin-top:3px;">${[rum.znacka?esc(rum.znacka):null, (!isDoutnik && rum.abv)?esc(String(rum.abv))+' %':null].filter(Boolean).join(' · ')}</div>
         ${rum.puvod ? `<div style="font-size:17px;font-weight:500;color:var(--ink-soft);">${esc(rum.puvod)}</div>` : ''}
       </div>
       <button class="sheet-close" onclick="closeRumDetail()">×</button>
@@ -710,10 +778,10 @@ function openRumDetail(rumId) {
         <div class="num ${scoreClass(stats.celkem)}" style="font-family:var(--font-display);font-weight:700;font-size:2.2rem;">${stats.celkem}</div>
         <div class="muted" style="font-size:12px;">průměr z ${stats.count} hodnocení</div>
       </div>
-      ${crit.map(([k,label]) => `
+      ${crit.map(([k,label,max]) => `
         <div class="crit-row">
           <div class="crit-label">${label}</div>
-          <div class="crit-bar-track"><div class="crit-bar-fill" style="width:${(stats[k]/20*100).toFixed(0)}%"></div></div>
+          <div class="crit-bar-track"><div class="crit-bar-fill" style="width:${(stats[k]/max*100).toFixed(0)}%"></div></div>
           <div class="crit-val">${stats[k]}</div>
         </div>
       `).join('')}
@@ -728,12 +796,12 @@ function openRumDetail(rumId) {
     </div>
     ${isGuest ? '' : `
     <div class="btn-row" style="margin-top:8px;">
-      <button class="btn btn-primary" onclick="closeRumDetail(); goTab('degustace'); presetRatingRum('${rum.id}')">+ Přidat hodnocení</button>
+      <button class="btn btn-primary" onclick="closeRumDetail(); presetRatingRum('${rum.id}'); goTab('degustace');">+ Přidat hodnocení</button>
     </div>
     `}
     ${hasPerm(PERM_MAZANI) ? `
     <div class="btn-row" style="margin-top:8px;">
-      <button class="btn btn-danger" onclick="deleteRum('${rum.id}')">Smazat rum</button>
+      <button class="btn btn-danger" onclick="deleteRum('${rum.id}')">Smazat ${isDoutnik?'doutník':'rum'}</button>
     </div>
     ` : ''}
   `;
@@ -745,18 +813,21 @@ async function deleteRum(rumId) {
   if (!hasPerm(PERM_MAZANI)) return;
   const rum = state.rums.find(r => r.id === rumId);
   if (!rum) return;
-  const relatedRatings = state.ratings.filter(r => r.rumId === rumId);
+  const isDoutnik = (rum.typ||'rum') === 'doutnik';
+  const ratingsCol = isDoutnik ? 'cigar_ratings' : 'ratings';
+  const relatedRatings = (isDoutnik ? state.cigarRatings : state.ratings).filter(r => r.rumId === rumId);
+  const label = isDoutnik ? 'doutník' : 'rum';
   const warn = relatedRatings.length
-    ? `Opravdu smazat rum "${rum.nazev}${rum.znacka?' – '+rum.znacka:''}"? Smaže se i všech ${relatedRatings.length} hodnocení k němu.`
-    : `Opravdu smazat rum "${rum.nazev}${rum.znacka?' – '+rum.znacka:''}"?`;
+    ? `Opravdu smazat ${label} "${rum.nazev}${rum.znacka?' – '+rum.znacka:''}"? Smaže se i všech ${relatedRatings.length} hodnocení k němu.`
+    : `Opravdu smazat ${label} "${rum.nazev}${rum.znacka?' – '+rum.znacka:''}"?`;
   if (!confirm(warn)) return;
   const batch = db.batch();
   batch.delete(db.collection('rums').doc(rumId));
-  relatedRatings.forEach(r => batch.delete(db.collection('ratings').doc(r.id)));
+  relatedRatings.forEach(r => batch.delete(db.collection(ratingsCol).doc(r.id)));
   await batch.commit();
   closeRumDetail();
-  toast('Rum smazán');
-  logChange('Smazán rum', `${rum.nazev}${rum.znacka?' – '+rum.znacka:''}${relatedRatings.length?' (+'+relatedRatings.length+' hodnocení)':''}`);
+  toast(isDoutnik ? 'Doutník smazán' : 'Rum smazán');
+  logChange(isDoutnik ? 'Smazán doutník' : 'Smazán rum', `${rum.nazev}${rum.znacka?' – '+rum.znacka:''}${relatedRatings.length?' (+'+relatedRatings.length+' hodnocení)':''}`);
 }
 
 /* ---------------- DEGUSTACE (add rating) tab ---------------- */
@@ -765,19 +836,25 @@ function backToRatingStart() {
   ui.selectedMember = currentUser || null;
   ui.showNewRum = false;
   ui.showNewMember = false;
-  ui.scores = { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 };
-  renderDegustaceForm();
+  if (ui.typ === 'doutnik') {
+    ui.cigarScores = { vzhled: 8, vune: 8, tah: 8, chut: 15, kour: 15, horeni: 15, popel: 8 };
+  } else {
+    ui.scores = { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 };
+  }
+  renderActiveDegustaceForm();
   document.getElementById('view-degustace').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function presetRatingRum(rumId) {
+  const rum = state.rums.find(r => r.id === rumId);
+  if (rum) { ui.typ = (rum.typ||'rum'); syncTypUI(); }
   ui.selectedRatingRumId = rumId;
-  renderDegustaceForm();
+  renderActiveDegustaceForm();
 }
 
 function renderDegustaceForm() {
   const rum = state.rums.find(r => r.id === ui.selectedRatingRumId);
-  const crit = [['barva','Barva'],['aroma','Aroma'],['chut','Chuť'],['plnost','Plnost'],['dojezd','Dojezd']];
+  const crit = RUM_CRIT;
   const total = crit.reduce((s,[k])=>s+Number(ui.scores[k]||0),0);
 
   let dup = null;
@@ -843,11 +920,11 @@ function renderRatingRumPicker() {
   const el = document.getElementById('rumPickList');
   if (!el) return;
   const q = (document.getElementById('rumPickSearch')?.value || '').toLowerCase();
-  let rows = [...state.rums].sort((a,b) => (b._seq||0) - (a._seq||0));
+  let rows = state.rums.filter(r => (r.typ||'rum') === ui.typ).sort((a,b) => (b._seq||0) - (a._seq||0));
   if (q) rows = rows.filter(r => (r.nazev||'').toLowerCase().includes(q) || (r.znacka||'').toLowerCase().includes(q));
   rows = rows.slice(0, 40);
   el.innerHTML = rows.map(r => `
-    <div class="picker-item" onclick="ui.selectedRatingRumId='${r.id}'; renderDegustaceForm();">
+    <div class="picker-item" onclick="ui.selectedRatingRumId='${r.id}'; renderActiveDegustaceForm();">
       ${esc(r.nazev)} ${r.znacka?'– '+esc(r.znacka):''}
       <div class="sub">${esc(r.puvod||'')}</div>
     </div>
@@ -863,6 +940,144 @@ function updateScore(key, val) {
   if (totalEl) totalEl.textContent = total;
   const btn = document.querySelector('#degustaceForm .btn-primary');
   // no full re-render needed for slider drags -> keeps UI snappy
+}
+
+/* ---------------- DEGUSTACE DOUTNÍKŮ (add cigar rating) ---------------- */
+function renderCigarDegustaceForm() {
+  const rum = state.rums.find(r => r.id === ui.selectedRatingRumId);
+  const crit = CIGAR_CRIT;
+  const total = crit.reduce((s,[k])=>s+Number(ui.cigarScores[k]||0),0);
+
+  let dup = null;
+  if (rum && ui.selectedMember) {
+    dup = state.cigarRatings.find(r => r.rumId === rum.id && r.clen === ui.selectedMember);
+  }
+
+  let html = '<div class="card">';
+  html += '<div class="field"><label>1. Doutník</label>';
+  if (rum) {
+    html += `<div class="selected-chip"><span>${esc(rum.nazev)} ${rum.znacka?'– '+esc(rum.znacka):''}</span><button class="x" onclick="ui.selectedRatingRumId=null; renderCigarDegustaceForm();">×</button></div>`;
+  } else {
+    html += `<input class="input" id="rumPickSearch" placeholder="Hledat doutník…" oninput="renderRatingRumPicker()">`;
+    html += `<div class="picker-list" id="rumPickList"></div>`;
+  }
+  html += '</div>';
+
+  if (rum) {
+    html += '<div class="field"><label>2. Kdo hodnotí</label><div class="member-chips">';
+    const ratingMembers = state.members.filter(m=>m.aktivni!==false).slice().sort((a,b) => {
+      const ia = CLUB_MEMBER_ORDER.indexOf(a.jmeno), ib = CLUB_MEMBER_ORDER.indexOf(b.jmeno);
+      const ra = ia === -1 ? CLUB_MEMBER_ORDER.length : ia;
+      const rb = ib === -1 ? CLUB_MEMBER_ORDER.length : ib;
+      return ra !== rb ? ra - rb : a.jmeno.localeCompare(b.jmeno, 'cs');
+    });
+    const restrictToSelf = !isAdmin && !!currentUser;
+    html += ratingMembers.map(m => {
+      const locked = restrictToSelf && m.jmeno !== currentUser;
+      const cls = 'member-chip' + (ui.selectedMember===m.jmeno ? ' active' : '');
+      const click = locked ? '' : ` onclick="ui.selectedMember='${esc(m.jmeno).replace(/'/g,"\\'")}'; renderCigarDegustaceForm();"`;
+      return `<button class="${cls}"${click} ${locked ? 'disabled' : ''}>${esc(m.jmeno)}</button>`;
+    }).join('');
+    html += '</div>';
+    if (restrictToSelf) html += `<div class="muted" style="font-size:12px;margin-top:4px;">Hodnotíš jen za sebe (${esc(currentUser)}).</div>`;
+    html += '</div>';
+  }
+
+  if (rum && ui.selectedMember) {
+    if (dup) {
+      html += `<div class="warn-banner">${esc(ui.selectedMember)} už tenhle doutník hodnotil/a (${dup.celkem} b.). Uložením staré hodnocení přepíšeš.</div>`;
+    }
+    html += '<div class="field"><label>3. Hodnocení</label>';
+    crit.forEach(([k,label,max]) => {
+      html += `
+        <div class="slider-row">
+          <div class="slider-head"><span>${label} <span class="muted" style="font-weight:400;">(1–${max})</span></span><b id="cigarScoreVal-${k}">${ui.cigarScores[k]}</b></div>
+          <input type="range" min="1" max="${max}" step="1" value="${ui.cigarScores[k]}" oninput="updateCigarScore('${k}', this.value)">
+        </div>`;
+    });
+    html += '</div>';
+    html += `<div class="total-box"><span class="muted">Celkem</span><span class="num">${total}</span></div>`;
+    html += `<button class="btn btn-primary" onclick="submitCigarRating()">${dup ? 'Přepsat hodnocení' : 'Uložit hodnocení'}</button>`;
+    html += `<div class="btn-row" style="margin-top:8px;"><button class="btn btn-ghost" onclick="backToRatingStart()">← Zpět</button></div>`;
+  }
+  html += '</div>';
+
+  document.getElementById('degustaceForm').innerHTML = html;
+  if (!rum) renderRatingRumPicker();
+  renderRecentCigarRatings();
+}
+
+function updateCigarScore(key, val) {
+  ui.cigarScores[key] = Number(val);
+  document.getElementById('cigarScoreVal-'+key).textContent = val;
+  const total = CIGAR_CRIT.reduce((s,[k])=>s+Number(ui.cigarScores[k]||0),0);
+  const totalEl = document.querySelector('#degustaceForm .total-box .num');
+  if (totalEl) totalEl.textContent = total;
+}
+
+async function submitCigarRating() {
+  const rum = state.rums.find(r => r.id === ui.selectedRatingRumId);
+  if (!rum || !ui.selectedMember) return;
+  if (!isAdmin && currentUser && ui.selectedMember !== currentUser) {
+    toast('Můžeš uložit hodnocení jen za sebe (' + currentUser + ')');
+    return;
+  }
+  const celkem = CIGAR_CRIT.reduce((s,[k])=>s+Number(ui.cigarScores[k]||0),0);
+  const body = {
+    rumId: rum.id, clen: ui.selectedMember,
+    vzhled: ui.cigarScores.vzhled, vune: ui.cigarScores.vune, tah: ui.cigarScores.tah,
+    chut: ui.cigarScores.chut, kour: ui.cigarScores.kour, horeni: ui.cigarScores.horeni, popel: ui.cigarScores.popel,
+    celkem,
+    datum: new Date().toISOString().slice(0,10),
+    _seq: Date.now(),
+  };
+  const existing = state.cigarRatings.find(r => r.rumId === rum.id && r.clen === ui.selectedMember);
+  if (existing) {
+    await db.collection('cigar_ratings').doc(existing.id).set(body);
+    toast('Hodnocení přepsáno');
+    logChange('Upraveno hodnocení doutníku', `${ui.selectedMember} → ${rum.nazev}${rum.znacka?' – '+rum.znacka:''} (${celkem})`);
+  } else {
+    await db.collection('cigar_ratings').add(body);
+    toast('Hodnocení uloženo');
+    logChange('Přidáno hodnocení doutníku', `${ui.selectedMember} → ${rum.nazev}${rum.znacka?' – '+rum.znacka:''} (${celkem})`);
+  }
+  ui.selectedMember = currentUser || null;
+  ui.cigarScores = { vzhled: 8, vune: 8, tah: 8, chut: 15, kour: 15, horeni: 15, popel: 8 };
+  renderCigarDegustaceForm();
+}
+
+function renderRecentCigarRatings() {
+  const el = document.getElementById('recentRatings');
+  const recent = [...state.cigarRatings].sort((a,b)=>(b._seq||0)-(a._seq||0)).slice(0,100);
+  if (recent.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="muted" style="font-size:12px;margin-bottom:6px;">Naposledy přidáno</div>' +
+    '<div class="recent-list-scroll">' +
+    recent.map(r => {
+      const rum = state.rums.find(x=>x.id===r.rumId);
+      const editable = !isGuest && (isAdmin || r.clen === currentUser);
+      const cls = 'recent-item' + (editable ? ' clickable' : '');
+      const click = editable ? ` onclick="editRecentCigarRating('${r.id}')"` : '';
+      return `<div class="${cls}"${click}><span>${esc(r.clen)} – ${esc(rum?rum.nazev:'?')}</span><b>${r.celkem}</b></div>`;
+    }).join('') +
+    '</div>';
+}
+
+function editRecentCigarRating(ratingId) {
+  if (isGuest) return;
+  const r = state.cigarRatings.find(x => x.id === ratingId);
+  if (!r) return;
+  if (!isAdmin && r.clen !== currentUser) {
+    toast('Můžeš upravit jen svoje hodnocení (' + currentUser + ')');
+    return;
+  }
+  ui.selectedRatingRumId = r.rumId;
+  ui.selectedMember = r.clen;
+  ui.cigarScores = {
+    vzhled: Number(r.vzhled)||8, vune: Number(r.vune)||8, tah: Number(r.tah)||8,
+    chut: Number(r.chut)||15, kour: Number(r.kour)||15, horeni: Number(r.horeni)||15, popel: Number(r.popel)||8,
+  };
+  renderCigarDegustaceForm();
+  document.getElementById('degustaceForm').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 /* ---------------- PŘEHLED ZMĚN (log) ---------------- */
@@ -942,38 +1157,41 @@ function renderNewRumSection() {
   const el = document.getElementById('newRumSection');
   if (!el) return;
   if (isGuest) { el.innerHTML = ''; return; }
+  const isDoutnik = ui.typ === 'doutnik';
   if (!ui.showNewRumRumy) {
-    el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=true; renderNewRumSection();">+ Nový rum, který ještě není v seznamu</button>`;
+    el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=true; renderNewRumSection();">+ Nov${isDoutnik?'ý doutník':'ý rum'}, který ještě není v seznamu</button>`;
     return;
   }
   el.innerHTML = `
-    <div class="field"><label>Značka rumu</label><input class="input" id="newRumNazev" placeholder="např. HAVANA CLUB"></div>
+    <div class="field"><label>Značka ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="newRumNazev" placeholder="${isDoutnik?'např. COHIBA':'např. HAVANA CLUB'}"></div>
     <div class="row2">
-      <div class="field"><label>Název rumu</label><input class="input" id="newRumZnacka" placeholder="Anejo Especial"></div>
+      <div class="field"><label>Název ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="newRumZnacka" placeholder="${isDoutnik?'Robusto':'Anejo Especial'}"></div>
       <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba"></div>
     </div>
     <div class="row2">
       <div class="field"><label>Cena</label><input class="input" type="number" id="newRumCena"></div>
-      <div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>
+      ${isDoutnik ? '' : '<div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>'}
     </div>
     <div class="btn-row" style="margin-top:4px;">
-      <button class="btn btn-primary btn-sm" onclick="createNewRum()">Přidat rum</button>
+      <button class="btn btn-primary btn-sm" onclick="createNewRum()">Přidat ${isDoutnik?'doutník':'rum'}</button>
       <button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=false; renderNewRumSection();">Zpět</button>
     </div>`;
 }
 
 async function createNewRum() {
   const nazev = document.getElementById('newRumNazev').value.trim();
-  if (!nazev) { toast('Zadej název rumu'); return; }
+  const isDoutnik = ui.typ === 'doutnik';
+  if (!nazev) { toast('Zadej název'); return; }
   const znacka = document.getElementById('newRumZnacka').value.trim();
   const puvod = document.getElementById('newRumPuvod').value.trim();
   const cena = document.getElementById('newRumCena').value;
-  const abv = document.getElementById('newRumAbv').value;
-  const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, abv: abv ? Number(abv) : null, cukr: null, poznamka: '', _seq: Date.now() };
+  const abvEl = document.getElementById('newRumAbv');
+  const abv = (!isDoutnik && abvEl) ? abvEl.value : '';
+  const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, abv: abv ? Number(abv) : null, cukr: null, poznamka: '', typ: ui.typ, _seq: Date.now() };
   await db.collection('rums').add(rum);
   ui.showNewRumRumy = false;
-  toast('Rum přidán do katalogu');
-  logChange('Přidán rum', `${nazev}${znacka?' – '+znacka:''}`);
+  toast(isDoutnik ? 'Doutník přidán do katalogu' : 'Rum přidán do katalogu');
+  logChange(isDoutnik ? 'Přidán doutník' : 'Přidán rum', `${nazev}${znacka?' – '+znacka:''}`);
 }
 
 async function quickAddMember() {
@@ -1062,7 +1280,7 @@ function renderUcet() {
     document.getElementById('ucetDatum').value = new Date().toISOString().slice(0,10);
   }
 
-  const sorted = [...state.ledger].sort((a,b) => (a.datum||'').localeCompare(b.datum||'') || (a._seq||0)-(b._seq||0));
+  const sorted = [...ledgerSourceArray()].sort((a,b) => (a.datum||'').localeCompare(b.datum||'') || (a._seq||0)-(b._seq||0));
   let running = 0;
   const withBalance = sorted.map(l => { running += Number(l.castka)||0; return {...l, running}; });
   withBalance.reverse();
@@ -1087,7 +1305,7 @@ function renderUcet() {
 
 /* ---------------- editace/mazání položky účtu ---------------- */
 function openLedgerEdit(id) {
-  const l = state.ledger.find(x => x.id === id);
+  const l = ledgerSourceArray().find(x => x.id === id);
   if (!l) return;
   const canEdit = hasPerm(PERM_SPRAVCI);
   const dis = canEdit ? '' : 'disabled';
@@ -1124,7 +1342,7 @@ async function saveLedgerEdit(id) {
   const castka = Number(document.getElementById('editCastka').value);
   const kategorie = document.getElementById('editKategorie').value;
   if (!popis || !castka) { toast('Vyplň popis a částku'); return; }
-  await db.collection('ledger').doc(id).update({ datum, popis, castka, kategorie });
+  await db.collection(ledgerCollectionName()).doc(id).update({ datum, popis, castka, kategorie });
   closeLedgerEdit();
   toast('Transakce upravena');
   logChange('Upravena transakce', `${popis} (${castka} Kč)`);
@@ -1133,8 +1351,8 @@ async function saveLedgerEdit(id) {
 async function deleteLedgerEntry(id) {
   if (!hasPerm(PERM_SPRAVCI)) return;
   if (!confirm('Opravdu smazat tuto transakci?')) return;
-  const l = state.ledger.find(x => x.id === id);
-  await db.collection('ledger').doc(id).delete();
+  const l = ledgerSourceArray().find(x => x.id === id);
+  await db.collection(ledgerCollectionName()).doc(id).delete();
   closeLedgerEdit();
   toast('Transakce smazána');
   logChange('Smazána transakce', l ? `${l.popis} (${l.castka} Kč)` : id);
@@ -1164,7 +1382,7 @@ async function addLedger() {
   const kategorie = document.getElementById('ucetKategorie').value;
   if (!popis || !castka) { toast('Vyplň popis a částku'); return; }
   if (kategorie === 'nákup' && castka > 0) castka = -castka;
-  await db.collection('ledger').add({ datum, popis, castka, kategorie, _seq: Date.now() });
+  await db.collection(ledgerCollectionName()).add({ datum, popis, castka, kategorie, _seq: Date.now() });
   document.getElementById('ucetPopis').value = '';
   document.getElementById('ucetCastka').value = '';
   toast('Transakce přidána');
@@ -1178,17 +1396,18 @@ function toggleWishForm() {
   el.hidden = !ui.wishFormOpen;
   document.getElementById('wishToggleBtn').hidden = ui.wishFormOpen;
   if (ui.wishFormOpen) {
+    const isDoutnik = ui.typ === 'doutnik';
     el.innerHTML = `
-      <div class="field"><label>Značka rumu</label><input class="input" id="wishZnacka" placeholder="např. HAVANA CLUB"></div>
+      <div class="field"><label>Značka ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="wishZnacka" placeholder="${isDoutnik?'např. COHIBA':'např. HAVANA CLUB'}"></div>
       <div class="row2">
-        <div class="field"><label>Název rumu</label><input class="input" id="wishNazev" placeholder="Anejo Especial"></div>
+        <div class="field"><label>Název ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="wishNazev" placeholder="${isDoutnik?'Robusto':'Anejo Especial'}"></div>
         <div class="field"><label>Původ</label><input class="input" id="wishPuvod"></div>
       </div>
       <div class="row2">
         <div class="field"><label>Cena</label><input class="input" type="number" id="wishCena"></div>
-        <div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="wishAbv" placeholder="40"></div>
+        ${isDoutnik ? '' : '<div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="wishAbv" placeholder="40"></div>'}
       </div>
-      <div class="field"><label>Cukr (g/l)</label><input class="input" type="number" id="wishCukr"></div>
+      ${isDoutnik ? '' : '<div class="field"><label>Cukr (g/l)</label><input class="input" type="number" id="wishCukr"></div>'}
       <div class="field"><label>Poznámka</label><textarea class="input" id="wishPoznamka"></textarea></div>
       <div class="btn-row" style="margin-top:4px;">
         <button class="btn btn-primary btn-sm" onclick="addWish()">Přidat na wishlist</button>
@@ -1201,16 +1420,18 @@ function toggleWishForm() {
 async function addWish() {
   const nazev = document.getElementById('wishNazev').value.trim();
   if (!nazev) { toast('Zadej název'); return; }
-  const abv = document.getElementById('wishAbv').value;
+  const isDoutnik = ui.typ === 'doutnik';
+  const abvEl = document.getElementById('wishAbv');
+  const cukrEl = document.getElementById('wishCukr');
   await db.collection('wishlist').add({
     znacka: document.getElementById('wishZnacka').value.trim(),
     nazev,
     puvod: document.getElementById('wishPuvod').value.trim(),
     cena: Number(document.getElementById('wishCena').value) || null,
-    abv: abv ? Number(abv) : null,
-    cukr: Number(document.getElementById('wishCukr').value) || null,
+    abv: (!isDoutnik && abvEl && abvEl.value) ? Number(abvEl.value) : null,
+    cukr: (!isDoutnik && cukrEl && cukrEl.value) ? Number(cukrEl.value) : null,
     poznamka: document.getElementById('wishPoznamka').value.trim(),
-    priorita: 'střední', stav: 'kandidát', _seq: Date.now(),
+    priorita: 'střední', stav: 'kandidát', typ: ui.typ, _seq: Date.now(),
   });
   toggleWishForm();
   toast('Přidáno na wishlist');
@@ -1233,7 +1454,7 @@ async function deleteWish(id) {
 }
 
 function renderWishlist() {
-  let rows = [...state.wishlist].sort((a, b) => (a._seq || 0) - (b._seq || 0));
+  let rows = state.wishlist.filter(w => (w.typ||'rum') === ui.typ).sort((a, b) => (a._seq || 0) - (b._seq || 0));
   const list = document.getElementById('wishList');
   if (rows.length === 0) { list.innerHTML = '<div class="empty-note">Nic tu není.</div>'; initWishSortable(); return; }
   list.innerHTML = rows.map(w => {
@@ -2035,6 +2256,12 @@ function renderStatistika() {
   const originSel = document.getElementById('statOriginFilter');
   if (!memberSel || !originSel) return;
 
+  const isDoutnik = ui.typ === 'doutnik';
+  const rumsSrc = state.rums.filter(r => (r.typ||'rum') === ui.typ);
+  const ratingsSrc = isDoutnik ? state.cigarRatings : state.ratings;
+  const wordJedn = isDoutnik ? 'doutník' : 'rum';
+  const wordMnoz = isDoutnik ? 'doutníků' : 'rumů';
+
   const activeMembers = [...state.members].filter(m=>m.aktivni!==false).sort((a,b) => {
     const ia = CLUB_MEMBER_ORDER.indexOf(a.jmeno), ib = CLUB_MEMBER_ORDER.indexOf(b.jmeno);
     const ra = ia === -1 ? CLUB_MEMBER_ORDER.length : ia;
@@ -2045,16 +2272,16 @@ function renderStatistika() {
   memberSel.innerHTML = '<option value="vse">Kdo: Všichni</option>' +
     activeMembers.map(m => `<option value="${esc(m.jmeno)}" ${ui.statMember===m.jmeno?'selected':''}>${esc(m.jmeno)}</option>`).join('');
 
-  const origins = [...new Set(state.rums.map(r=>r.puvod).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'cs'));
+  const origins = [...new Set(rumsSrc.map(r=>r.puvod).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'cs'));
   if (ui.statOrigin !== 'vse' && !origins.includes(ui.statOrigin)) ui.statOrigin = 'vse';
   originSel.innerHTML = '<option value="vse">Původ: Vše</option>' +
     origins.map(o => `<option value="${esc(o)}" ${ui.statOrigin===o?'selected':''}>${esc(o)}</option>`).join('');
 
-  const rumIdsByOrigin = ui.statOrigin === 'vse' ? null : new Set(state.rums.filter(r=>r.puvod===ui.statOrigin).map(r=>r.id));
-  const originRatings = rumIdsByOrigin ? state.ratings.filter(r=>rumIdsByOrigin.has(r.rumId)) : state.ratings;
+  const rumIdsByOrigin = ui.statOrigin === 'vse' ? null : new Set(rumsSrc.filter(r=>r.puvod===ui.statOrigin).map(r=>r.id));
+  const originRatings = rumIdsByOrigin ? ratingsSrc.filter(r=>rumIdsByOrigin.has(r.rumId)) : ratingsSrc;
   const filteredRatings = ui.statMember === 'vse' ? originRatings : originRatings.filter(r=>r.clen===ui.statMember);
 
-  const rumLabel = (id) => { const rum = state.rums.find(x=>x.id===id); return rum ? esc(rum.nazev)+(rum.znacka?' – '+esc(rum.znacka):'') : '?'; };
+  const rumLabel = (id) => { const rum = rumsSrc.find(x=>x.id===id); return rum ? esc(rum.nazev)+(rum.znacka?' – '+esc(rum.znacka):'') : '?'; };
 
   const totalCount = filteredRatings.length;
   const avgScore = totalCount ? (filteredRatings.reduce((s,r)=>s+Number(r.celkem||0),0)/totalCount).toFixed(1) : '–';
@@ -2068,7 +2295,7 @@ function renderStatistika() {
   let html = '<div class="stat-grid">';
   html += statTile(totalCount, 'hodnocení');
   html += statTile(avgScore, 'průměr skóre');
-  html += statTile(distinctRums, 'rumů ochutnáno');
+  html += statTile(distinctRums, wordMnoz + ' ochutnáno');
   html += statTile(best ? best.celkem : '–', 'nejlepší skóre', true);
   html += statTile(worst ? worst.celkem : '–', 'nejhorší skóre', true);
   html += '</div>';
@@ -2096,7 +2323,7 @@ function renderStatistika() {
 
   const bottomRated = [...rumAgg].filter(r=>r.count>=2).sort((a,b)=>a.avg-b.avg).slice(0,5);
   html += '<div class="stat-section-title">Nejhůře hodnocené</div>';
-  html += bottomRated.length ? bottomRated.map(renderRumRankRow).join('') : '<div class="empty-note">Zatím málo dat (min. 2 hodnocení na rum).</div>';
+  html += bottomRated.length ? bottomRated.map(renderRumRankRow).join('') : `<div class="empty-note">Zatím málo dat (min. 2 hodnocení na ${wordJedn}).</div>`;
 
   const mostTasted = [...rumAgg].sort((a,b)=>b.count-a.count).slice(0,5);
   html += '<div class="stat-section-title">Nejvíc ochutnávané</div>';
@@ -2104,13 +2331,13 @@ function renderStatistika() {
 
   html += '<div class="stat-section-title">Podle původu</div>';
   const origGroups = {};
-  state.rums.forEach(r => {
+  rumsSrc.forEach(r => {
     const key = r.puvod || 'Neuvedeno';
     if (!origGroups[key]) origGroups[key] = { rums: 0, count: 0, sum: 0 };
     origGroups[key].rums++;
   });
-  state.ratings.forEach(r => {
-    const rum = state.rums.find(x=>x.id===r.rumId);
+  ratingsSrc.forEach(r => {
+    const rum = rumsSrc.find(x=>x.id===r.rumId);
     const key = rum ? (rum.puvod || 'Neuvedeno') : 'Neuvedeno';
     if (!origGroups[key]) origGroups[key] = { rums: 0, count: 0, sum: 0 };
     origGroups[key].count++;
@@ -2121,7 +2348,7 @@ function renderStatistika() {
     avg: origGroups[k].count ? (origGroups[k].sum/origGroups[k].count).toFixed(1) : '–'
   })).sort((a,b) => b.rums - a.rums);
   html += origRows.length ? origRows.map(o =>
-    `<div class="stat-row"><span class="stat-row-main">${esc(o.puvod)}</span><span class="stat-row-sub">${o.rums} rumů · ${o.count} hodn. · průměr ${o.avg}</span></div>`
+    `<div class="stat-row"><span class="stat-row-main">${esc(o.puvod)}</span><span class="stat-row-sub">${o.rums} ${wordMnoz} · ${o.count} hodn. · průměr ${o.avg}</span></div>`
   ).join('') : '<div class="empty-note">Zatím žádná data.</div>';
 
   html += '<div class="stat-section-title">Účast na degustacích</div>';
@@ -2159,16 +2386,18 @@ function renderStatistika() {
   }
 
   if (!isGuest) {
-    const pricedRums = state.rums.filter(r=>r.cena);
+    const pricedRums = rumsSrc.filter(r=>r.cena);
     const avgPrice = pricedRums.length ? Math.round(pricedRums.reduce((s,r)=>s+Number(r.cena||0),0)/pricedRums.length) : null;
-    const abvRums = state.rums.filter(r=>r.abv);
-    const avgAbv = abvRums.length ? (abvRums.reduce((s,r)=>s+Number(r.abv||0),0)/abvRums.length).toFixed(1) : null;
-    const spentNakup = state.ledger.filter(l=>l.kategorie==='nákup').reduce((s,l)=>s+Math.abs(Number(l.castka)||0),0);
+    const spentNakup = ledgerSourceArray().filter(l=>l.kategorie==='nákup').reduce((s,l)=>s+Math.abs(Number(l.castka)||0),0);
     html += '<div class="stat-section-title">Katalog &amp; účet</div>';
     html += '<div class="stat-grid">';
-    html += statTile(state.rums.length, 'rumů v katalogu');
+    html += statTile(rumsSrc.length, wordMnoz + ' v katalogu');
     html += statTile(avgPrice!=null ? avgPrice+' Kč' : '–', 'průměrná cena', true);
-    html += statTile(avgAbv!=null ? avgAbv+' %' : '–', 'průměrný obsah alk.', true);
+    if (!isDoutnik) {
+      const abvRums = rumsSrc.filter(r=>r.abv);
+      const avgAbv = abvRums.length ? (abvRums.reduce((s,r)=>s+Number(r.abv||0),0)/abvRums.length).toFixed(1) : null;
+      html += statTile(avgAbv!=null ? avgAbv+' %' : '–', 'průměrný obsah alk.', true);
+    }
     html += statTile(Math.round(currentBalance())+' Kč', 'zůstatek účtu', true);
     html += statTile(Math.round(spentNakup)+' Kč', 'utraceno za nákup', true);
     html += '</div>';
@@ -2375,10 +2604,14 @@ async function exportToExcel() {
     XLSX.utils.book_append_sheet(wb, ws, name);
   };
   addSheet('Clenove', state.members);
-  addSheet('Rumy_katalog', state.rums);
+  addSheet('Rumy_katalog', state.rums.filter(r => (r.typ||'rum') === 'rum'));
   addSheet('Hodnoceni', state.ratings);
   addSheet('Ucet', state.ledger);
-  addSheet('Wishlist', state.wishlist);
+  addSheet('Wishlist_rumy', state.wishlist.filter(w => (w.typ||'rum') === 'rum'));
+  addSheet('Doutniky_katalog', state.rums.filter(r => (r.typ||'rum') === 'doutnik'));
+  addSheet('Hodnoceni_doutniky', state.cigarRatings);
+  addSheet('Ucet_doutniky', state.ledgerDoutniky);
+  addSheet('Wishlist_doutniky', state.wishlist.filter(w => (w.typ||'rum') === 'doutnik'));
   addSheet('Humidor_doutniky', state.cigars.flatMap(c => (c.nakupy && c.nakupy.length ? c.nakupy : [{}]).map(n => ({
     vyrobce: c.vyrobce || '', model: c.model || '', datum: n.datum || '', pocet: n.pocet || '', cena_ks: n.cena_ks || '', cena_celkem: n.cena_celkem || '',
   }))));
@@ -2474,6 +2707,33 @@ async function maybeSeedUcast() {
   await seedRef.set({ done: true, at: new Date().toISOString() });
 }
 
+const SEED_DOUTNIKY = {"rums":[{"id":"doutnik_1","nazev":"H. UPMANN","znacka":"Half Corona","puvod":"Kuba","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_2","nazev":"JOYA DE NICARAGUA","znacka":"Celebracion Churchill","puvod":"Nikaragua","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_3","nazev":"COHIBA","znacka":"Siglo II","puvod":"Kuba","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_4","nazev":"VEGAFINA","znacka":"Coronitas","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_5","nazev":"COHIBA","znacka":"Siglo III","puvod":"Kuba","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_6","nazev":"VEGAFINA","znacka":"Robusto","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_7","nazev":"POR LARRANAGA","znacka":"Picadores","puvod":"Kuba","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_8","nazev":"PARTAGAS","znacka":"Super Partagas","puvod":"Kuba","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_9","nazev":"STANISLAW","znacka":"Corona","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_10","nazev":"GURKHA","znacka":"Heritage Robusto Corto","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_11","nazev":"QUORUM","znacka":"Robusto Natural","puvod":"Nikaragua","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_12","nazev":"ROMEO Y JULIETA","znacka":"No.2","puvod":"Kuba","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_13","nazev":"PARTAGAS","znacka":"Mille Fleurs","puvod":"Kuba","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_14","nazev":"VEGAFINA","znacka":"Especiales","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_15","nazev":"MONTECRISTO","znacka":"No.4","puvod":"Kuba","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_16","nazev":"VEGAFINA","znacka":"Piramides","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_17","nazev":"STANISLAW","znacka":"Reserve Perfecto","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_18","nazev":"ROCKY PATEL","znacka":"Grand Reserve Robusto","puvod":"Honduras","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_19","nazev":"VEGAFINA","znacka":"Coronas","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_20","nazev":"GURKHA","znacka":"Prize Fighter Robusto","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_21","nazev":"OLIVA","znacka":"Serie O Toro","puvod":"Nikaragua","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_22","nazev":"GURKHA","znacka":"Cellar Reserve 15Y Toro","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_23","nazev":"GURKHA","znacka":"Cellar Res. 15Y Mad. Toro","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_24","nazev":"GURKHA","znacka":"Cellar Res. 15Y Anniv. Toro","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_25","nazev":"GURKHA","znacka":"Cellar Res. 18Y Esp. Toro","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_26","nazev":"GURKHA","znacka":"Cellar Reserve 21Y Toro","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_27","nazev":"E.P. CARRILO","znacka":"Oscuro Piramides Royal","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_28","nazev":"NEW WORLD","znacka":"Dorado Figurado","puvod":"Nikaragua","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_29","nazev":"CASA TURRENT","znacka":"1901 Gran Robusto","puvod":"Mexico","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_30","nazev":"CASA TURRENT","znacka":"1942 Gran Robusto","puvod":"Mexico","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_31","nazev":"CASA TURRENT","znacka":"1973 Gran Robusto","puvod":"Mexico","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_32","nazev":"LEAF BY OSCAR","znacka":"Sumatra Lancero","puvod":"Honduras","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_33","nazev":"VEGAFINA","znacka":"F2 Short Robusto","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_34","nazev":"ROSALONES","znacka":"446 Short Corona","puvod":"Nikaragua","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_35","nazev":"HOYO DE MONTERREY","znacka":"Epicure No.2","puvod":"Kuba","cena":360,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_36","nazev":"GUANTANAMERA","znacka":"3 Minutos","puvod":"Kuba","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_37","nazev":"LEAF BY OSCAR","znacka":"Sumatra Sixty","puvod":"Honduras","cena":280,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_38","nazev":"LEON JIMENES","znacka":"Leyendas","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_39","nazev":"E.P. CARRILLO","znacka":"Encore Majestic","puvod":"Dominikána","cena":270,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_40","nazev":"E.P. CARRILLO","znacka":"Parientes","puvod":"Dominikána","cena":240,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_41","nazev":"GURKHA","znacka":"Heritage Toro","puvod":"Nikaragua","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_42","nazev":"GURKHA","znacka":"Heritage Maduro Toro","puvod":"Nikaragua","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_43","nazev":"GURKHA","znacka":"Marquesa Toro","puvod":"Nikaragua","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_44","nazev":"GURKHA","znacka":"Royal Challenge Toro","puvod":"Nikaragua","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_45","nazev":"GURKHA","znacka":"Havana Legend 1959 Toro","puvod":"Nikaragua","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_46","nazev":"GURKHA","znacka":"Cellar Reserve 12Y Platinum Toro","puvod":"Nikaragua","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_47","nazev":"JOYA DE NICARAGUA","znacka":"Celebracion Consul","puvod":"Nikaragua","cena":150,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_48","nazev":"GURKHA","znacka":"East India Classic Havana","puvod":"Dominikána","cena":null,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_49","nazev":"ALEC BRADLEY","znacka":"Prensado Lost Art Gran Toro","puvod":"Honduras","cena":200,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_50","nazev":"FLOR DE LAS ANTILLAS","znacka":"Toro","puvod":"Nikaragua","cena":230,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_51","nazev":"FLOR DE LAS ANTILLAS","znacka":"Robusto","puvod":"Nikaragua","cena":220,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_52","nazev":"ALEC BRADLEY","znacka":"American Sun Grown Robusto","puvod":"Honduras","cena":160,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_53","nazev":"ALEC BRADLEY","znacka":"Black Market Esteli Robusto","puvod":"Honduras","cena":190,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_54","nazev":"ALEC BRADLEY","znacka":"Blind Faith Robusto","puvod":"Honduras","cena":200,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_55","nazev":"ALEC BRADLEY","znacka":"Kintsugi Robusto","puvod":"Honduras","cena":210,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_56","nazev":"ALEC BRADLEY","znacka":"Project 40 Robusto","puvod":"Honduras","cena":160,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_57","nazev":"OLIVA","znacka":"Serie V Lancero","puvod":"Nikaragua","cena":190,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_58","nazev":"PLASENCIA","znacka":"Reserva Original Piramide","puvod":"Honduras","cena":220,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_59","nazev":"INDIAN MOTORCYCLE","znacka":"Maduro Churchill","puvod":"Dominikána","cena":210,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_60","nazev":"BLACKENED","znacka":"M81 Toro","puvod":"Nikaragua","cena":310,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_61","nazev":"BLACKENED","znacka":"S84 Toro","puvod":"Nikaragua","cena":310,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_62","nazev":"HENRY CLAY","znacka":"War Hawk Corona","puvod":"Dominikána","cena":160,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_63","nazev":"ROCKY PATEL","znacka":"Decade Robusto","puvod":"Honduras","cena":220,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_64","nazev":"E.P. CARRILLO","znacka":"La Historia El Senador","puvod":"Dominikána","cena":230,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_65","nazev":"PERDOMO","znacka":"Fresco Sun Grown Robusto","puvod":"Nikaragua","cena":165,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_66","nazev":"ALEC BRADLEY","znacka":"Gatekeeper Robusto","puvod":"Honduras","cena":168,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_67","nazev":"DON PEPIN","znacka":"Blue Original Invictos","puvod":"USA","cena":204,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_68","nazev":"LA ANTIGUEDAD","znacka":"Robusto","puvod":"Nikaragua","cena":186,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_69","nazev":"LA ANTIGUEDAD","znacka":"Toro","puvod":"Nikaragua","cena":206,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_70","nazev":"LA FLOR DOMINICANA","znacka":"Double Ligero Chiselito Maduro","puvod":"Dominikána","cena":148,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_71","nazev":"ALEC BRADLEY","znacka":"Black Market Perfecto","puvod":"Honduras","cena":190,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_72","nazev":"LA FLOR DOMINICANA","znacka":"Coronado Corona Especial","puvod":"Dominikána","cena":145,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_73","nazev":"ALEC BRADLEY","znacka":"Black Market Esteli Churchill","puvod":"Honduras","cena":166,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_74","nazev":"MY FATHER","znacka":"La Opulencia Corona","puvod":"Nikaragua","cena":219,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_75","nazev":"PLASENCIA","znacka":"Reserva Original Toro","puvod":"Honduras","cena":187,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_76","nazev":"PLASENCIA","znacka":"Reserva Original Corona","puvod":"Honduras","cena":172,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_77","nazev":"CUABA","znacka":"Exclusivos","puvod":"Kuba","cena":420,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_78","nazev":"JUAN LOPEZ","znacka":"Seleccion No.1","puvod":"Kuba","cena":450,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_79","nazev":"PUNCH","znacka":"Triunfos","puvod":"Kuba","cena":390,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_80","nazev":"LEAF BY OSCAR","znacka":"Corojo Toro","puvod":"Honduras","cena":213,"cukr":null,"poznamka":"","typ":"doutnik"},{"id":"doutnik_81","nazev":"LEAF BY OSCAR","znacka":"Sumatra Toro","puvod":"Honduras","cena":263,"cukr":null,"poznamka":"","typ":"doutnik"}],"ratings":[{"id":"cigarrating_1","rumId":"doutnik_1","clen":"Libor","vzhled":9,"vune":10,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":94,"datum":null},{"id":"cigarrating_2","rumId":"doutnik_1","clen":"Broněk","vzhled":8,"vune":8,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":91,"datum":null},{"id":"cigarrating_3","rumId":"doutnik_2","clen":"Libor","vzhled":8,"vune":8,"tah":8,"chut":15,"kour":17,"horeni":17,"popel":9,"celkem":82,"datum":null},{"id":"cigarrating_4","rumId":"doutnik_2","clen":"Broněk","vzhled":9,"vune":8,"tah":7,"chut":16,"kour":18,"horeni":17,"popel":9,"celkem":84,"datum":null},{"id":"cigarrating_5","rumId":"doutnik_3","clen":"Libor","vzhled":9,"vune":10,"tah":9,"chut":20,"kour":19,"horeni":19,"popel":10,"celkem":96,"datum":null},{"id":"cigarrating_6","rumId":"doutnik_3","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":10,"celkem":94,"datum":null},{"id":"cigarrating_7","rumId":"doutnik_4","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":17,"kour":18,"horeni":18,"popel":9,"celkem":89,"datum":null},{"id":"cigarrating_8","rumId":"doutnik_4","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":93,"datum":null},{"id":"cigarrating_9","rumId":"doutnik_5","clen":"Libor","vzhled":9,"vune":10,"tah":9,"chut":20,"kour":19,"horeni":19,"popel":9,"celkem":95,"datum":"2022-08-26"},{"id":"cigarrating_10","rumId":"doutnik_5","clen":"Tonda","vzhled":10,"vune":10,"tah":7,"chut":19,"kour":18,"horeni":18,"popel":8,"celkem":90,"datum":"2022-08-26"},{"id":"cigarrating_11","rumId":"doutnik_5","clen":"Broněk","vzhled":10,"vune":9,"tah":9,"chut":20,"kour":19,"horeni":19,"popel":9,"celkem":95,"datum":"2022-08-26"},{"id":"cigarrating_12","rumId":"doutnik_6","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":18,"popel":9,"celkem":90,"datum":"2022-08-26"},{"id":"cigarrating_13","rumId":"doutnik_6","clen":"Broněk","vzhled":8,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":19,"popel":9,"celkem":90,"datum":"2022-08-26"},{"id":"cigarrating_14","rumId":"doutnik_7","clen":"Libor","vzhled":9,"vune":10,"tah":9,"chut":19,"kour":18,"horeni":17,"popel":9,"celkem":91,"datum":"2022-09-30"},{"id":"cigarrating_15","rumId":"doutnik_7","clen":"Broněk","vzhled":9,"vune":10,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":9,"celkem":93,"datum":"2022-09-30"},{"id":"cigarrating_16","rumId":"doutnik_8","clen":"Libor","vzhled":9,"vune":10,"tah":9,"chut":19,"kour":18,"horeni":18,"popel":9,"celkem":92,"datum":"2022-09-30"},{"id":"cigarrating_17","rumId":"doutnik_8","clen":"Broněk","vzhled":8,"vune":9,"tah":9,"chut":19,"kour":18,"horeni":18,"popel":9,"celkem":90,"datum":"2022-09-30"},{"id":"cigarrating_18","rumId":"doutnik_9","clen":"Libor","vzhled":9,"vune":8,"tah":8,"chut":14,"kour":17,"horeni":17,"popel":8,"celkem":81,"datum":"2022-09-30"},{"id":"cigarrating_19","rumId":"doutnik_9","clen":"Broněk","vzhled":8,"vune":8,"tah":7,"chut":17,"kour":17,"horeni":17,"popel":8,"celkem":82,"datum":"2022-09-30"},{"id":"cigarrating_20","rumId":"doutnik_10","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":17,"popel":9,"celkem":89,"datum":"2022-09-30"},{"id":"cigarrating_21","rumId":"doutnik_10","clen":"Broněk","vzhled":8,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":18,"popel":9,"celkem":89,"datum":"2022-09-30"},{"id":"cigarrating_22","rumId":"doutnik_11","clen":"Libor","vzhled":8,"vune":7,"tah":6,"chut":15,"kour":16,"horeni":17,"popel":7,"celkem":76,"datum":"2022-09-30"},{"id":"cigarrating_23","rumId":"doutnik_11","clen":"Broněk","vzhled":8,"vune":7,"tah":7,"chut":15,"kour":15,"horeni":15,"popel":8,"celkem":75,"datum":"2022-09-30"},{"id":"cigarrating_24","rumId":"doutnik_12","clen":"Libor","vzhled":9,"vune":9,"tah":7,"chut":18,"kour":17,"horeni":17,"popel":8,"celkem":85,"datum":"2022-09-30"},{"id":"cigarrating_25","rumId":"doutnik_12","clen":"Broněk","vzhled":8,"vune":8,"tah":5,"chut":16,"kour":10,"horeni":16,"popel":9,"celkem":72,"datum":"2022-09-30"},{"id":"cigarrating_26","rumId":"doutnik_13","clen":"Libor","vzhled":9,"vune":9,"tah":8,"chut":18,"kour":17,"horeni":17,"popel":8,"celkem":86,"datum":"2022-09-30"},{"id":"cigarrating_27","rumId":"doutnik_13","clen":"Tonda","vzhled":8,"vune":7,"tah":8,"chut":17,"kour":17,"horeni":18,"popel":8,"celkem":83,"datum":"2022-09-30"},{"id":"cigarrating_28","rumId":"doutnik_13","clen":"Broněk","vzhled":9,"vune":8,"tah":9,"chut":19,"kour":18,"horeni":16,"popel":9,"celkem":88,"datum":"2022-09-30"},{"id":"cigarrating_29","rumId":"doutnik_13","clen":"Jirka","vzhled":9,"vune":9,"tah":9,"chut":17,"kour":19,"horeni":18,"popel":9,"celkem":90,"datum":"2022-09-30"},{"id":"cigarrating_30","rumId":"doutnik_14","clen":"Libor","vzhled":10,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":18,"popel":9,"celkem":91,"datum":"2022-09-30"},{"id":"cigarrating_31","rumId":"doutnik_14","clen":"Tonda","vzhled":8,"vune":8,"tah":10,"chut":18,"kour":18,"horeni":19,"popel":10,"celkem":91,"datum":"2022-09-30"},{"id":"cigarrating_32","rumId":"doutnik_14","clen":"Broněk","vzhled":8,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":19,"popel":9,"celkem":90,"datum":"2022-09-30"},{"id":"cigarrating_33","rumId":"doutnik_14","clen":"Jirka","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":20,"popel":10,"celkem":95,"datum":"2022-09-30"},{"id":"cigarrating_34","rumId":"doutnik_15","clen":"Libor","vzhled":9,"vune":10,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":10,"celkem":95,"datum":"2022-09-30"},{"id":"cigarrating_35","rumId":"doutnik_15","clen":"Tonda","vzhled":8,"vune":9,"tah":7,"chut":18,"kour":18,"horeni":17,"popel":7,"celkem":84,"datum":"2022-09-30"},{"id":"cigarrating_36","rumId":"doutnik_15","clen":"Broněk","vzhled":9,"vune":9,"tah":7,"chut":19,"kour":18,"horeni":17,"popel":8,"celkem":87,"datum":"2022-09-30"},{"id":"cigarrating_37","rumId":"doutnik_16","clen":"Libor","vzhled":9,"vune":9,"tah":8,"chut":18,"kour":19,"horeni":18,"popel":9,"celkem":90,"datum":"2022-09-30"},{"id":"cigarrating_38","rumId":"doutnik_16","clen":"Tonda","vzhled":8,"vune":8,"tah":9,"chut":18,"kour":18,"horeni":19,"popel":10,"celkem":90,"datum":"2022-09-30"},{"id":"cigarrating_39","rumId":"doutnik_16","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":18,"popel":9,"celkem":90,"datum":"2022-09-30"},{"id":"cigarrating_40","rumId":"doutnik_17","clen":"Libor","vzhled":10,"vune":9,"tah":8,"chut":18,"kour":18,"horeni":17,"popel":9,"celkem":89,"datum":"2022-09-30"},{"id":"cigarrating_41","rumId":"doutnik_17","clen":"Tonda","vzhled":9,"vune":9,"tah":10,"chut":18,"kour":18,"horeni":20,"popel":9,"celkem":93,"datum":"2022-09-30"},{"id":"cigarrating_42","rumId":"doutnik_17","clen":"Broněk","vzhled":10,"vune":9,"tah":8,"chut":18,"kour":17,"horeni":17,"popel":8,"celkem":87,"datum":"2022-09-30"},{"id":"cigarrating_43","rumId":"doutnik_18","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":19,"popel":9,"celkem":92,"datum":"2022-09-30"},{"id":"cigarrating_44","rumId":"doutnik_18","clen":"Tonda","vzhled":9,"vune":9,"tah":10,"chut":17,"kour":18,"horeni":18,"popel":8,"celkem":89,"datum":"2022-09-30"},{"id":"cigarrating_45","rumId":"doutnik_18","clen":"Broněk","vzhled":8,"vune":9,"tah":10,"chut":18,"kour":18,"horeni":20,"popel":10,"celkem":93,"datum":"2022-09-30"},{"id":"cigarrating_46","rumId":"doutnik_19","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":18,"popel":9,"celkem":90,"datum":"2022-09-30"},{"id":"cigarrating_47","rumId":"doutnik_19","clen":"Tonda","vzhled":9,"vune":9,"tah":7,"chut":18,"kour":17,"horeni":18,"popel":9,"celkem":87,"datum":"2022-09-30"},{"id":"cigarrating_48","rumId":"doutnik_19","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":19,"popel":9,"celkem":92,"datum":"2022-09-30"},{"id":"cigarrating_49","rumId":"doutnik_20","clen":"Libor","vzhled":8,"vune":9,"tah":9,"chut":17,"kour":18,"horeni":18,"popel":8,"celkem":87,"datum":"2023-07-04"},{"id":"cigarrating_50","rumId":"doutnik_20","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":19,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_51","rumId":"doutnik_21","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":18,"popel":9,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_52","rumId":"doutnik_21","clen":"Tonda","vzhled":9,"vune":9,"tah":10,"chut":18,"kour":19,"horeni":18,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_53","rumId":"doutnik_21","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_54","rumId":"doutnik_22","clen":"Libor","vzhled":9,"vune":10,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_55","rumId":"doutnik_22","clen":"Tonda","vzhled":10,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":95,"datum":"2023-07-04"},{"id":"cigarrating_56","rumId":"doutnik_22","clen":"Broněk","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":17,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_57","rumId":"doutnik_22","clen":"Jirka","vzhled":9,"vune":10,"tah":10,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":95,"datum":"2023-07-04"},{"id":"cigarrating_58","rumId":"doutnik_23","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":20,"horeni":19,"popel":8,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_59","rumId":"doutnik_23","clen":"Tomáš","vzhled":10,"vune":9,"tah":10,"chut":18,"kour":18,"horeni":19,"popel":9,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_60","rumId":"doutnik_23","clen":"Tonda","vzhled":9,"vune":9,"tah":10,"chut":18,"kour":19,"horeni":16,"popel":7,"celkem":88,"datum":"2023-07-04"},{"id":"cigarrating_61","rumId":"doutnik_23","clen":"Broněk","vzhled":9,"vune":9,"tah":10,"chut":20,"kour":20,"horeni":19,"popel":9,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_62","rumId":"doutnik_24","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":18,"horeni":17,"popel":8,"celkem":89,"datum":"2023-07-04"},{"id":"cigarrating_63","rumId":"doutnik_24","clen":"Tonda","vzhled":10,"vune":10,"tah":8,"chut":18,"kour":18,"horeni":16,"popel":7,"celkem":87,"datum":"2023-07-04"},{"id":"cigarrating_64","rumId":"doutnik_24","clen":"Broněk","vzhled":9,"vune":8,"tah":8,"chut":18,"kour":18,"horeni":18,"popel":8,"celkem":87,"datum":"2023-07-04"},{"id":"cigarrating_65","rumId":"doutnik_24","clen":"Jirka","vzhled":10,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":95,"datum":"2023-07-04"},{"id":"cigarrating_66","rumId":"doutnik_25","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":18,"popel":9,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_67","rumId":"doutnik_25","clen":"Tonda","vzhled":10,"vune":10,"tah":10,"chut":18,"kour":19,"horeni":17,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_68","rumId":"doutnik_25","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":18,"horeni":19,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_69","rumId":"doutnik_25","clen":"Jirka","vzhled":10,"vune":10,"tah":8,"chut":19,"kour":18,"horeni":20,"popel":9,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_70","rumId":"doutnik_26","clen":"Libor","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_71","rumId":"doutnik_26","clen":"Tomáš","vzhled":10,"vune":9,"tah":9,"chut":18,"kour":17,"horeni":18,"popel":9,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_72","rumId":"doutnik_26","clen":"Tonda","vzhled":10,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":19,"popel":8,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_73","rumId":"doutnik_26","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":20,"horeni":19,"popel":8,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_74","rumId":"doutnik_26","clen":"Jirka","vzhled":10,"vune":10,"tah":10,"chut":19,"kour":20,"horeni":19,"popel":9,"celkem":97,"datum":"2023-07-04"},{"id":"cigarrating_75","rumId":"doutnik_27","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":20,"popel":10,"celkem":95,"datum":"2023-07-04"},{"id":"cigarrating_76","rumId":"doutnik_27","clen":"Tonda","vzhled":10,"vune":10,"tah":10,"chut":18,"kour":18,"horeni":19,"popel":10,"celkem":95,"datum":"2023-07-04"},{"id":"cigarrating_77","rumId":"doutnik_27","clen":"Broněk","vzhled":8,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":9,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_78","rumId":"doutnik_27","clen":"Jirka","vzhled":10,"vune":10,"tah":10,"chut":19,"kour":18,"horeni":20,"popel":10,"celkem":97,"datum":"2023-07-04"},{"id":"cigarrating_79","rumId":"doutnik_28","clen":"Libor","vzhled":10,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":19,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_80","rumId":"doutnik_28","clen":"Tonda","vzhled":10,"vune":10,"tah":10,"chut":18,"kour":19,"horeni":18,"popel":8,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_81","rumId":"doutnik_28","clen":"Broněk","vzhled":10,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":18,"popel":7,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_82","rumId":"doutnik_29","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":19,"popel":10,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_83","rumId":"doutnik_29","clen":"Tonda","vzhled":10,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":20,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_84","rumId":"doutnik_29","clen":"Broněk","vzhled":10,"vune":9,"tah":9,"chut":20,"kour":19,"horeni":19,"popel":8,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_85","rumId":"doutnik_29","clen":"Jirka","vzhled":10,"vune":9,"tah":10,"chut":19,"kour":20,"horeni":20,"popel":9,"celkem":97,"datum":"2023-07-04"},{"id":"cigarrating_86","rumId":"doutnik_30","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":19,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_87","rumId":"doutnik_30","clen":"Tonda","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":20,"horeni":19,"popel":7,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_88","rumId":"doutnik_30","clen":"Broněk","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":19,"popel":8,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_89","rumId":"doutnik_30","clen":"Jirka","vzhled":10,"vune":8,"tah":10,"chut":18,"kour":18,"horeni":19,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_90","rumId":"doutnik_31","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":18,"popel":9,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_91","rumId":"doutnik_31","clen":"Tonda","vzhled":9,"vune":9,"tah":10,"chut":18,"kour":20,"horeni":20,"popel":8,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_92","rumId":"doutnik_31","clen":"Broněk","vzhled":10,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":20,"popel":7,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_93","rumId":"doutnik_32","clen":"Libor","vzhled":10,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":8,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_94","rumId":"doutnik_32","clen":"Tonda","vzhled":10,"vune":10,"tah":10,"chut":19,"kour":20,"horeni":17,"popel":8,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_95","rumId":"doutnik_32","clen":"Broněk","vzhled":10,"vune":9,"tah":10,"chut":19,"kour":20,"horeni":18,"popel":8,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_96","rumId":"doutnik_32","clen":"Jirka","vzhled":9,"vune":9,"tah":10,"chut":18,"kour":18,"horeni":19,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_97","rumId":"doutnik_33","clen":"Libor","vzhled":9,"vune":8,"tah":9,"chut":17,"kour":19,"horeni":19,"popel":9,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_98","rumId":"doutnik_33","clen":"Tonda","vzhled":9,"vune":8,"tah":10,"chut":18,"kour":19,"horeni":19,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_99","rumId":"doutnik_33","clen":"Broněk","vzhled":9,"vune":9,"tah":10,"chut":18,"kour":19,"horeni":19,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_100","rumId":"doutnik_33","clen":"Jirka","vzhled":10,"vune":8,"tah":10,"chut":18,"kour":18,"horeni":18,"popel":8,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_101","rumId":"doutnik_34","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":17,"kour":18,"horeni":18,"popel":9,"celkem":89,"datum":"2023-07-04"},{"id":"cigarrating_102","rumId":"doutnik_35","clen":"Libor","vzhled":9,"vune":10,"tah":9,"chut":20,"kour":19,"horeni":18,"popel":9,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_103","rumId":"doutnik_35","clen":"Tonda","vzhled":10,"vune":10,"tah":10,"chut":19,"kour":19,"horeni":20,"popel":8,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_104","rumId":"doutnik_35","clen":"Broněk","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":20,"horeni":20,"popel":10,"celkem":97,"datum":"2023-07-04"},{"id":"cigarrating_105","rumId":"doutnik_35","clen":"Jirka","vzhled":10,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":20,"popel":9,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_106","rumId":"doutnik_36","clen":"Libor","vzhled":6,"vune":8,"tah":8,"chut":18,"kour":18,"horeni":17,"popel":8,"celkem":83,"datum":"2023-07-04"},{"id":"cigarrating_107","rumId":"doutnik_36","clen":"Tonda","vzhled":9,"vune":9,"tah":7,"chut":18,"kour":17,"horeni":18,"popel":9,"celkem":87,"datum":"2023-07-04"},{"id":"cigarrating_108","rumId":"doutnik_36","clen":"Broněk","vzhled":7,"vune":7,"tah":7,"chut":18,"kour":17,"horeni":18,"popel":8,"celkem":82,"datum":"2023-07-04"},{"id":"cigarrating_109","rumId":"doutnik_37","clen":"Libor","vzhled":10,"vune":9,"tah":8,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_110","rumId":"doutnik_37","clen":"Tonda","vzhled":10,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":17,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_111","rumId":"doutnik_37","clen":"Broněk","vzhled":10,"vune":9,"tah":10,"chut":19,"kour":20,"horeni":19,"popel":9,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_112","rumId":"doutnik_38","clen":"Libor","vzhled":10,"vune":9,"tah":8,"chut":18,"kour":18,"horeni":18,"popel":9,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_113","rumId":"doutnik_38","clen":"Tonda","vzhled":9,"vune":8,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":8,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_114","rumId":"doutnik_38","clen":"Broněk","vzhled":9,"vune":8,"tah":8,"chut":18,"kour":18,"horeni":17,"popel":8,"celkem":86,"datum":"2023-07-04"},{"id":"cigarrating_115","rumId":"doutnik_39","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":19,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_116","rumId":"doutnik_39","clen":"Tonda","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":20,"popel":10,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_117","rumId":"doutnik_39","clen":"Broněk","vzhled":7,"vune":8,"tah":9,"chut":18,"kour":18,"horeni":18,"popel":9,"celkem":87,"datum":"2023-07-04"},{"id":"cigarrating_118","rumId":"doutnik_39","clen":"Jirka","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":18,"popel":8,"celkem":89,"datum":"2023-07-04"},{"id":"cigarrating_119","rumId":"doutnik_40","clen":"Tonda","vzhled":9,"vune":8,"tah":10,"chut":19,"kour":19,"horeni":19,"popel":10,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_120","rumId":"doutnik_40","clen":"Jirka","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":18,"horeni":19,"popel":9,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_121","rumId":"doutnik_41","clen":"Tonda","vzhled":9,"vune":8,"tah":9,"chut":18,"kour":19,"horeni":19,"popel":9,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_122","rumId":"doutnik_41","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_123","rumId":"doutnik_42","clen":"Libor","vzhled":9,"vune":9,"tah":8,"chut":18,"kour":18,"horeni":18,"popel":9,"celkem":89,"datum":"2023-07-04"},{"id":"cigarrating_124","rumId":"doutnik_42","clen":"Tonda","vzhled":9,"vune":9,"tah":6,"chut":18,"kour":17,"horeni":18,"popel":8,"celkem":85,"datum":"2023-07-04"},{"id":"cigarrating_125","rumId":"doutnik_43","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":18,"popel":9,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_126","rumId":"doutnik_43","clen":"Tonda","vzhled":9,"vune":8,"tah":10,"chut":19,"kour":20,"horeni":18,"popel":10,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_127","rumId":"doutnik_43","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":19,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_128","rumId":"doutnik_44","clen":"Tonda","vzhled":8,"vune":8,"tah":9,"chut":18,"kour":19,"horeni":20,"popel":8,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_129","rumId":"doutnik_44","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":19,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_130","rumId":"doutnik_44","clen":"Jirka","vzhled":10,"vune":8,"tah":10,"chut":18,"kour":19,"horeni":18,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_131","rumId":"doutnik_45","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_132","rumId":"doutnik_45","clen":"Tonda","vzhled":9,"vune":8,"tah":9,"chut":18,"kour":19,"horeni":20,"popel":7,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_133","rumId":"doutnik_46","clen":"Tonda","vzhled":10,"vune":9,"tah":7,"chut":18,"kour":17,"horeni":18,"popel":9,"celkem":88,"datum":"2023-07-04"},{"id":"cigarrating_134","rumId":"doutnik_47","clen":"Tonda","vzhled":8,"vune":8,"tah":10,"chut":18,"kour":18,"horeni":20,"popel":8,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_135","rumId":"doutnik_47","clen":"Broněk","vzhled":8,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_136","rumId":"doutnik_48","clen":"Tonda","vzhled":10,"vune":10,"tah":10,"chut":20,"kour":19,"horeni":18,"popel":7,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_137","rumId":"doutnik_48","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_138","rumId":"doutnik_49","clen":"Tonda","vzhled":9,"vune":8,"tah":7,"chut":17,"kour":18,"horeni":16,"popel":7,"celkem":82,"datum":"2023-07-04"},{"id":"cigarrating_139","rumId":"doutnik_49","clen":"Broněk","vzhled":9,"vune":8,"tah":9,"chut":18,"kour":19,"horeni":18,"popel":8,"celkem":89,"datum":"2023-07-04"},{"id":"cigarrating_140","rumId":"doutnik_49","clen":"Jirka","vzhled":9,"vune":9,"tah":10,"chut":18,"kour":18,"horeni":19,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_141","rumId":"doutnik_50","clen":"Tonda","vzhled":8,"vune":8,"tah":10,"chut":19,"kour":20,"horeni":20,"popel":9,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_142","rumId":"doutnik_50","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":20,"horeni":19,"popel":8,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_143","rumId":"doutnik_50","clen":"Jirka","vzhled":10,"vune":10,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":9,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_144","rumId":"doutnik_51","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":20,"horeni":19,"popel":9,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_145","rumId":"doutnik_51","clen":"Tonda","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":20,"horeni":20,"popel":9,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_146","rumId":"doutnik_51","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":20,"horeni":19,"popel":8,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_147","rumId":"doutnik_52","clen":"Tonda","vzhled":8,"vune":9,"tah":10,"chut":19,"kour":20,"horeni":20,"popel":8,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_148","rumId":"doutnik_52","clen":"Broněk","vzhled":8,"vune":8,"tah":10,"chut":18,"kour":19,"horeni":20,"popel":7,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_149","rumId":"doutnik_53","clen":"Tonda","vzhled":9,"vune":9,"tah":10,"chut":18,"kour":18,"horeni":20,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_150","rumId":"doutnik_53","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":18,"popel":8,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_151","rumId":"doutnik_53","clen":"Jirka","vzhled":9,"vune":9,"tah":10,"chut":18,"kour":19,"horeni":20,"popel":9,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_152","rumId":"doutnik_54","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":18,"popel":9,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_153","rumId":"doutnik_54","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_154","rumId":"doutnik_54","clen":"Jirka","vzhled":10,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":20,"popel":10,"celkem":97,"datum":"2023-07-04"},{"id":"cigarrating_155","rumId":"doutnik_55","clen":"Libor","vzhled":9,"vune":9,"tah":8,"chut":18,"kour":19,"horeni":19,"popel":9,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_156","rumId":"doutnik_55","clen":"Tonda","vzhled":8,"vune":9,"tah":9,"chut":19,"kour":20,"horeni":19,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_157","rumId":"doutnik_55","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_158","rumId":"doutnik_55","clen":"Jirka","vzhled":9,"vune":9,"tah":10,"chut":18,"kour":19,"horeni":19,"popel":10,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_159","rumId":"doutnik_56","clen":"Broněk","vzhled":9,"vune":9,"tah":8,"chut":19,"kour":19,"horeni":19,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_160","rumId":"doutnik_57","clen":"Libor","vzhled":9,"vune":9,"tah":8,"chut":18,"kour":18,"horeni":19,"popel":9,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_161","rumId":"doutnik_57","clen":"Tonda","vzhled":8,"vune":8,"tah":10,"chut":19,"kour":20,"horeni":17,"popel":8,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_162","rumId":"doutnik_57","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_163","rumId":"doutnik_57","clen":"Jirka","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":20,"popel":9,"celkem":95,"datum":"2023-07-04"},{"id":"cigarrating_164","rumId":"doutnik_58","clen":"Libor","vzhled":9,"vune":9,"tah":10,"chut":18,"kour":19,"horeni":19,"popel":9,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_165","rumId":"doutnik_58","clen":"Tonda","vzhled":10,"vune":9,"tah":7,"chut":18,"kour":17,"horeni":18,"popel":9,"celkem":88,"datum":"2023-07-04"},{"id":"cigarrating_166","rumId":"doutnik_58","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":20,"popel":9,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_167","rumId":"doutnik_58","clen":"Jirka","vzhled":9,"vune":9,"tah":10,"chut":20,"kour":19,"horeni":19,"popel":9,"celkem":95,"datum":"2023-07-04"},{"id":"cigarrating_168","rumId":"doutnik_59","clen":"Tonda","vzhled":10,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":17,"popel":8,"celkem":89,"datum":"2023-07-04"},{"id":"cigarrating_169","rumId":"doutnik_59","clen":"Broněk","vzhled":9,"vune":8,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":9,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_170","rumId":"doutnik_59","clen":"Jirka","vzhled":10,"vune":9,"tah":8,"chut":19,"kour":17,"horeni":17,"popel":8,"celkem":88,"datum":"2023-07-04"},{"id":"cigarrating_171","rumId":"doutnik_60","clen":"Libor","vzhled":9.5,"vune":9,"tah":9.5,"chut":19.5,"kour":20,"horeni":19.5,"popel":9,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_172","rumId":"doutnik_60","clen":"Tonda","vzhled":10,"vune":10,"tah":10,"chut":19,"kour":19,"horeni":20,"popel":8,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_173","rumId":"doutnik_60","clen":"Broněk","vzhled":10,"vune":9,"tah":10,"chut":20,"kour":20,"horeni":18,"popel":9,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_174","rumId":"doutnik_60","clen":"Jirka","vzhled":10,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":20,"popel":10,"celkem":97,"datum":"2023-07-04"},{"id":"cigarrating_175","rumId":"doutnik_61","clen":"Tonda","vzhled":10,"vune":10,"tah":9,"chut":18,"kour":19,"horeni":20,"popel":8,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_176","rumId":"doutnik_61","clen":"Broněk","vzhled":10,"vune":9,"tah":10,"chut":19,"kour":20,"horeni":18,"popel":9,"celkem":95,"datum":"2023-07-04"},{"id":"cigarrating_177","rumId":"doutnik_61","clen":"Jirka","vzhled":10,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":20,"popel":10,"celkem":97,"datum":"2023-07-04"},{"id":"cigarrating_178","rumId":"doutnik_62","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_179","rumId":"doutnik_62","clen":"Tonda","vzhled":8,"vune":9,"tah":10,"chut":18,"kour":19,"horeni":18,"popel":8,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_180","rumId":"doutnik_62","clen":"Broněk","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":18,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_181","rumId":"doutnik_62","clen":"Jirka","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_182","rumId":"doutnik_63","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":20,"kour":19,"horeni":19,"popel":9,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_183","rumId":"doutnik_63","clen":"Tonda","vzhled":10,"vune":10,"tah":9,"chut":19,"kour":20,"horeni":20,"popel":8,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_184","rumId":"doutnik_63","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":19,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_185","rumId":"doutnik_63","clen":"Jirka","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_186","rumId":"doutnik_64","clen":"Libor","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":18,"popel":9,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_187","rumId":"doutnik_64","clen":"Tonda","vzhled":9,"vune":8,"tah":10,"chut":19,"kour":20,"horeni":20,"popel":9,"celkem":95,"datum":"2023-07-04"},{"id":"cigarrating_188","rumId":"doutnik_64","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_189","rumId":"doutnik_64","clen":"Jirka","vzhled":9,"vune":8,"tah":10,"chut":18,"kour":18,"horeni":20,"popel":10,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_190","rumId":"doutnik_65","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":19,"popel":9,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_191","rumId":"doutnik_65","clen":"Tonda","vzhled":10,"vune":9,"tah":8,"chut":18,"kour":19,"horeni":20,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_192","rumId":"doutnik_65","clen":"Broněk","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":18,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_193","rumId":"doutnik_65","clen":"Jirka","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":18,"popel":7,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_194","rumId":"doutnik_66","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_195","rumId":"doutnik_66","clen":"Tonda","vzhled":10,"vune":9,"tah":8,"chut":20,"kour":18,"horeni":20,"popel":8,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_196","rumId":"doutnik_66","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":18,"horeni":19,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_197","rumId":"doutnik_67","clen":"Libor","vzhled":9,"vune":9,"tah":10,"chut":20,"kour":19,"horeni":20,"popel":9,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_198","rumId":"doutnik_67","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_199","rumId":"doutnik_67","clen":"Jirka","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":20,"popel":9,"celkem":95,"datum":"2023-07-04"},{"id":"cigarrating_200","rumId":"doutnik_68","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_201","rumId":"doutnik_68","clen":"Tonda","vzhled":9,"vune":8,"tah":9,"chut":18,"kour":19,"horeni":19,"popel":9,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_202","rumId":"doutnik_68","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":20,"horeni":19,"popel":8,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_203","rumId":"doutnik_68","clen":"Jirka","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":20,"horeni":20,"popel":9,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_204","rumId":"doutnik_69","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":18,"horeni":18,"popel":9,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_205","rumId":"doutnik_69","clen":"Tonda","vzhled":10,"vune":9,"tah":9,"chut":19,"kour":20,"horeni":20,"popel":9,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_206","rumId":"doutnik_69","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":20,"horeni":19,"popel":8,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_207","rumId":"doutnik_70","clen":"Libor","vzhled":10,"vune":9,"tah":9,"chut":18,"kour":18,"horeni":18,"popel":8,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_208","rumId":"doutnik_70","clen":"Tonda","vzhled":10,"vune":9,"tah":8,"chut":18,"kour":18,"horeni":19,"popel":8,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_209","rumId":"doutnik_70","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":18,"kour":19,"horeni":19,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_210","rumId":"doutnik_70","clen":"Jirka","vzhled":10,"vune":8,"tah":9,"chut":18,"kour":18,"horeni":19,"popel":10,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_211","rumId":"doutnik_71","clen":"Libor","vzhled":10,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":18,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_212","rumId":"doutnik_71","clen":"Tonda","vzhled":10,"vune":10,"tah":9,"chut":19,"kour":20,"horeni":20,"popel":8,"celkem":96,"datum":"2023-07-04"},{"id":"cigarrating_213","rumId":"doutnik_72","clen":"Tonda","vzhled":8,"vune":8,"tah":8,"chut":18,"kour":18,"horeni":19,"popel":8,"celkem":87,"datum":"2023-07-04"},{"id":"cigarrating_214","rumId":"doutnik_73","clen":"Libor","vzhled":9,"vune":9,"tah":8,"chut":18,"kour":18,"horeni":18,"popel":9,"celkem":89,"datum":"2023-07-04"},{"id":"cigarrating_215","rumId":"doutnik_73","clen":"Tonda","vzhled":9,"vune":9,"tah":8,"chut":18,"kour":18,"horeni":19,"popel":8,"celkem":89,"datum":"2023-07-04"},{"id":"cigarrating_216","rumId":"doutnik_73","clen":"Broněk","vzhled":9,"vune":8,"tah":10,"chut":18,"kour":19,"horeni":19,"popel":8,"celkem":91,"datum":"2023-07-04"},{"id":"cigarrating_217","rumId":"doutnik_74","clen":"Libor","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_218","rumId":"doutnik_74","clen":"Tonda","vzhled":9,"vune":9,"tah":9,"chut":17,"kour":18,"horeni":19,"popel":8,"celkem":89,"datum":"2023-07-04"},{"id":"cigarrating_219","rumId":"doutnik_74","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":20,"horeni":19,"popel":9,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_220","rumId":"doutnik_74","clen":"Jirka","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":20,"popel":9,"celkem":95,"datum":"2023-07-04"},{"id":"cigarrating_221","rumId":"doutnik_75","clen":"Libor","vzhled":9,"vune":10,"tah":9,"chut":19,"kour":18,"horeni":18,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_222","rumId":"doutnik_75","clen":"Tonda","vzhled":9,"vune":8,"tah":7,"chut":18,"kour":18,"horeni":20,"popel":8,"celkem":88,"datum":"2023-07-04"},{"id":"cigarrating_223","rumId":"doutnik_75","clen":"Broněk","vzhled":9,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":8,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_224","rumId":"doutnik_76","clen":"Libor","vzhled":9,"vune":10,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_225","rumId":"doutnik_76","clen":"Tonda","vzhled":10,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":8,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_226","rumId":"doutnik_76","clen":"Broněk","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":20,"horeni":18,"popel":8,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_227","rumId":"doutnik_76","clen":"Jirka","vzhled":9,"vune":9,"tah":10,"chut":18,"kour":19,"horeni":18,"popel":9,"celkem":92,"datum":"2023-07-04"},{"id":"cigarrating_228","rumId":"doutnik_77","clen":"Libor","vzhled":10,"vune":9,"tah":9,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_229","rumId":"doutnik_78","clen":"Libor","vzhled":9,"vune":10,"tah":9,"chut":19,"kour":20,"horeni":19,"popel":9,"celkem":95,"datum":"2023-07-04"},{"id":"cigarrating_230","rumId":"doutnik_78","clen":"Tonda","vzhled":9,"vune":8,"tah":10,"chut":20,"kour":19,"horeni":20,"popel":8,"celkem":94,"datum":"2023-07-04"},{"id":"cigarrating_231","rumId":"doutnik_78","clen":"Broněk","vzhled":9,"vune":9,"tah":8,"chut":19,"kour":18,"horeni":19,"popel":8,"celkem":90,"datum":"2023-07-04"},{"id":"cigarrating_232","rumId":"doutnik_79","clen":"Libor","vzhled":9,"vune":10,"tah":9,"chut":19,"kour":18,"horeni":19,"popel":9,"celkem":93,"datum":"2023-07-04"},{"id":"cigarrating_233","rumId":"doutnik_79","clen":"Tonda","vzhled":9,"vune":9,"tah":8,"chut":18,"kour":17,"horeni":19,"popel":8,"celkem":88,"datum":"2023-07-04"},{"id":"cigarrating_234","rumId":"doutnik_79","clen":"Broněk","vzhled":9,"vune":9,"tah":10,"chut":19,"kour":19,"horeni":19,"popel":9,"celkem":94,"datum":"2023-07-04"}]};
+
+async function maybeSeedDoutniky() {
+  const seedRef = db.doc('meta/seed_doutniky');
+  const snap = await seedRef.get();
+  if (snap.exists) return;
+  const jobs = [];
+  SEED_DOUTNIKY.rums.forEach((r,i) => jobs.push(db.collection('rums').doc(r.id).set({ nazev: r.nazev, znacka: r.znacka, puvod: r.puvod, cena: r.cena, cukr: r.cukr, poznamka: r.poznamka, typ: 'doutnik', _seq: i })));
+  SEED_DOUTNIKY.ratings.forEach((r,i) => jobs.push(db.collection('cigar_ratings').doc(r.id).set({
+    rumId: r.rumId, clen: r.clen, vzhled: r.vzhled, vune: r.vune, tah: r.tah, chut: r.chut, kour: r.kour, horeni: r.horeni, popel: r.popel, celkem: r.celkem, datum: r.datum, _seq: i,
+  })));
+  await Promise.all(jobs);
+  await seedRef.set({ done: true, at: new Date().toISOString() });
+}
+
+const SEED_LEDGER_DOUTNIKY = [{"id":"ledgerdtn_1","datum":"2025-03-17","popis":"založení účtu","castka":1,"kategorie":"příjem"},{"id":"ledgerdtn_2","datum":"2025-04-02","popis":"nákup doutníků -doutníky.cz","castka":-3731,"kategorie":"nákup"},{"id":"ledgerdtn_3","datum":"2025-04-24","popis":"nákup doutníků -Oliva","castka":-3350,"kategorie":"nákup"},{"id":"ledgerdtn_4","datum":"2025-04-30","popis":"platby za degustaci (bonus: 280 Kč)","castka":2415,"kategorie":"degustace"},{"id":"ledgerdtn_5","datum":"2025-05-30","popis":"platby za degustaci (bonus: 440 Kč)","castka":1380,"kategorie":"degustace"},{"id":"ledgerdtn_6","datum":"2025-07-02","popis":"nákup doutníků -Doutníky RB","castka":-2890,"kategorie":"nákup"},{"id":"ledgerdtn_7","datum":"2025-07-18","popis":"platby za degustaci (bonus: 900 Kč)","castka":4790,"kategorie":"degustace"},{"id":"ledgerdtn_8","datum":"2025-08-15","popis":"nákup doutníků -Doutníky RB","castka":-3810,"kategorie":"nákup"},{"id":"ledgerdtn_9","datum":"2025-09-04","popis":"nákup doutníku -Cohiba","castka":-400,"kategorie":"nákup"},{"id":"ledgerdtn_10","datum":"2025-09-05","popis":"platby za degustaci (bonus: 1260 Kč)","castka":4810,"kategorie":"degustace"},{"id":"ledgerdtn_11","datum":"2025-10-10","popis":"platby za degustaci (bonus: 1500 Kč)","castka":2315,"kategorie":"degustace"},{"id":"ledgerdtn_12","datum":"2025-10-13","popis":"platba Michal Hapl (bonus: 1520 Kč)","castka":310,"kategorie":"příjem"},{"id":"ledgerdtn_13","datum":"2025-11-12","popis":"nákup doutníků -Doutníky RB","castka":-5325,"kategorie":"nákup"},{"id":"ledgerdtn_14","datum":"2025-11-14","popis":"platby za degustaci (bonus: 1880 Kč)","castka":3672,"kategorie":"degustace"},{"id":"ledgerdtn_15","datum":"2025-12-17","popis":"nákup doutníků -doutníky.cz","castka":-6401,"kategorie":"nákup"},{"id":"ledgerdtn_16","datum":"2026-01-02","popis":"platby za degustaci (bonus: 2240 Kč)","castka":4231,"kategorie":"degustace"},{"id":"ledgerdtn_17","datum":"2026-02-11","popis":"nákup doutníků -doutníky.cz","castka":-4445,"kategorie":"nákup"},{"id":"ledgerdtn_18","datum":"2026-02-27","popis":"platby za degustaci (bonus: 2620 Kč)","castka":3876,"kategorie":"degustace"},{"id":"ledgerdtn_19","datum":"2026-03-16","popis":"nákup doutníků - Excalibur","castka":-4354,"kategorie":"nákup"},{"id":"ledgerdtn_20","datum":"2026-04-03","popis":"platby za degustaci (bonus: 3040 Kč)","castka":3692,"kategorie":"degustace"},{"id":"ledgerdtn_21","datum":"2026-04-14","popis":"nákup doutníků -Doutníky RB","castka":-7602,"kategorie":"nákup"},{"id":"ledgerdtn_22","datum":"2026-05-15","popis":"platby za degustaci (bonus: 3380 Kč)","castka":3221,"kategorie":"degustace"},{"id":"ledgerdtn_23","datum":"2026-05-28","popis":"platba Mira (bonus: 3400 Kč)","castka":191,"kategorie":"příjem"},{"id":"ledgerdtn_24","datum":"2026-06-19","popis":"platby za degustaci (bonus: -100 Kč)","castka":4894,"kategorie":"degustace"},{"id":"ledgerdtn_25","datum":"2026-07-25","popis":"platby za degustaci (bonus: 160 Kč)","castka":2491,"kategorie":"degustace"},{"id":"ledgerdtn_26","datum":"2026-08-20","popis":"nákup doutníků -Doutníky RB","castka":-11000,"kategorie":"nákup"},{"id":"ledgerdtn_27","datum":"2026-08-21","popis":"nákup doutníků - Excalibur (Broněk proplatit)","castka":-4760,"kategorie":"nákup"}];
+
+async function maybeSeedLedgerDoutniky() {
+  const seedRef = db.doc('meta/seed_ledger_doutniky');
+  const snap = await seedRef.get();
+  if (snap.exists) return;
+  const jobs = [];
+  SEED_LEDGER_DOUTNIKY.forEach((l,i) => jobs.push(db.collection('ledger_doutniky').doc(l.id).set({ datum: l.datum, popis: l.popis, castka: l.castka, kategorie: l.kategorie, _seq: i })));
+  await Promise.all(jobs);
+  await seedRef.set({ done: true, at: new Date().toISOString() });
+}
+
 async function migrateTerminyNames() {
   const ucastSnap = await db.collection('termin_ucastnici').get();
   const kolaSnap = await db.collection('termin_kola').get();
@@ -2508,6 +2768,10 @@ function subscribeAll() {
     () => toast('Chyba při načítání účtu'));
   db.collection('wishlist').onSnapshot(snap => { state.wishlist = fromSnap(snap); rerenderActive(); },
     () => toast('Chyba při načítání wishlistu'));
+  db.collection('cigar_ratings').onSnapshot(snap => { state.cigarRatings = fromSnap(snap); rerenderActive(); },
+    () => toast('Chyba při načítání hodnocení doutníků'));
+  db.collection('ledger_doutniky').onSnapshot(snap => { state.ledgerDoutniky = fromSnap(snap); updateBalanceChip(); rerenderActive(); },
+    () => toast('Chyba při načítání účtu doutníků'));
   db.collection('cigars').onSnapshot(snap => { state.cigars = fromSnap(snap); rerenderActive(); if (!document.getElementById('cigarDetailOverlay').hidden) renderCigarDetail(); },
     () => toast('Chyba při načítání humidoru'));
   db.collection('cigar_log').onSnapshot(snap => { state.cigarLog = fromSnap(snap); rerenderActive(); if (!document.getElementById('cigarDetailOverlay').hidden) renderCigarDetail(); },
@@ -2522,7 +2786,7 @@ function subscribeAll() {
 
 function rerenderActive() {
   if (ui.tab === 'rumy') renderRumy();
-  else if (ui.tab === 'degustace') renderDegustaceForm();
+  else if (ui.tab === 'degustace') renderActiveDegustaceForm();
   else if (ui.tab === 'ucet') renderUcet();
   else if (ui.tab === 'wishlist') renderWishlist();
   else if (ui.tab === 'humidor') renderHumidor();
@@ -2575,6 +2839,12 @@ async function init() {
   try {
     await maybeSeedUcast();
   } catch(e) { console.error('Seed účast:', e); }
+  try {
+    await maybeSeedDoutniky();
+  } catch(e) { console.error('Seed doutníky:', e); }
+  try {
+    await maybeSeedLedgerDoutniky();
+  } catch(e) { console.error('Seed účet doutníky:', e); }
   subscribeAll();
 }
 

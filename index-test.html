@@ -181,7 +181,7 @@
   .rum-card { display:flex; align-items:center; gap:12px; cursor:pointer; }
   .rum-rank { font-family: var(--font-mono); font-size:12px; color: var(--ink-faint); width:20px; text-align:right; flex-shrink:0; }
   .rum-thumb { width:40px; height:40px; border-radius:8px; object-fit:cover; flex-shrink:0; background: var(--surface-2); }
-  .rum-foto { width:100%; max-height:220px; object-fit:cover; border-radius:var(--radius); margin:4px 0 14px; display:block; }
+  .rum-foto { display:block; width:auto; max-width:100%; height:auto; max-height:320px; margin:4px auto 14px; border-radius:var(--radius); background: var(--surface-2); }
   .rum-main { flex:1; min-width:0; }
   .rum-name { font-family: var(--font-display); font-weight:600; font-size:1.02rem; }
   .rum-sub { font-size:12.5px; color: var(--ink-faint); margin-top:2px; }
@@ -1276,13 +1276,94 @@ async function createNewRum() {
 }
 
 /* ---------------- Fotky k rumům/doutníkům (Firebase Storage) ---------------- */
+// Detekuje, jestli má fotka jednolité pozadí (typické u produktových fotek lahví na
+// bílém/šedém pozadí) a pokud ano, vrátí ořez na obsah (aby lahev na fotce nebyla
+// zbytečně malá uprostřed velké plochy pozadí). Pracuje na malém zmenšeném náhledu
+// kvůli rychlosti; u běžné "živé" fotky (bez jednolitého pozadí) ořez nenajde a
+// vrátí null - funkce pak fotku nechá beze změny.
+function detectContentBbox(img) {
+  const W = 200;
+  const H = Math.max(1, Math.round(img.height * W / img.width));
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0, W, H);
+  let data;
+  try { data = ctx.getImageData(0, 0, W, H).data; } catch (e) { return null; }
+
+  // Pozadí odhadneme jako medián tenkého pruhu podél okrajů (odolnější vůči šumu,
+  // stínu nebo mírně nerovnoměrnému nasvícení než jen 4 rohové pixely).
+  const bw = Math.max(2, Math.round(Math.min(W, H) * 0.03));
+  const rs = [], gs = [], bs = [];
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (x < bw || x >= W - bw || y < bw || y >= H - bw) {
+        const i = (y*W+x)*4;
+        rs.push(data[i]); gs.push(data[i+1]); bs.push(data[i+2]);
+      }
+    }
+  }
+  const median = (arr) => { arr.sort((a,b)=>a-b); return arr[Math.floor(arr.length/2)]; };
+  const br = median(rs), bg = median(gs), bb = median(bs);
+
+  const THRESH = 20; // barevná odchylka od pozadí, od které jde o "obsah"
+  const isContent = new Uint8Array(W*H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = (y*W+x)*4;
+      const d = Math.abs(data[i]-br) + Math.abs(data[i+1]-bg) + Math.abs(data[i+2]-bb);
+      isContent[y*W+x] = d > THRESH ? 1 : 0;
+    }
+  }
+
+  // Řádek/sloupec počítáme jako "obsah", pokud v něm obsah je aspoň v pár procentech
+  // pixelů - odolnější vůči izolovanému šumu než hledání jednotlivých pixelů.
+  const MIN_FRAC = 0.02;
+  let top=-1, bottom=-1, left=-1, right=-1;
+  for (let y = 0; y < H; y++) {
+    let s = 0; for (let x = 0; x < W; x++) s += isContent[y*W+x];
+    if (s / W > MIN_FRAC) { top = y; break; }
+  }
+  for (let y = H-1; y >= 0; y--) {
+    let s = 0; for (let x = 0; x < W; x++) s += isContent[y*W+x];
+    if (s / W > MIN_FRAC) { bottom = y; break; }
+  }
+  for (let x = 0; x < W; x++) {
+    let s = 0; for (let y = 0; y < H; y++) s += isContent[y*W+x];
+    if (s / H > MIN_FRAC) { left = x; break; }
+  }
+  for (let x = W-1; x >= 0; x--) {
+    let s = 0; for (let y = 0; y < H; y++) s += isContent[y*W+x];
+    if (s / H > MIN_FRAC) { right = x; break; }
+  }
+  if (top < 0 || left < 0 || right <= left || bottom <= top) return null;
+
+  const contentW = right - left, contentH = bottom - top;
+  // pokud obsah zabírá už skoro celou fotku, ořez by nic nezlepšil
+  if (contentW > W * 0.94 && contentH > H * 0.94) return null;
+  if (contentW < W * 0.04 || contentH < H * 0.04) return null; // moc málo obsahu, raději neriskovat
+
+  const marginFrac = 0.05;
+  const mx = contentW * marginFrac, my = contentH * marginFrac;
+  const sx = img.width / W, sy = img.height / H;
+  const x0 = Math.max(0, (left - mx)) * sx;
+  const y0 = Math.max(0, (top - my)) * sy;
+  const x1 = Math.min(W, (right + mx)) * sx;
+  const y1 = Math.min(H, (bottom + my)) * sy;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
 function resizeImageFile(file, maxDim = 900, quality = 0.82) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      let { width, height } = img;
+      const crop = detectContentBbox(img);
+      const srcX = crop ? crop.x : 0, srcY = crop ? crop.y : 0;
+      const srcW = crop ? crop.w : img.width, srcH = crop ? crop.h : img.height;
+
+      let width = srcW, height = srcH;
       if (width > maxDim || height > maxDim) {
         if (width >= height) { height = Math.round(height * maxDim / width); width = maxDim; }
         else { width = Math.round(width * maxDim / height); height = maxDim; }
@@ -1290,7 +1371,7 @@ function resizeImageFile(file, maxDim = 900, quality = 0.82) {
       const canvas = document.createElement('canvas');
       canvas.width = width; canvas.height = height;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
+      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, width, height);
       canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Převod obrázku selhal')), 'image/jpeg', quality);
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Obrázek se nepodařilo načíst')); };

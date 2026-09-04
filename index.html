@@ -1239,7 +1239,7 @@ function renderNewRumSection() {
       <div class="field"><label>Cena</label><input class="input" type="number" id="newRumCena"></div>
       ${isDoutnik ? '' : '<div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>'}
     </div>
-    <div class="field"><label>Fotka (nepovinné)</label><input class="input" type="file" accept="image/*" id="newRumFoto"></div>
+    <div class="field"><label>Fotka (nepovinné)</label><input class="input" type="file" accept="image/*" id="newRumFoto"><div class="muted" style="font-size:11.5px;margin-top:3px;">Appka prázdné pozadí kolem lahve sama ořeže — nejlépe to funguje na jednolitém světlém pozadí.</div></div>
     <div class="btn-row" style="margin-top:4px;">
       <button class="btn btn-primary btn-sm" onclick="createNewRum()">Přidat ${isDoutnik?'doutník':'rum'}</button>
       <button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=false; renderNewRumSection();">Zpět</button>
@@ -1283,7 +1283,9 @@ function detectContentBbox(img) {
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const ctx = c.getContext('2d');
+  try { ctx.filter = 'blur(2px)'; } catch (e) {} // potlačí JPEG šum, ať neimituje "obsah"
   ctx.drawImage(img, 0, 0, W, H);
+  ctx.filter = 'none';
   let data;
   try { data = ctx.getImageData(0, 0, W, H).data; } catch (e) { return null; }
 
@@ -1314,7 +1316,7 @@ function detectContentBbox(img) {
 
   // Řádek/sloupec počítáme jako "obsah", pokud v něm obsah je aspoň v pár procentech
   // pixelů - odolnější vůči izolovanému šumu než hledání jednotlivých pixelů.
-  const MIN_FRAC = 0.02;
+  const MIN_FRAC = 0.035;
   let top=-1, bottom=-1, left=-1, right=-1;
   for (let y = 0; y < H; y++) {
     let s = 0; for (let x = 0; x < W; x++) s += isContent[y*W+x];

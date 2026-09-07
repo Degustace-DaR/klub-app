@@ -186,7 +186,7 @@
   .origin-badge {
     display:inline-block; font-size:11px; font-family: var(--font-mono);
     background: var(--surface-2); border:1px solid var(--line); border-radius:5px;
-    padding:1px 6px; color: var(--ink-soft); margin-right:6px;
+    padding:1px 6px; color: var(--ink-soft); margin-right:5px; margin-bottom:3px;
   }
   .rum-score { text-align:right; flex-shrink:0; }
   .rum-score .num { font-family: var(--font-display); font-weight:700; font-size:1.4rem; }

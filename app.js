@@ -54,6 +54,7 @@ let ui = {
   puvodCanon: {},
   puvodChecked: {},
   typ: 'rum',
+  editingRumId: null,
   cigarScores: { vzhled: 8, vune: 8, tah: 8, chut: 15, kour: 15, horeni: 15, popel: 8 },
 };
 
@@ -325,7 +326,7 @@ function renderRumy() {
       ${rum.foto ? `<img src="${esc(rum.foto)}" alt="" class="rum-thumb" loading="lazy" decoding="async" onerror="this.remove();">` : ''}
       <div class="rum-main">
         <div class="rum-name">${esc(rum.nazev)}${rum.znacka ? ' <span class="muted" style="font-weight:400;font-size:0.85em;">– '+esc(rum.znacka)+'</span>' : ''}</div>
-        <div class="rum-sub">${rum.puvod ? '<span class="origin-badge">'+esc(rum.puvod)+'</span>' : ''}${subBits.join(' · ')}</div>
+        <div class="rum-sub">${puvodBadges(rum)}${subBits.join(' · ')}</div>
       </div>
       <div class="rum-score">
         <div class="num ${scoreClass(stats?.celkem)}">${stats ? stats.celkem : '–'}</div>
@@ -340,6 +341,15 @@ function esc(s) {
   return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// Původ může být blend z více zemí zapsaný v jednom poli oddělený čárkou / lomítkem.
+function puvodList(x) {
+  const s = typeof x === 'string' ? x : (x && x.puvod) || '';
+  return s.split(/\s*[,;/]\s*/).map(v => v.trim()).filter(Boolean);
+}
+function puvodBadges(x) {
+  return puvodList(x).map(p => `<span class="origin-badge">${esc(p)}</span>`).join('');
+}
+
 function openRumDetail(rumId) {
   ui.detailRumId = rumId;
   const rum = state.rums.find(r => r.id === rumId);
@@ -351,7 +361,7 @@ function openRumDetail(rumId) {
       <div>
         <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.75rem;margin:0;">${esc(rum.nazev)}</h2>
         <div style="font-size:17px;font-weight:500;color:var(--ink-soft);margin-top:3px;">${[rum.znacka?esc(rum.znacka):null, (!isDoutnik && rum.abv)?esc(String(rum.abv))+' %':null].filter(Boolean).join(' · ')}</div>
-        ${rum.puvod ? `<div style="font-size:17px;font-weight:500;color:var(--ink-soft);">${esc(rum.puvod)}</div>` : ''}
+        ${rum.puvod ? `<div style="margin-top:4px;">${puvodBadges(rum)}</div>` : ''}
       </div>
       <button class="sheet-close" onclick="closeRumDetail()" aria-label="Zavřít">×</button>
     </div>
@@ -374,6 +384,26 @@ function openRumDetail(rumId) {
     ` : '<div class="empty-note">Zatím bez hodnocení.</div>'}
     ${rum.cena ? `<div class="muted" style="margin-top:14px;font-size:13px;">Cena: ${esc(String(rum.cena))} Kč</div>` : ''}
     ${rum.cukr ? `<div class="muted" style="font-size:13px;${(rum.cena)?'':'margin-top:14px;'}">Cukr: ${esc(String(rum.cukr))} g/l</div>` : ''}
+    ${(!isGuest && hasPerm(PERM_SPRAVCI)) ? (ui.editingRumId === rum.id ? `
+    <div class="card" style="margin-top:16px;">
+      <div class="field"><label>Značka ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="editRumNazev" value="${esc(rum.nazev||'')}"></div>
+      <div class="row2">
+        <div class="field"><label>Název ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="editRumZnacka" value="${esc(rum.znacka||'')}"></div>
+        <div class="field"><label>Původ</label><input class="input" id="editRumPuvod" value="${esc(rum.puvod||'')}" placeholder="Kuba · víc zemí odděl čárkou"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Cena</label><input class="input" type="number" id="editRumCena" value="${rum.cena!=null?esc(String(rum.cena)):''}"></div>
+        ${isDoutnik ? '' : `<div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="editRumAbv" value="${rum.abv!=null?esc(String(rum.abv)):''}"></div>`}
+      </div>
+      <div class="muted" style="font-size:11.5px;margin:-4px 0 8px;">Víc zemí (blend) odděl čárkou: „Barbados, Jamajka, Guyana". Ve statistice se pak započítá u každé.</div>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-sm" onclick="saveRumEdit('${rum.id}')">Uložit</button>
+        <button class="btn btn-ghost btn-sm" onclick="ui.editingRumId=null; openRumDetail('${rum.id}');">Zpět</button>
+      </div>
+    </div>` : `
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn btn-ghost btn-sm" onclick="ui.editingRumId='${rum.id}'; openRumDetail('${rum.id}');">✏️ Upravit údaje</button>
+    </div>`) : ''}
     <div class="btn-row" style="margin-top:18px;">
       <button class="btn btn-ghost" onclick="closeRumDetail()">← Zpět</button>
     </div>
@@ -393,7 +423,7 @@ function openRumDetail(rumId) {
   `;
   document.getElementById('rumDetailOverlay').hidden = false;
 }
-function closeRumDetail() { document.getElementById('rumDetailOverlay').hidden = true; }
+function closeRumDetail() { ui.editingRumId = null; document.getElementById('rumDetailOverlay').hidden = true; }
 
 async function deleteRum(rumId) {
   try {
@@ -766,7 +796,7 @@ function renderNewRumSection() {
     <div class="field"><label>Značka ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="newRumNazev" placeholder="${isDoutnik?'např. COHIBA':'např. HAVANA CLUB'}"></div>
     <div class="row2">
       <div class="field"><label>Název ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="newRumZnacka" placeholder="${isDoutnik?'Robusto':'Anejo Especial'}"></div>
-      <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba"></div>
+      <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba · víc zemí odděl čárkou"></div>
     </div>
     <div class="row2">
       <div class="field"><label>Cena</label><input class="input" type="number" id="newRumCena"></div>
@@ -789,7 +819,7 @@ async function createNewRum() {
     const isDoutnik = ui.typ === 'doutnik';
     if (!nazev) { toast('Zadej název'); return; }
     const znacka = document.getElementById('newRumZnacka').value.trim();
-    const puvod = document.getElementById('newRumPuvod').value.trim();
+    const puvod = puvodList(document.getElementById('newRumPuvod').value).join(', ');
     const cena = document.getElementById('newRumCena').value;
     const abvEl = document.getElementById('newRumAbv');
     const abv = (!isDoutnik && abvEl) ? abvEl.value : '';
@@ -804,6 +834,36 @@ async function createNewRum() {
 
   } catch (e) {
     console.error('createNewRum:', e);
+    toast('Uložení se nezdařilo, zkus to znovu.');
+  }
+}
+
+async function saveRumEdit(rumId) {
+  try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
+    const rum = state.rums.find(r => r.id === rumId);
+    if (!rum) return;
+    const isDoutnik = (rum.typ || 'rum') === 'doutnik';
+    const nazev = document.getElementById('editRumNazev').value.trim();
+    if (!nazev) { toast('Značka nesmí být prázdná'); return; }
+    const znacka = document.getElementById('editRumZnacka').value.trim();
+    const puvod = puvodList(document.getElementById('editRumPuvod').value).join(', ');
+    const cenaRaw = document.getElementById('editRumCena').value;
+    const abvEl = document.getElementById('editRumAbv');
+    const payload = {
+      nazev, znacka, puvod,
+      cena: cenaRaw ? Number(cenaRaw) : null,
+      abv: (!isDoutnik && abvEl && abvEl.value) ? Number(abvEl.value) : null,
+    };
+    await db.collection('rums').doc(rumId).update(payload);
+    Object.assign(rum, payload);
+    ui.editingRumId = null;
+    toast('Údaje upraveny', 'ok');
+    logChange(isDoutnik ? 'Upraven doutník' : 'Upraven rum', `${nazev}${znacka ? ' – ' + znacka : ''}`);
+    openRumDetail(rumId);
+    if (ui.tab === 'rumy') renderRumy();
+  } catch (e) {
+    console.error('saveRumEdit:', e);
     toast('Uložení se nezdařilo, zkus to znovu.');
   }
 }
@@ -1203,7 +1263,7 @@ function toggleWishForm() {
       <div class="field"><label>Značka ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="wishZnacka" placeholder="${isDoutnik?'např. COHIBA':'např. HAVANA CLUB'}"></div>
       <div class="row2">
         <div class="field"><label>Název ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="wishNazev" placeholder="${isDoutnik?'Robusto':'Anejo Especial'}"></div>
-        <div class="field"><label>Původ</label><input class="input" id="wishPuvod"></div>
+        <div class="field"><label>Původ</label><input class="input" id="wishPuvod" placeholder="víc zemí odděl čárkou"></div>
       </div>
       <div class="row2">
         <div class="field"><label>Cena</label><input class="input" type="number" id="wishCena"></div>
@@ -1304,7 +1364,7 @@ function renderWishlist() {
   list.innerHTML = rows.map(w => {
     const subParts = [];
     if (w.abv) subParts.push(esc(String(w.abv))+'% obj.');
-    if (w.puvod) subParts.push('<span class="origin-badge">'+esc(w.puvod)+'</span>');
+    if (w.puvod) subParts.push(puvodBadges(w));
     if (w.cena) subParts.push(esc(String(w.cena))+' Kč');
     if (w.cukr!=null) subParts.push('cukr '+esc(String(w.cukr))+' g/l');
     return `
@@ -2402,12 +2462,12 @@ function renderStatistika() {
   memberSel.innerHTML = '<option value="vse">Kdo: Všichni</option>' +
     activeMembers.map(m => `<option value="${esc(m.jmeno)}" ${ui.statMember===m.jmeno?'selected':''}>${esc(m.jmeno)}</option>`).join('');
 
-  const origins = [...new Set(rumsSrc.map(r=>r.puvod).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'cs'));
+  const origins = [...new Set(rumsSrc.flatMap(r=>puvodList(r)))].sort((a,b)=>a.localeCompare(b,'cs'));
   if (ui.statOrigin !== 'vse' && !origins.includes(ui.statOrigin)) ui.statOrigin = 'vse';
   originSel.innerHTML = '<option value="vse">Původ: Vše</option>' +
     origins.map(o => `<option value="${esc(o)}" ${ui.statOrigin===o?'selected':''}>${esc(o)}</option>`).join('');
 
-  const rumIdsByOrigin = ui.statOrigin === 'vse' ? null : new Set(rumsSrc.filter(r=>r.puvod===ui.statOrigin).map(r=>r.id));
+  const rumIdsByOrigin = ui.statOrigin === 'vse' ? null : new Set(rumsSrc.filter(r=>puvodList(r).includes(ui.statOrigin)).map(r=>r.id));
   const originRatings = rumIdsByOrigin ? ratingsSrc.filter(r=>rumIdsByOrigin.has(r.rumId)) : ratingsSrc;
   const filteredRatings = ui.statMember === 'vse' ? originRatings : originRatings.filter(r=>r.clen===ui.statMember);
 
@@ -2543,17 +2603,20 @@ function renderStatistika() {
 
   html += '<div class="stat-section-title">Podle původu</div>';
   const origGroups = {};
+  const keysFor = (rum) => { const l = rum ? puvodList(rum) : []; return l.length ? l : ['Neuvedeno']; };
   rumsSrc.forEach(r => {
-    const key = r.puvod || 'Neuvedeno';
-    if (!origGroups[key]) origGroups[key] = { rums: 0, count: 0, sum: 0 };
-    origGroups[key].rums++;
+    keysFor(r).forEach(key => {
+      if (!origGroups[key]) origGroups[key] = { rums: 0, count: 0, sum: 0 };
+      origGroups[key].rums++;
+    });
   });
   ratingsSrc.forEach(r => {
     const rum = rumsSrc.find(x=>x.id===r.rumId);
-    const key = rum ? (rum.puvod || 'Neuvedeno') : 'Neuvedeno';
-    if (!origGroups[key]) origGroups[key] = { rums: 0, count: 0, sum: 0 };
-    origGroups[key].count++;
-    origGroups[key].sum += Number(r.celkem||0);
+    keysFor(rum).forEach(key => {
+      if (!origGroups[key]) origGroups[key] = { rums: 0, count: 0, sum: 0 };
+      origGroups[key].count++;
+      origGroups[key].sum += Number(r.celkem||0);
+    });
   });
   const origRows = Object.keys(origGroups).map(k => ({
     puvod: k, rums: origGroups[k].rums, count: origGroups[k].count,
@@ -2562,6 +2625,9 @@ function renderStatistika() {
   html += origRows.length ? origRows.map(o =>
     `<div class="stat-row"><span class="stat-row-main">${esc(o.puvod)}</span><span class="stat-row-sub">${o.rums} ${wordMnoz} · ${o.count} hodn. · průměr ${o.avg}</span></div>`
   ).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+  if (origRows.some(o => o.puvod !== 'Neuvedeno') && rumsSrc.some(r => puvodList(r).length > 1)) {
+    html += '<div class="chart-note">Blendy z více zemí se počítají u každé z nich.</div>';
+  }
 
   // --- Podle výrobce ---
   const vyrobci = statByProducer(rumsSrc, originRatings, 2).slice(0, 15);
@@ -2967,7 +3033,7 @@ function levenshtein(a, b) {
 
 function findPuvodGroups() {
   const counts = {};
-  state.rums.forEach(r => { const p = (r.puvod || '').trim(); if (p) counts[p] = (counts[p] || 0) + 1; });
+  state.rums.forEach(r => { puvodList(r).forEach(p => { counts[p] = (counts[p] || 0) + 1; }); });
   const names = Object.keys(counts);
   const parent = {};
   names.forEach(n => parent[n] = n);
@@ -3107,11 +3173,15 @@ async function mergePuvodGroup(gi) {
     if (!canon) { toast('Zadej cílový název'); return; }
     const variantsToMerge = group.variants.filter(v => ui.puvodChecked[gi + '_' + v.jmeno] && v.jmeno !== canon).map(v => v.jmeno);
     if (variantsToMerge.length === 0) { toast('Nic ke sloučení (odškrtnuto, nebo už sjednoceno)'); return; }
-    const affected = state.rums.filter(r => variantsToMerge.includes((r.puvod || '').trim()));
+    const affected = state.rums.filter(r => puvodList(r).some(p => variantsToMerge.includes(p)));
     if (affected.length === 0) { toast('Žádné rumy k úpravě'); return; }
     if (!confirm(`Sjednotit "${variantsToMerge.join('", "')}" → "${canon}" u ${affected.length} rumů?`)) return;
     const batch = db.batch();
-    affected.forEach(r => { batch.update(db.collection('rums').doc(r.id), { puvod: canon }); r.puvod = canon; });
+    affected.forEach(r => {
+      const nove = [...new Set(puvodList(r).map(p => variantsToMerge.includes(p) ? canon : p))].join(', ');
+      batch.update(db.collection('rums').doc(r.id), { puvod: nove });
+      r.puvod = nove;
+    });
     await batch.commit();
     toast('Sjednoceno');
     logChange('Sjednocen původ', `${variantsToMerge.join(', ')} → ${canon} (${affected.length}×)`);

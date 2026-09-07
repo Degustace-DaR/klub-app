@@ -22,6 +22,9 @@
     --series-1: #2a78d6;
     --series-2: #eb6834;
     --series-3: #1baf7a;
+    --series-4: #8b5cf6;
+    --series-5: #c99a17;
+    --series-6: #d94a6a;
     --shadow: 0 1px 2px rgba(43,32,19,0.06), 0 6px 20px rgba(43,32,19,0.08);
     --shadow-lg: 0 8px 16px rgba(43,32,19,0.12), 0 24px 48px rgba(43,32,19,0.18);
     --font-display: "Fraunces", Georgia, serif;
@@ -40,6 +43,7 @@
       --info: #8BC0D8; --info-soft: #1F3641;
       --gold: #E0BB5C; --gold-soft: #4A3B14;
       --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+      --series-4: #a684f7; --series-5: #d9b23e; --series-6: #e56b86;
       --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.35);
       --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 32px 64px rgba(0,0,0,0.5);
     }
@@ -53,6 +57,7 @@
     --warn: #E28A73; --warn-soft: #422620;
     --info: #8BC0D8; --info-soft: #1F3641;
     --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+    --series-4: #a684f7; --series-5: #d9b23e; --series-6: #e56b86;
     --gold: #E0BB5C; --gold-soft: #4A3B14;
     --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.35);
     --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 32px 64px rgba(0,0,0,0.5);

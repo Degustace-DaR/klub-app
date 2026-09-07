@@ -17,6 +17,7 @@ function hasPerm(names) {
 let state = { members: [], rums: [], ratings: [], ledger: [], wishlist: [], cigars: [], cigarLog: [], terminUcastnici: [], terminKola: [], ucasti: [], cigarRatings: [], ledgerDoutniky: [] };
 let _chartPriceQuality = null;
 let _chartTasteProfile = null;
+let _chartMemberTimeline = null;
 function cssVarVal(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 let ui = {
   tab: 'rumy',
@@ -2148,6 +2149,119 @@ function statTile(val, lbl, small) {
   return `<div class="stat-tile"><div class="val${small?' small':''}">${val}</div><div class="lbl">${lbl}</div></div>`;
 }
 
+/* --- pomocné výpočty pro statistiky (čisté funkce) --- */
+
+// Nejlepší položka za každý rok (min. minPerYear hodnocení v daném roce).
+function statBestOfYear(ratings, minPerYear) {
+  const byYear = {};
+  ratings.forEach(r => {
+    const y = (r.datum || '').slice(0, 4);
+    if (!/^\d{4}$/.test(y)) return;
+    byYear[y] = byYear[y] || {};
+    (byYear[y][r.rumId] = byYear[y][r.rumId] || []).push(Number(r.celkem) || 0);
+  });
+  return Object.keys(byYear).sort((a, b) => b.localeCompare(a)).map(y => {
+    let bestId = null, bestAvg = -1, bestN = 0;
+    Object.keys(byYear[y]).forEach(id => {
+      const arr = byYear[y][id];
+      if (arr.length < minPerYear) return;
+      const avg = arr.reduce((s, v) => s + v, 0) / arr.length;
+      if (avg > bestAvg) { bestAvg = avg; bestId = id; bestN = arr.length; }
+    });
+    return bestId ? { rok: y, id: bestId, avg: bestAvg, count: bestN } : null;
+  }).filter(Boolean);
+}
+
+// Shoda vkusu: pro každou dvojici jmen korelace (Pearson) jejich bodů přes položky,
+// které hodnotili oba; jen dvojice s ≥ minCommon společnými. Vrací % (−100…100).
+function statPairCloseness(ratings, memberNames, minCommon) {
+  const byRum = {};
+  ratings.forEach(r => {
+    if (!memberNames.includes(r.clen)) return;
+    (byRum[r.rumId] = byRum[r.rumId] || {})[r.clen] = Number(r.celkem) || 0;
+  });
+  const out = [];
+  for (let i = 0; i < memberNames.length; i++) {
+    for (let j = i + 1; j < memberNames.length; j++) {
+      const a = memberNames[i], b = memberNames[j];
+      const xs = [], ys = [];
+      Object.keys(byRum).forEach(id => {
+        const m = byRum[id];
+        if (m[a] != null && m[b] != null) { xs.push(m[a]); ys.push(m[b]); }
+      });
+      const n = xs.length;
+      if (n < minCommon) continue;
+      let sx = 0, sy = 0, sxy = 0, sx2 = 0, sy2 = 0;
+      for (let k = 0; k < n; k++) { sx += xs[k]; sy += ys[k]; sxy += xs[k] * ys[k]; sx2 += xs[k] * xs[k]; sy2 += ys[k] * ys[k]; }
+      const den = Math.sqrt((n * sx2 - sx * sx) * (n * sy2 - sy * sy));
+      const r = den ? (n * sxy - sx * sy) / den : 0;
+      out.push({ a, b, common: n, closeness: Math.round(r * 100) });
+    }
+  }
+  return out.sort((x, y) => y.closeness - x.closeness);
+}
+
+// Rozpor v hodnocení jedné položky: položky s ≥ minRaters hodnoteními.
+function statDisagreement(ratings, minRaters) {
+  const byRum = {};
+  ratings.forEach(r => { (byRum[r.rumId] = byRum[r.rumId] || []).push(Number(r.celkem) || 0); });
+  return Object.keys(byRum).map(id => {
+    const arr = byRum[id];
+    if (arr.length < minRaters) return null;
+    const mean = arr.reduce((s, v) => s + v, 0) / arr.length;
+    const sd = Math.sqrt(arr.reduce((s, v) => s + (v - mean) * (v - mean), 0) / arr.length);
+    return { id, count: arr.length, min: Math.min(...arr), max: Math.max(...arr), spread: Math.max(...arr) - Math.min(...arr), sd };
+  }).filter(Boolean).sort((a, b) => b.spread - a.spread || b.sd - a.sd);
+}
+
+// Průměr podle výrobce (pole nazev); jen výrobci s ≥ minRatings hodnoceními.
+function statByProducer(rumsSrc, ratings, minRatings) {
+  const g = {};
+  rumsSrc.forEach(r => {
+    const k = r.nazev || 'Neuvedeno';
+    (g[k] = g[k] || { items: 0, sum: 0, n: 0 }).items++;
+  });
+  const rumById = {};
+  rumsSrc.forEach(r => { rumById[r.id] = r; });
+  ratings.forEach(r => {
+    const rum = rumById[r.rumId];
+    const k = rum ? (rum.nazev || 'Neuvedeno') : 'Neuvedeno';
+    g[k] = g[k] || { items: 0, sum: 0, n: 0 };
+    g[k].sum += Number(r.celkem) || 0; g[k].n++;
+  });
+  return Object.keys(g).map(k => ({ vyrobce: k, items: g[k].items, count: g[k].n, avg: g[k].n ? g[k].sum / g[k].n : 0 }))
+    .filter(x => x.count >= minRatings).sort((a, b) => b.avg - a.avg);
+}
+
+// Poměr cena / průměrné skóre (Kč za bod), vzestupně (nejlepší poměr první).
+function statValueForMoney(rumsSrc, ratings) {
+  const byRum = {};
+  ratings.forEach(r => { (byRum[r.rumId] = byRum[r.rumId] || []).push(Number(r.celkem) || 0); });
+  return rumsSrc.filter(r => r.cena && byRum[r.id] && byRum[r.id].length).map(r => {
+    const arr = byRum[r.id];
+    const avg = arr.reduce((s, v) => s + v, 0) / arr.length;
+    return { id: r.id, cena: Number(r.cena), avg, count: arr.length, kcPerBod: Number(r.cena) / avg };
+  }).sort((a, b) => a.kcPerBod - b.kcPerBod);
+}
+
+// Kumulativní průměr člena po měsících (hladší než měsíční průměr).
+function statMemberTimeline(ratings, memberNames, minRatings) {
+  const dated = ratings.filter(r => /^\d{4}-\d{2}/.test(r.datum || ''));
+  const months = [...new Set(dated.map(r => r.datum.slice(0, 7)))].sort();
+  const series = [];
+  memberNames.forEach(name => {
+    const mine = dated.filter(r => r.clen === name).sort((a, b) => a.datum.localeCompare(b.datum));
+    if (mine.length < minRatings) return;
+    let sum = 0, n = 0, k = 0;
+    const pts = months.map(mo => {
+      while (k < mine.length && mine[k].datum.slice(0, 7) <= mo) { sum += Number(mine[k].celkem) || 0; n++; k++; }
+      return n ? Math.round((sum / n) * 10) / 10 : null;
+    });
+    series.push({ name, pts });
+  });
+  return { months, series };
+}
+
 function renderStatistika() {
   const memberSel = document.getElementById('statMemberFilter');
   const originSel = document.getElementById('statOriginFilter');
@@ -2219,6 +2333,14 @@ function renderStatistika() {
   if (best) html += `<div class="muted" style="font-size:12px;margin-top:8px;">Nejlépe hodnoceno: <b>${rumLabel(best.rumId)}</b> (${esc(best.clen)}, ${best.celkem} b.)</div>`;
   if (worst && worst !== best) html += `<div class="muted" style="font-size:12px;margin-top:2px;">Nejhůře hodnoceno: <b>${rumLabel(worst.rumId)}</b> (${esc(worst.clen)}, ${worst.celkem} b.)</div>`;
 
+  // --- Nejlepší za rok ---
+  const nyni = String(new Date().getFullYear());
+  const roky = statBestOfYear(originRatings, 2).slice(0, 4);
+  html += `<div class="stat-section-title">Nej ${wordJedn} roku</div>`;
+  html += roky.length ? roky.map(y =>
+    `<div class="stat-row"><span class="stat-row-main">${y.rok === nyni ? '★ ' : ''}${y.rok} — ${rumLabel(y.id)}</span><span class="stat-row-sub">Ø ${y.avg.toFixed(1)} · ${y.count} hodn.</span></div>`
+  ).join('') : `<div class="empty-note">Zatím málo dat (min. 2 hodnocení na ${wordJedn} za rok).</div>`;
+
   html += '<div class="stat-section-title">Žebříček členů</div>';
   const memberRows = activeMembers.map(m => {
     const rs = originRatings.filter(r=>r.clen===m.jmeno);
@@ -2228,6 +2350,53 @@ function renderStatistika() {
   html += memberRows.length ? memberRows.map(m =>
     `<div class="stat-row"><span class="stat-row-main">${esc(m.jmeno)}</span><span class="stat-row-sub">${m.count} hodn. · průměr ${m.avg}</span></div>`
   ).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+
+  // --- Shoda vkusu mezi členy ---
+  const memberNames = activeMembers.map(m => m.jmeno);
+  let pary = statPairCloseness(originRatings, memberNames, 5);
+  if (ui.statMember !== 'vse') pary = pary.filter(p => p.a === ui.statMember || p.b === ui.statMember);
+  html += '<div class="stat-section-title">Shoda vkusu' + (ui.statMember !== 'vse' ? ` — ${esc(ui.statMember)} ↔ ostatní` : '') + '</div>';
+  if (pary.length) {
+    html += pary.map((p, i) => {
+      const partner = ui.statMember !== 'vse' ? (p.a === ui.statMember ? p.b : p.a) : `${p.a} ↔ ${p.b}`;
+      const extreme = i === 0 ? ' style="color:var(--good);"' : (i === pary.length - 1 && pary.length > 2 ? ' style="color:var(--warn);"' : '');
+      return `<div class="stat-row"><span class="stat-row-main"${extreme}>${esc(partner)}</span><span class="stat-row-sub">${p.closeness} % · ${p.common} společných</span></div>`;
+    }).join('');
+    html += `<div class="chart-note">Kolik % platí „co jeden ohodnotí líp, druhý taky" (i když jeden boduje obecně přísněji). Jen ${wordMnoz}, které hodnotili oba (min. 5).</div>`;
+  } else {
+    html += `<div class="empty-note">Zatím málo společných hodnocení (min. 5 na dvojici).</div>`;
+  }
+
+  // --- Osobní TOP 10 / 5 nejhorších ---
+  html += '<div class="stat-section-title">Osobní žebříček</div>';
+  if (ui.statMember !== 'vse') {
+    const mine = originRatings.filter(r => r.clen === ui.statMember && rumsSrc.some(x => x.id === r.rumId))
+      .map(r => ({ id: r.rumId, celkem: Number(r.celkem) || 0, datum: r.datum || '' }))
+      .sort((a, b) => b.celkem - a.celkem || b.datum.localeCompare(a.datum));
+    if (mine.length) {
+      const rowP = (r) => `<div class="stat-row"><span class="stat-row-main">${rumLabel(r.id)}</span><span class="stat-row-sub">${r.celkem} b.${r.datum ? ' · ' + esc(r.datum) : ''}</span></div>`;
+      html += `<div class="chart-note" style="margin-top:0;">${esc(ui.statMember)} — TOP ${Math.min(10, mine.length)}</div>`;
+      html += mine.slice(0, 10).map(rowP).join('');
+      if (mine.length > 10) {
+        html += `<div class="chart-note">${esc(ui.statMember)} — 5 nejhorších</div>`;
+        html += mine.slice(-5).reverse().map(rowP).join('');
+      }
+    } else {
+      html += '<div class="empty-note">Tento člen zatím nic neohodnotil.</div>';
+    }
+  } else {
+    const rows = memberNames.map(name => {
+      const mine = originRatings.filter(r => r.clen === name).sort((a, b) => Number(b.celkem) - Number(a.celkem));
+      if (!mine.length) return '';
+      const top = mine[0], bot = mine[mine.length - 1];
+      const sub = mine.length > 1
+        ? `▲ ${rumLabel(top.rumId)} (${top.celkem}) · ▼ ${rumLabel(bot.rumId)} (${bot.celkem})`
+        : `▲ ${rumLabel(top.rumId)} (${top.celkem})`;
+      return `<div class="stat-row" style="display:block;"><div class="stat-row-main" style="white-space:normal;">${esc(name)}</div><div class="stat-row-sub" style="margin-top:2px;">${sub}</div></div>`;
+    }).filter(Boolean);
+    html += rows.length ? rows.join('') : '<div class="empty-note">Zatím žádná data.</div>';
+    html += '<div class="chart-note">Vyber člena nahoře pro jeho celý TOP 10 a 5 nejhorších.</div>';
+  }
 
   const byRum = {};
   filteredRatings.forEach(r => { (byRum[r.rumId] = byRum[r.rumId] || []).push(Number(r.celkem)||0); });
@@ -2245,6 +2414,13 @@ function renderStatistika() {
   const mostTasted = [...rumAgg].sort((a,b)=>b.count-a.count).slice(0,5);
   html += '<div class="stat-section-title">Nejvíc ochutnávané</div>';
   html += mostTasted.length ? mostTasted.map(renderRumRankRow).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+
+  // --- Největší rozpory v hodnocení (napříč členy, filtr člena se neuplatní) ---
+  const rozpory = statDisagreement(originRatings, 3).slice(0, 8);
+  html += '<div class="stat-section-title">Největší rozpory v hodnocení</div>';
+  html += rozpory.length ? rozpory.map(d =>
+    `<div class="stat-row"><span class="stat-row-main">${rumLabel(d.id)}</span><span class="stat-row-sub">min ${d.min} / max ${d.max} · ${d.count} hodn.</span></div>`
+  ).join('') : `<div class="empty-note">Zatím málo dat (min. 3 hodnocení na ${wordJedn}).</div>`;
 
   html += '<div class="stat-section-title">Podle původu</div>';
   const origGroups = {};
@@ -2267,6 +2443,30 @@ function renderStatistika() {
   html += origRows.length ? origRows.map(o =>
     `<div class="stat-row"><span class="stat-row-main">${esc(o.puvod)}</span><span class="stat-row-sub">${o.rums} ${wordMnoz} · ${o.count} hodn. · průměr ${o.avg}</span></div>`
   ).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+
+  // --- Podle výrobce ---
+  const vyrobci = statByProducer(rumsSrc, originRatings, 2).slice(0, 15);
+  html += '<div class="stat-section-title">Podle výrobce</div>';
+  html += vyrobci.length ? vyrobci.map(v =>
+    `<div class="stat-row"><span class="stat-row-main">${esc(v.vyrobce)}</span><span class="stat-row-sub">${v.items} ${v.items === 1 ? 'položka' : (v.items < 5 ? 'položky' : 'položek')} · ${v.count} hodn. · průměr ${v.avg.toFixed(1)}</span></div>`
+  ).join('') : '<div class="empty-note">Zatím málo dat (min. 2 hodnocení na výrobce).</div>';
+
+  // --- Cena / hodnocení (žebříček) ---
+  if (!isGuest) {
+    const value = statValueForMoney(rumsSrc, originRatings);
+    html += '<div class="stat-section-title">Nejlepší poměr cena / hodnocení</div>';
+    if (value.length) {
+      const rowV = (v) => `<div class="stat-row"><span class="stat-row-main">${rumLabel(v.id)}</span><span class="stat-row-sub">${Math.round(v.kcPerBod)} Kč/bod · ${v.cena} Kč · Ø ${v.avg.toFixed(1)}</span></div>`;
+      html += value.slice(0, 10).map(rowV).join('');
+      if (value.length > 12) {
+        html += '<div class="chart-note">Nejhorší poměr</div>';
+        html += value.slice(-5).reverse().map(rowV).join('');
+      }
+      html += '<div class="chart-note">Méně Kč/bod = lepší koupě. Jen položky s vyplněnou cenou.</div>';
+    } else {
+      html += '<div class="empty-note">Zatím žádná položka s cenou i hodnocením.</div>';
+    }
+  }
 
   html += '<div class="stat-section-title">Účast na degustacích</div>';
   const totalUcast = state.ucasti.length;
@@ -2325,13 +2525,63 @@ function renderStatistika() {
     html += `<div class="chart-card"><div class="chart-wrap"><canvas id="chartPriceQuality"></canvas></div><div class="chart-note" id="chartPriceQualityNote"></div></div>`;
   }
 
+  html += '<div class="stat-section-title">Vývoj hodnocení členů v čase</div>';
+  html += `<div class="chart-card"><div class="chart-wrap"><canvas id="chartMemberTimeline"></canvas></div><div class="chart-note" id="chartMemberTimelineNote"></div></div>`;
+
   html += '<div class="stat-section-title">Chuťový profil</div>';
   html += `<div class="chart-card"><div class="chart-wrap"><canvas id="chartTasteProfile"></canvas></div><div class="chart-note" id="chartTasteProfileNote"></div></div>`;
 
   document.getElementById('statContent').innerHTML = html;
 
   if (!isGuest) renderPriceQualityChart(rumsSrc, originRatings, rumIdsByOrigin, rumLabel);
+  renderMemberTimelineChart(originRatings, activeMembers.map(m => m.jmeno));
   renderTasteProfileChart(isDoutnik, originRatings, activeMembers);
+}
+
+function renderMemberTimelineChart(originRatings, memberNames) {
+  const canvas = document.getElementById('chartMemberTimeline');
+  if (!canvas) return;
+  const noteEl = document.getElementById('chartMemberTimelineNote');
+  if (_chartMemberTimeline) { _chartMemberTimeline.destroy(); _chartMemberTimeline = null; }
+
+  const { months, series } = statMemberTimeline(originRatings, memberNames, 5);
+  const wrap = canvas.closest('.chart-card').querySelector('.chart-wrap');
+
+  if (typeof Chart === 'undefined') { wrap.style.display = 'none'; noteEl.textContent = 'Graf se nenačetl (Chart.js není k dispozici).'; return; }
+  if (months.length < 2 || series.length === 0) {
+    wrap.style.display = 'none';
+    noteEl.textContent = 'Zatím málo dat (potřeba aspoň 5 hodnocení od člena a víc než jeden měsíc).';
+    return;
+  }
+  wrap.style.display = '';
+  noteEl.textContent = 'Průběžný průměr každého člena — jak se v čase vyvíjí jeho bodování (0–100).';
+
+  const seriesVars = ['--series-1', '--series-2', '--series-3', '--series-4', '--series-5', '--series-6'];
+  const textColor = cssVarVal('--ink-soft');
+  const gridColor = cssVarVal('--line');
+
+  _chartMemberTimeline = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: series.map((s, i) => {
+        const color = cssVarVal(seriesVars[i % seriesVars.length]);
+        return {
+          label: s.name, data: s.pts, borderColor: color, backgroundColor: color + '22',
+          borderWidth: 2, pointRadius: 2, pointHoverRadius: 5, tension: 0.25, spanGaps: true,
+        };
+      }),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: textColor, maxTicksLimit: 8 } },
+        y: { min: 0, max: 100, grid: { color: gridColor }, ticks: { color: textColor, stepSize: 20 } },
+      },
+      plugins: { legend: { position: 'bottom', labels: { color: textColor, usePointStyle: true } } },
+    },
+  });
 }
 
 function renderPriceQualityChart(rumsSrc, originRatings, rumIdsByOrigin, rumLabel) {

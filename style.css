@@ -78,9 +78,15 @@
     padding: 14px 16px 10px;
   }
   .head-row { display:flex; align-items:center; justify-content:center; gap:10px; }
-  .brand { display:flex; align-items:center; gap:9px; }
+  .brand { display:flex; align-items:center; gap:10px; }
   .brand-glass { font-size: 22px; line-height:1; }
-  .brand-name { font-family: var(--font-display); font-weight:600; font-size:1.25rem; }
+  .brand-text { display:flex; flex-direction:column; }
+  .brand-name { font-family: var(--font-display); font-weight:600; font-size:1.25rem; line-height:1.05; }
+  .brand-tag {
+    font-family: var(--font-mono); font-size:9px; font-weight:500;
+    letter-spacing:0.24em; text-transform:uppercase; color: var(--ink-faint);
+    margin-top:3px; padding-left:1px;
+  }
   .sync-dot { width:10px; height:10px; border-radius:50%; background: var(--ink-faint); display:inline-block; }
   .sync-dot.live { background: var(--good); box-shadow:0 0 0 3px var(--good-soft); }
   .sync-label { position:absolute; top:12px; right:14px; font-family: var(--font-mono); font-size:11px; color:var(--ink-faint); display:flex; flex-direction:column; align-items:center; gap:3px; }
@@ -129,7 +135,12 @@
   .toggle-seg.active { background: var(--accent); color: var(--accent-ink); }
 
   main { padding: 14px 14px 8px; max-width: 720px; margin: 0 auto; }
-  .app-foot { text-align:center; padding:18px 10px 28px; font-size:11.5px; color: var(--ink-faint); }
+  .app-foot { text-align:center; padding:22px 10px 30px; font-size:11.5px; color: var(--ink-faint); }
+  .foot-tag {
+    font-family: var(--font-display); font-style:italic; font-size:13.5px;
+    color: var(--ink-soft); margin-bottom:5px;
+  }
+  .foot-tag::before, .foot-tag::after { content:"·"; color: var(--ink-faint); margin:0 8px; }
   .view { display:none; }
   .view.active { display:block; }
 

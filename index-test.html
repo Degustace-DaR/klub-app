@@ -33,7 +33,10 @@
   <div class="head-row">
     <div class="brand">
       <img src="logo.png" alt="Logo Degustačního klubu" style="height:34px;width:auto;vertical-align:middle;">
-      <span class="brand-name">Degustační klub</span>
+      <span class="brand-text">
+        <span class="brand-name">Degustační klub</span>
+        <span class="brand-tag">Rum &amp; doutník</span>
+      </span>
     </div>
     <span class="sync-label" id="syncLabel"><span class="sync-dot" id="syncDot"></span>off</span>
   </div>
@@ -186,7 +189,10 @@
   </div>
 </main>
 
-<footer class="app-foot">© <span id="footYear">2026</span> BZ</footer>
+<footer class="app-foot">
+  <div class="foot-tag">Společné chutě. Vlastní názor.</div>
+  <div>© <span id="footYear">2026</span> BZ</div>
+</footer>
 
 <div class="overlay" id="rumDetailOverlay" hidden onclick="if(event.target===this) closeRumDetail()">
   <div class="sheet" id="rumDetailSheet"></div>

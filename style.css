@@ -66,7 +66,7 @@
   html, body { background: var(--bg); }
   body {
     color: var(--ink); font-family: var(--font-body); line-height: 1.5;
-    font-size: 15px; padding-bottom: 84px; min-height: 100vh;
+    font-size: 16px; padding-bottom: 76px; min-height: 100vh;
   }
   button { font-family: inherit; }
   input, select, textarea { font-family: inherit; font-size: inherit; }
@@ -191,19 +191,24 @@
   .search-row select.input { flex: 0 0 auto; width: auto; }
   .rum-card { display:flex; align-items:center; gap:12px; cursor:pointer; }
   .rum-rank { font-family: var(--font-mono); font-size:12px; color: var(--ink-faint); width:20px; text-align:right; flex-shrink:0; }
-  .rum-thumb { width:40px; height:40px; border-radius:8px; object-fit:cover; flex-shrink:0; background: var(--surface-2); }
+  .rum-thumb { width:48px; height:48px; border-radius:8px; object-fit:cover; flex-shrink:0; background: var(--surface-2); }
+  .rum-thumb-empty { background: var(--surface-2); border:1px solid var(--line); }
   .rum-foto { display:block; width:auto; max-width:100%; height:auto; max-height:320px; margin:4px auto 14px; border-radius:var(--radius); background: var(--surface-2); }
   .rum-main { flex:1; min-width:0; }
   .rum-name { font-family: var(--font-display); font-weight:600; font-size:1.02rem; }
   .rum-sub { font-size:12.5px; color: var(--ink-faint); margin-top:2px; }
+  /* karta v seznamu – bezpatkově, každý řádek se ořízne (žádné lámání ani boční scroll) */
+  .rum-title { font-weight:600; font-size:15.5px; color: var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rum-expr { font-size:13px; color: var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
+  .rum-meta { font-size:12px; color: var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
   .origin-badge {
     display:inline-block; font-size:11px; font-family: var(--font-mono);
     background: var(--surface-2); border:1px solid var(--line); border-radius:5px;
     padding:1px 6px; color: var(--ink-soft); margin-right:5px; margin-bottom:3px;
   }
   .rum-score { text-align:right; flex-shrink:0; }
-  .rum-score .num { font-family: var(--font-display); font-weight:700; font-size:1.4rem; }
-  .rum-score .cnt { font-size:11px; color: var(--ink-faint); }
+  .rum-score .num { font-family: var(--font-display); font-weight:700; font-size:1.55rem; line-height:1.05; }
+  .rum-score .cnt { font-size:11.5px; color: var(--ink-faint); margin-top:1px; }
   .score-gold { color: var(--gold); }
   .score-good { color: var(--good); }
   .score-mid { color: var(--ink); }
@@ -332,6 +337,35 @@
   .offline-note { text-align:center; padding: 60px 20px; color: var(--ink-faint); }
   .offline-note .big { font-size:38px; margin-bottom:10px; }
   [hidden] { display:none !important; }
+
+  /* ---------- spodní navigace ---------- */
+  .botnav {
+    position: fixed; left:0; right:0; bottom:0; z-index:45;
+    display:flex; justify-content:center;
+    background: var(--bg); border-top:1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .botnav-item {
+    flex:1 1 0; max-width:120px; min-width:0;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    background:none; border:none; cursor:pointer;
+    padding:7px 4px 6px; color: var(--ink-faint);
+    font-family: var(--font-body); font-size:10.5px; font-weight:500; line-height:1.2;
+  }
+  .botnav-item .botnav-ico { font-size:19px; line-height:1; }
+  .botnav-item.active { color: var(--accent); }
+  .botnav-item[hidden] { display:none !important; }
+
+  /* panel „Víc" */
+  .more-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px; }
+  .more-item {
+    display:flex; align-items:center; gap:10px;
+    background: var(--surface); border:1px solid var(--line); border-radius:10px;
+    padding:14px 12px; font-size:15px; font-weight:500; color: var(--ink);
+    font-family: var(--font-body); cursor:pointer; text-align:left;
+  }
+  .more-item.active { border-color: var(--accent); color: var(--accent); }
+  .more-item .more-ico { font-size:20px; }
 
   /* ---------- PIN zámek appky ---------- */
   .pin-gate {

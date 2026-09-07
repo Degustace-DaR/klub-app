@@ -13,7 +13,8 @@
 <title>Degustační klub</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!-- ?v=N u style.css a app.js: při každé změně vzhledu/logiky zvyš číslo (i v index-test.html), ať prohlížeč načte novou verzi -->
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
+<script>try{var t=localStorage.getItem('rumklub_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
 <div class="pin-gate" id="pinGate">
@@ -37,24 +38,10 @@
     </div>
     <span class="sync-label" id="syncLabel"><span class="sync-dot" id="syncDot"></span>off</span>
   </div>
-  <div class="head-row" style="gap:8px; margin-top:6px; flex-wrap:wrap;">
-    <button class="tab-btn tab-btn-sm" data-tab="terminy" onclick="goTab('terminy')">🗓️ Termíny</button>
-    <button class="tab-btn tab-btn-sm" data-tab="ucast" onclick="goTab('ucast')">🙋 Účast</button>
-    <button class="tab-btn tab-btn-sm" data-tab="klub" onclick="goTab('klub')">👥 Klub</button>
-    <button class="tab-btn tab-btn-sm" data-tab="info" onclick="goTab('info')">ℹ️ Info</button>
-  </div>
   <div class="toggle-row" id="typToggleRow">
     <button class="toggle-seg active" data-typ="rum" onclick="setTyp('rum')">🥃 Rum</button>
     <button class="toggle-seg" data-typ="doutnik" onclick="setTyp('doutnik')">🚬 Doutník</button>
   </div>
-  <nav class="tabs">
-    <button class="tab-btn active" data-tab="rumy" onclick="goTab('rumy')" id="rumyTabBtn">🥃 Rumy</button>
-    <button class="tab-btn" data-tab="degustace" onclick="goTab('degustace')">➕ Hodnocení</button>
-    <button class="tab-btn" data-tab="wishlist" onclick="goTab('wishlist')">⭐ Wishlist</button>
-    <button class="tab-btn" data-tab="statistika" onclick="goTab('statistika')">📊 Statistika</button>
-    <button class="tab-btn" data-tab="humidor" onclick="goTab('humidor')" id="humidorTabBtn" hidden>🚬 Humidor</button>
-    <button class="tab-btn" data-tab="ucet" onclick="goTab('ucet')">💰 Účet</button>
-  </nav>
 </header>
 
 <main id="app">
@@ -214,6 +201,18 @@
   <div class="sheet" id="historySheet"></div>
 </div>
 
+<div class="overlay" id="moreMenuOverlay" hidden onclick="if(event.target===this) closeMoreMenu()">
+  <div class="sheet" id="moreMenuSheet"></div>
+</div>
+
+<nav class="botnav" id="botnav">
+  <button class="botnav-item active" data-tab="rumy" onclick="goTab('rumy')" id="botnavKatalog"><span class="botnav-ico" id="botnavKatalogIco">🥃</span>Katalog</button>
+  <button class="botnav-item" data-tab="degustace" onclick="goTab('degustace')"><span class="botnav-ico">➕</span>Hodnotit</button>
+  <button class="botnav-item" data-tab="wishlist" onclick="goTab('wishlist')"><span class="botnav-ico">⭐</span>Wishlist</button>
+  <button class="botnav-item" data-tab="statistika" onclick="goTab('statistika')"><span class="botnav-ico">📊</span>Statistika</button>
+  <button class="botnav-item" id="botnavMore" onclick="toggleMoreMenu()"><span class="botnav-ico">☰</span>Víc</button>
+</nav>
+
 <div class="toast-wrap"><div class="toast" id="toast" role="status" aria-live="polite"></div></div>
 
 <!-- Firebase (compat SDK v12.18.0) -->
@@ -264,6 +263,6 @@ const MEMBER_PINS = {
   "Mirek": "19890",
 };
 </script>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

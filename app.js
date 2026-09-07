@@ -187,10 +187,16 @@ function fotoButtonsHtml(pickExpr, labelPrefix) {
     </div>`;
 }
 
+const MORE_TABS = ['terminy', 'ucast', 'klub', 'info', 'humidor'];
+
 function goTab(tab) {
   ui.tab = tab;
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  const moreBtn = document.getElementById('botnavMore');
+  if (moreBtn) moreBtn.classList.toggle('active', MORE_TABS.includes(tab));
+  closeMoreMenu();
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + tab));
+  window.scrollTo(0, 0);
   if (tab === 'rumy') renderRumy();
   if (tab === 'degustace') renderActiveDegustaceForm();
   if (tab === 'ucet') renderUcet();
@@ -209,6 +215,8 @@ function syncTypUI() {
   const isDoutnik = ui.typ === 'doutnik';
   const rumyBtn = document.getElementById('rumyTabBtn');
   if (rumyBtn) rumyBtn.innerHTML = isDoutnik ? '🚬 Doutníky' : '🥃 Rumy';
+  const katIco = document.getElementById('botnavKatalogIco');
+  if (katIco) katIco.textContent = isDoutnik ? '🚬' : '🥃';
   const rumyTitle = document.getElementById('rumyViewTitle');
   if (rumyTitle) rumyTitle.textContent = isDoutnik ? 'Doutníky' : 'Rumy';
   const degTitle = document.getElementById('degustaceViewTitle');
@@ -228,6 +236,64 @@ function setTyp(t) {
   if (typeof renderNameCleanupSection === 'function') renderNameCleanupSection();
   if (t === 'rum' && ui.tab === 'humidor') { goTab('rumy'); return; }
   rerenderActive();
+}
+
+/* ---------------- Spodní navigace – panel „Víc" + přepínač motivu ---------------- */
+function toggleMoreMenu() {
+  const ov = document.getElementById('moreMenuOverlay');
+  if (!ov) return;
+  if (ov.hidden) { renderMoreMenu(); ov.hidden = false; }
+  else ov.hidden = true;
+}
+function closeMoreMenu() {
+  const ov = document.getElementById('moreMenuOverlay');
+  if (ov) ov.hidden = true;
+}
+function renderMoreMenu() {
+  const el = document.getElementById('moreMenuSheet');
+  if (!el) return;
+  const items = [
+    ['terminy', '🗓️', 'Termíny'],
+    ['ucast', '🙋', 'Účast'],
+    ['klub', '👥', 'Klub'],
+    ['info', 'ℹ️', 'Info'],
+  ];
+  if (ui.typ === 'doutnik') items.splice(1, 0, ['humidor', '🚬', 'Humidor']);
+  const cur = (() => { try { return localStorage.getItem('rumklub_theme') || 'auto'; } catch (e) { return 'auto'; } })();
+  const themeBtn = (val, label) => `<button class="toggle-seg ${cur === val ? 'active' : ''}" onclick="setTheme('${val}')">${label}</button>`;
+  el.innerHTML = `
+    <div class="sheet-head">
+      <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.4rem;margin:0;">Víc</h2>
+      <button class="sheet-close" onclick="closeMoreMenu()" aria-label="Zavřít">×</button>
+    </div>
+    <div class="more-grid">
+      ${items.map(([tab, ico, label]) =>
+        `<button class="more-item ${ui.tab === tab ? 'active' : ''}" data-tab="${tab}" onclick="goTab('${tab}')"><span class="more-ico">${ico}</span>${label}</button>`
+      ).join('')}
+    </div>
+    <div class="stat-section-title" style="margin-top:18px;">Vzhled</div>
+    <div class="toggle-row" style="max-width:100%;">
+      ${themeBtn('auto', 'Automaticky')}
+      ${themeBtn('light', '☀️ Světlý')}
+      ${themeBtn('dark', '🌙 Tmavý')}
+    </div>
+    <div class="btn-row" style="margin-top:18px;">
+      <button class="btn btn-ghost" onclick="closeMoreMenu()">Zavřít</button>
+    </div>`;
+}
+
+function setTheme(t) {
+  try {
+    if (t === 'auto') { delete document.documentElement.dataset.theme; localStorage.removeItem('rumklub_theme'); }
+    else { document.documentElement.dataset.theme = t; localStorage.setItem('rumklub_theme', t); }
+  } catch (e) { if (t !== 'auto') document.documentElement.dataset.theme = t; }
+  renderMoreMenu();
+}
+function initTheme() {
+  try {
+    const t = localStorage.getItem('rumklub_theme');
+    if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+  } catch (e) {}
 }
 
 function renderActiveDegustaceForm() {
@@ -316,21 +382,25 @@ function renderRumy() {
     list.innerHTML = `<div class="empty-note">Žádný ${isDoutnik?'doutník':'rum'} neodpovídá hledání.</div>`;
     return;
   }
-  list.innerHTML = rows.map(({rum, stats}, i) => {
-    const subBits = [];
-    if (rum.cena) subBits.push(esc(String(rum.cena))+' Kč');
-    if (rum.abv) subBits.push(esc(String(rum.abv))+'% obj.');
+  list.innerHTML = rows.map(({rum, stats}) => {
+    const meta = [
+      ...puvodList(rum),
+      rum.cena ? esc(String(rum.cena)) + ' Kč' : null,
+      rum.abv ? esc(String(rum.abv)) + ' %' : null,
+    ].filter(Boolean).join(' · ');
     return `
     <div class="card rum-card" onclick="openRumDetail('${rum.id}')">
-      <div class="rum-rank">${i+1}</div>
-      ${rum.foto ? `<img src="${esc(rum.foto)}" alt="" class="rum-thumb" loading="lazy" decoding="async" onerror="this.remove();">` : ''}
+      ${rum.foto
+        ? `<img src="${esc(rum.foto)}" alt="" class="rum-thumb" loading="lazy" decoding="async" onerror="this.classList.add('rum-thumb-empty');this.removeAttribute('src');">`
+        : `<div class="rum-thumb rum-thumb-empty"></div>`}
       <div class="rum-main">
-        <div class="rum-name">${esc(rum.nazev)}${rum.znacka ? ' <span class="muted" style="font-weight:400;font-size:0.85em;">– '+esc(rum.znacka)+'</span>' : ''}</div>
-        <div class="rum-sub">${puvodBadges(rum)}${subBits.join(' · ')}</div>
+        <div class="rum-title">${esc(rum.nazev)}</div>
+        ${rum.znacka ? `<div class="rum-expr">${esc(rum.znacka)}</div>` : ''}
+        ${meta ? `<div class="rum-meta">${meta}</div>` : ''}
       </div>
       <div class="rum-score">
         <div class="num ${scoreClass(stats?.celkem)}">${stats ? stats.celkem : '–'}</div>
-        <div class="cnt">${stats ? stats.count + ' hodn.' : 'bez hodnocení'}</div>
+        <div class="cnt">${stats ? stats.count + '×' : '–'}</div>
       </div>
     </div>
   `;
@@ -3571,8 +3641,7 @@ async function init() {
 function applyGuestRestrictions() {
   if (!isGuest) return;
   ['degustace','ucet'].forEach(tab => {
-    const btn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
-    if (btn) btn.hidden = true;
+    document.querySelectorAll(`[data-tab="${tab}"]`).forEach(btn => { btn.hidden = true; });
   });
   const addMemberCard = document.getElementById('addMemberCard');
   if (addMemberCard) addMemberCard.hidden = true;
@@ -3708,6 +3777,7 @@ if ('serviceWorker' in navigator) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   const _fy = document.getElementById('footYear'); if (_fy) _fy.textContent = new Date().getFullYear();
   const gate = document.getElementById('pinGate');
   const pinInput = document.getElementById('pinInput');

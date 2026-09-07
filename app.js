@@ -2586,8 +2586,9 @@ function renderMemberTimelineChart(originRatings, memberNames) {
 
 function renderPriceQualityChart(rumsSrc, originRatings, rumIdsByOrigin, rumLabel) {
   const canvas = document.getElementById('chartPriceQuality');
-  if (!canvas || typeof Chart === 'undefined') return;
+  if (!canvas) return;
   const noteEl = document.getElementById('chartPriceQualityNote');
+  if (typeof Chart === 'undefined') { canvas.closest('.chart-card').querySelector('.chart-wrap').style.display = 'none'; noteEl.textContent = 'Graf se nenačetl (Chart.js není k dispozici).'; return; }
   const pricedRums = rumIdsByOrigin ? rumsSrc.filter(r => rumIdsByOrigin.has(r.id)) : rumsSrc;
   const points = pricedRums.filter(r => r.cena).map(r => {
     const rs = originRatings.filter(x => x.rumId === r.id);
@@ -2641,8 +2642,9 @@ function renderPriceQualityChart(rumsSrc, originRatings, rumIdsByOrigin, rumLabe
 
 function renderTasteProfileChart(isDoutnik, originRatings, activeMembers) {
   const canvas = document.getElementById('chartTasteProfile');
-  if (!canvas || typeof Chart === 'undefined') return;
+  if (!canvas) return;
   const noteEl = document.getElementById('chartTasteProfileNote');
+  if (typeof Chart === 'undefined') { canvas.closest('.chart-card').querySelector('.chart-wrap').style.display = 'none'; noteEl.textContent = 'Graf se nenačetl (Chart.js není k dispozici).'; return; }
   const critArr = isDoutnik ? CIGAR_CRIT : RUM_CRIT;
   const seriesVars = ['--series-1', '--series-2', '--series-3'];
 

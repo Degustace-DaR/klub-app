@@ -61,12 +61,129 @@ function uid(prefix) {
   return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 }
 
-function toast(msg) {
+function toast(msg, kind) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
+  t.textContent = (kind === 'ok' ? '✓ ' : '') + msg;
+  t.classList.toggle('ok', kind === 'ok');
   t.classList.add('show');
   clearTimeout(t._h);
-  t._h = setTimeout(()=>t.classList.remove('show'), 2200);
+  t._h = setTimeout(()=>t.classList.remove('show'), kind === 'ok' ? 2600 : 2200);
+}
+
+/* ---------------- Ukládání: pojistka proti dvojímu ťuknutí + indikace stavu ---------------- */
+
+// Deduplikace kliků: druhé ťuknutí na stejné submit-tlačítko do 1200 ms se zahodí
+// (capture fáze → inline onclick 2. ťuknutí vůbec neproběhne). Po překreslení sekce
+// je tlačítko nový element, takže se nic omylem neblokuje.
+function _isGuardedBtn(el) {
+  const btn = el && el.closest ? el.closest('.btn-primary, [data-once]') : null;
+  if (!btn || btn.id === 'pinUnlockBtn') return null;
+  return btn;
+}
+
+let _lastSubmitEl = null, _lastSubmitAt = 0;
+document.addEventListener('click', (e) => {
+  const btn = _isGuardedBtn(e.target);
+  if (!btn || btn.disabled) return;
+  const now = Date.now();
+  if (btn === _lastSubmitEl && now - _lastSubmitAt < 1200) {
+    _lastSubmitAt = now;               // opakované ťukání blokaci prodlužuje
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    return;
+  }
+  _lastSubmitEl = btn;
+  _lastSubmitAt = now;
+}, true);
+
+// Po odpálení akce dát tlačítku viditelný „pracuji" stav (bubble fáze — inline
+// onclick už běží). Když sekce přerenderuje, staré tlačítko zmizí; jinak se po 1,5 s obnoví.
+document.addEventListener('click', (e) => {
+  const btn = _isGuardedBtn(e.target);
+  if (!btn || btn.disabled || btn.dataset.busy === '1') return;
+  btn.dataset.busy = '1';
+  btn.setAttribute('aria-busy', 'true');
+  btn.disabled = true;
+  setTimeout(() => {
+    if (!btn.isConnected) return;
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+    btn.dataset.busy = '0';
+  }, 1500);
+});
+
+// Počet zápisů čekajících na potvrzení serverem.
+let _pending = 0;
+let _savedTimer = null;
+
+function updateSyncIndicator() {
+  const el = document.getElementById('syncLabel');
+  if (!el) return;
+  let cls, dot, text;
+  if (!db) { cls = 'is-offline'; dot = ''; text = 'offline'; }
+  else if (!navigator.onLine) { cls = 'is-offline'; dot = ''; text = _pending ? _pending + ' čeká na síť' : 'offline'; }
+  else if (_pending > 0) { cls = 'is-saving'; dot = ''; text = 'ukládám…'; }
+  else if (el.dataset.justSaved === '1') { cls = 'is-saved'; dot = 'live'; text = 'uloženo'; }
+  else { cls = ''; dot = 'live'; text = 'živě'; }
+  el.className = 'sync-label ' + cls;
+  el.innerHTML = `<span class="sync-dot${dot ? ' ' + dot : ''}"></span>${text}`;
+}
+
+// Jednorázově obalí zápisové metody Firestore, aby appka věděla, kolik změn ještě
+// nedorazilo na server (db.waitForPendingWrites()). Bez zásahu do ~30 volání.
+function instrumentWrites() {
+  try {
+    const F = firebase.firestore;
+    const wrap = (proto, method) => {
+      if (!proto || typeof proto[method] !== 'function' || proto[method]._wrapped) return;
+      const orig = proto[method];
+      const wrapped = function (...args) {
+        _pending++;
+        updateSyncIndicator();
+        const ret = orig.apply(this, args);
+        const done = () => {
+          _pending = Math.max(0, _pending - 1);
+          if (_pending === 0 && navigator.onLine) {
+            const el = document.getElementById('syncLabel');
+            if (el) {
+              el.dataset.justSaved = '1';
+              clearTimeout(_savedTimer);
+              _savedTimer = setTimeout(() => { el.dataset.justSaved = '0'; updateSyncIndicator(); }, 1600);
+            }
+          }
+          updateSyncIndicator();
+        };
+        Promise.resolve(ret).then(() => db.waitForPendingWrites()).then(done, done);
+        return ret;
+      };
+      wrapped._wrapped = true;
+      proto[method] = wrapped;
+    };
+    wrap(F.DocumentReference.prototype, 'set');
+    wrap(F.DocumentReference.prototype, 'update');
+    wrap(F.DocumentReference.prototype, 'delete');
+    wrap(F.CollectionReference.prototype, 'add');
+    wrap(F.WriteBatch.prototype, 'commit');
+  } catch (e) {
+    console.warn('instrumentWrites selhalo (indikátor ukládání bude statický):', e);
+  }
+}
+
+window.addEventListener('online', updateSyncIndicator);
+window.addEventListener('offline', updateSyncIndicator);
+
+// Dvě tlačítka pro fotku: přímo foťák vs. galerie. onPick = JS výraz, který dostane `this.files[0]`.
+function fotoButtonsHtml(pickExpr, labelPrefix) {
+  const p = labelPrefix || '';
+  return `
+    <div class="btn-row foto-btns">
+      <label class="btn btn-ghost btn-sm">📷 ${p}Vyfotit
+        <input type="file" accept="image/*" capture="environment" hidden onchange="if(this.files[0]){ ${pickExpr} }">
+      </label>
+      <label class="btn btn-ghost btn-sm">🖼️ ${p}Z galerie
+        <input type="file" accept="image/*" hidden onchange="if(this.files[0]){ ${pickExpr} }">
+      </label>
+    </div>`;
 }
 
 function goTab(tab) {
@@ -205,7 +322,7 @@ function renderRumy() {
     return `
     <div class="card rum-card" onclick="openRumDetail('${rum.id}')">
       <div class="rum-rank">${i+1}</div>
-      ${rum.foto ? `<img src="${esc(rum.foto)}" alt="" class="rum-thumb" onerror="this.remove();">` : ''}
+      ${rum.foto ? `<img src="${esc(rum.foto)}" alt="" class="rum-thumb" loading="lazy" decoding="async" onerror="this.remove();">` : ''}
       <div class="rum-main">
         <div class="rum-name">${esc(rum.nazev)}${rum.znacka ? ' <span class="muted" style="font-weight:400;font-size:0.85em;">– '+esc(rum.znacka)+'</span>' : ''}</div>
         <div class="rum-sub">${rum.puvod ? '<span class="origin-badge">'+esc(rum.puvod)+'</span>' : ''}${subBits.join(' · ')}</div>
@@ -238,7 +355,7 @@ function openRumDetail(rumId) {
       </div>
       <button class="sheet-close" onclick="closeRumDetail()" aria-label="Zavřít">×</button>
     </div>
-    ${rum.foto ? `<img src="${esc(rum.foto)}" alt="Fotka: ${esc(rum.nazev)}" class="rum-foto" onerror="this.style.display='none';">` : ''}
+    ${rum.foto ? `<img src="${esc(rum.foto)}" alt="Fotka: ${esc(rum.nazev)}" class="rum-foto" loading="lazy" decoding="async" onerror="this.style.display='none';">` : ''}
     ${stats ? `
       <div style="text-align:center; margin: 10px 0 18px;">
         <div class="num ${scoreClass(stats.celkem)}" style="font-family:var(--font-display);font-weight:700;font-size:2.2rem;">${stats.celkem}</div>
@@ -264,13 +381,9 @@ function openRumDetail(rumId) {
     <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-primary" onclick="closeRumDetail(); presetRatingRum('${rum.id}'); goTab('degustace');">+ Přidat hodnocení</button>
     </div>
-    <div class="btn-row" style="margin-top:8px;">
-      <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
-        ${rum.foto ? '📷 Změnit fotku' : '📷 Přidat fotku'}
-        <input type="file" accept="image/*" style="display:none;" onchange="if(this.files[0]) uploadRumFoto('${rum.id}', this.files[0]);">
-      </label>
-      ${rum.foto && hasPerm(PERM_MAZANI) ? `<button class="btn btn-ghost btn-sm" onclick="removeRumFoto('${rum.id}')">Smazat fotku</button>` : ''}
-    </div>
+    <div class="muted" style="font-size:12px;margin-top:12px;margin-bottom:2px;">${rum.foto ? 'Změnit fotku' : 'Přidat fotku'}</div>
+    ${fotoButtonsHtml(`uploadRumFoto('${rum.id}', this.files[0])`)}
+    ${rum.foto && hasPerm(PERM_MAZANI) ? `<div class="btn-row" style="margin-top:6px;"><button class="btn btn-ghost btn-sm" onclick="removeRumFoto('${rum.id}')">Smazat fotku</button></div>` : ''}
     `}
     ${hasPerm(PERM_MAZANI) ? `
     <div class="btn-row" style="margin-top:8px;">
@@ -518,7 +631,7 @@ async function submitCigarRating() {
       logChange('Upraveno hodnocení doutníku', `${ui.selectedMember} → ${rum.nazev}${rum.znacka?' – '+rum.znacka:''} (${celkem})`);
     } else {
       await db.collection('cigar_ratings').add(body);
-      toast('Hodnocení uloženo');
+      toast('Hodnocení uloženo', 'ok');
       logChange('Přidáno hodnocení doutníku', `${ui.selectedMember} → ${rum.nazev}${rum.znacka?' – '+rum.znacka:''} (${celkem})`);
     }
     ui.selectedMember = currentUser || null;
@@ -645,6 +758,7 @@ function renderNewRumSection() {
   if (isGuest) { el.innerHTML = ''; return; }
   const isDoutnik = ui.typ === 'doutnik';
   if (!ui.showNewRumRumy) {
+    window._newRumFotoFile = null;
     el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=true; renderNewRumSection();">+ Nov${isDoutnik?'ý doutník':'ý rum'}, který ještě není v seznamu</button>`;
     return;
   }
@@ -658,7 +772,11 @@ function renderNewRumSection() {
       <div class="field"><label>Cena</label><input class="input" type="number" id="newRumCena"></div>
       ${isDoutnik ? '' : '<div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>'}
     </div>
-    <div class="field"><label>Fotka (nepovinné)</label><input class="input" type="file" accept="image/*" id="newRumFoto"><div class="muted" style="font-size:11.5px;margin-top:3px;">Appka prázdné pozadí kolem lahve sama ořeže — nejlépe to funguje na jednolitém světlém pozadí.</div></div>
+    <div class="field">
+      <label>Fotka (nepovinné)</label>
+      ${fotoButtonsHtml("window._newRumFotoFile = this.files[0]; var s=document.getElementById('newRumFotoStatus'); if(s) s.textContent='✓ fotka připravena: '+this.files[0].name")}
+      <div class="muted" id="newRumFotoStatus" style="font-size:11.5px;margin-top:4px;">Appka prázdné pozadí kolem lahve sama ořeže — nejlépe to funguje na jednolitém světlém pozadí.</div>
+    </div>
     <div class="btn-row" style="margin-top:4px;">
       <button class="btn btn-primary btn-sm" onclick="createNewRum()">Přidat ${isDoutnik?'doutník':'rum'}</button>
       <button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=false; renderNewRumSection();">Zpět</button>
@@ -675,8 +793,8 @@ async function createNewRum() {
     const cena = document.getElementById('newRumCena').value;
     const abvEl = document.getElementById('newRumAbv');
     const abv = (!isDoutnik && abvEl) ? abvEl.value : '';
-    const fotoInput = document.getElementById('newRumFoto');
-    const fotoFile = (fotoInput && fotoInput.files && fotoInput.files[0]) || null;
+    const fotoFile = window._newRumFotoFile || null;
+    window._newRumFotoFile = null;
     const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, abv: abv ? Number(abv) : null, cukr: null, poznamka: '', typ: ui.typ, _seq: Date.now() };
     const ref = await db.collection('rums').add(rum);
     ui.showNewRumRumy = false;
@@ -770,7 +888,7 @@ function detectContentBbox(img) {
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
-function resizeImageFile(file, maxDim = 900, quality = 0.82) {
+function resizeImageFile(file, maxDim = 800, quality = 0.74) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -800,8 +918,9 @@ async function uploadRumFoto(rumId, file, opts = {}) {
   if (!storage) { toast('Fotky nejsou zapnuté (chybí Firebase Storage) — appka funguje dál i bez nich.'); return; }
   if (!file || !file.type || !file.type.startsWith('image/')) { toast('Vyber prosím obrázek'); return; }
   try {
-    if (!opts.silent) toast('Nahrávám fotku…');
+    if (!opts.silent) toast('Připravuji fotku…');
     const blob = await resizeImageFile(file);
+    if (!opts.silent) toast('Nahrávám fotku (' + Math.round(blob.size / 1024) + ' kB)…');
     const path = `rum-photos/${rumId}-${Date.now()}.jpg`;
     const ref = storage.ref(path);
     await ref.put(blob, { contentType: 'image/jpeg' });
@@ -811,7 +930,7 @@ async function uploadRumFoto(rumId, file, opts = {}) {
     // lokální stav se opraví hned, aby se otevřený detail překreslil se správnou fotkou.
     const localRum = state.rums.find(r => r.id === rumId);
     if (localRum) localRum.foto = url;
-    toast('Fotka uložena');
+    toast('Fotka uložena', 'ok');
     if (ui.detailRumId === rumId) openRumDetail(rumId);
     if (ui.tab === 'rumy') renderRumy();
   } catch (e) {
@@ -827,7 +946,7 @@ async function removeRumFoto(rumId) {
     await db.collection('rums').doc(rumId).update({ foto: firebase.firestore.FieldValue.delete() });
     const localRum = state.rums.find(r => r.id === rumId);
     if (localRum) delete localRum.foto;
-    toast('Fotka smazána');
+    toast('Fotka smazána', 'ok');
     openRumDetail(rumId);
     if (ui.tab === 'rumy') renderRumy();
   } catch (e) {
@@ -847,7 +966,7 @@ async function quickAddMember() {
     await db.collection('members').add({ jmeno: name, aktivni: true });
     ui.selectedMember = name;
     ui.showNewMember = false;
-    toast('Člen přidán');
+    toast('Člen přidán', 'ok');
     logChange('Přidán člen', name);
 
   } catch (e) {
@@ -880,7 +999,7 @@ async function submitRating() {
       logChange('Upraveno hodnocení', `${ui.selectedMember} → ${rum.nazev}${rum.znacka?' – '+rum.znacka:''} (${celkem})`);
     } else {
       await db.collection('ratings').add(body);
-      toast('Hodnocení uloženo');
+      toast('Hodnocení uloženo', 'ok');
       logChange('Přidáno hodnocení', `${ui.selectedMember} → ${rum.nazev}${rum.znacka?' – '+rum.znacka:''} (${celkem})`);
     }
     ui.selectedMember = currentUser || null;
@@ -1010,7 +1129,7 @@ async function saveLedgerEdit(id) {
     if (!popis || !castka) { toast('Vyplň popis a částku'); return; }
     await db.collection(ledgerCollectionName()).doc(id).update({ datum, popis, castka, kategorie });
     closeLedgerEdit();
-    toast('Transakce upravena');
+    toast('Transakce upravena', 'ok');
     logChange('Upravena transakce', `${popis} (${castka} Kč)`);
 
   } catch (e) {
@@ -1026,7 +1145,7 @@ async function deleteLedgerEntry(id) {
     const l = ledgerSourceArray().find(x => x.id === id);
     await db.collection(ledgerCollectionName()).doc(id).delete();
     closeLedgerEdit();
-    toast('Transakce smazána');
+    toast('Transakce smazána', 'ok');
     logChange('Smazána transakce', l ? `${l.popis} (${l.castka} Kč)` : id);
 
   } catch (e) {
@@ -1063,7 +1182,7 @@ async function addLedger() {
     await db.collection(ledgerCollectionName()).add({ datum, popis, castka, kategorie, _seq: Date.now() });
     document.getElementById('ucetPopis').value = '';
     document.getElementById('ucetCastka').value = '';
-    toast('Transakce přidána');
+    toast('Transakce přidána', 'ok');
     logChange('Přidána transakce', `${popis} (${castka} Kč)`);
 
   } catch (e) {
@@ -1118,7 +1237,7 @@ async function addWish() {
       priorita: 'střední', stav: 'kandidát', typ: ui.typ, _seq: Date.now(),
     });
     toggleWishForm();
-    toast('Přidáno na wishlist');
+    toast('Přidáno na wishlist', 'ok');
     logChange('Přidáno na wishlist', nazev);
 
   } catch (e) {
@@ -1145,7 +1264,7 @@ async function deleteWish(id) {
     if (!confirm('Opravdu smazat tuhle položku z wishlistu?')) return;
     const w = state.wishlist.find(x => x.id === id);
     await db.collection('wishlist').doc(id).delete();
-    toast('Položka smazána');
+    toast('Položka smazána', 'ok');
     logChange('Smazáno z wishlistu', w ? (w.znacka+' '+w.nazev) : id);
 
   } catch (e) {
@@ -1354,7 +1473,7 @@ async function createNewCigar() {
     const nakupy = pocet > 0 ? [{ datum, pocet, cena_ks: cenaKs, cena_celkem: cenaCelkem }] : [];
     await db.collection('cigars').add({ vyrobce, model, nakupy, poznamka: '', _seq: Date.now() });
     ui.showNewCigarHumidor = false;
-    toast('Doutník přidán do humidoru');
+    toast('Doutník přidán do humidoru', 'ok');
     logChange('Přidán doutník', `${vyrobce}${model ? ' – ' + model : ''}`);
 
   } catch (e) {
@@ -1430,7 +1549,7 @@ async function submitCigarLog() {
     await db.collection('cigar_log').add({ cigarId: cigar.id, cislo, datum, clen: ui.cigarLogMember, _seq: Date.now() });
     ui.cigarShowLogForm = false;
     ui.cigarLogDatum = null;
-    toast('Vykouření zapsáno');
+    toast('Vykouření zapsáno', 'ok');
     logChange('Zapsáno vykouření doutníku', `${ui.cigarLogMember} → ${cigar.vyrobce}${cigar.model ? ' – ' + cigar.model : ''} (č. ${cislo})`);
     renderCigarDetail();
 
@@ -1446,7 +1565,7 @@ async function saveCigarLogEdit(logId) {
     const clen = document.getElementById('editCigarLogClen').value;
     await db.collection('cigar_log').doc(logId).update({ datum, clen });
     ui.editingCigarLogId = null;
-    toast('Záznam upraven');
+    toast('Záznam upraven', 'ok');
     logChange('Upraven záznam kouření', `${clen} (${datum})`);
     renderCigarDetail();
 
@@ -1462,7 +1581,7 @@ async function deleteCigarLogEntry(logId) {
     const l = state.cigarLog.find(x => x.id === logId);
     await db.collection('cigar_log').doc(logId).delete();
     ui.editingCigarLogId = null;
-    toast('Záznam smazán');
+    toast('Záznam smazán', 'ok');
     logChange('Smazán záznam kouření', l ? `${l.clen} (č. ${l.cislo})` : logId);
     renderCigarDetail();
 
@@ -1505,7 +1624,7 @@ async function addCigarNakup() {
     const nakupy = [...(cigar.nakupy || []), { datum, pocet, cena_ks: cenaKs, cena_celkem: cenaCelkem }];
     await db.collection('cigars').doc(cigar.id).update({ nakupy });
     ui.cigarShowNakupForm = false;
-    toast('Nákup přidán');
+    toast('Nákup přidán', 'ok');
     logChange('Přidán nákup doutníků', `${cigar.vyrobce}${cigar.model ? ' – ' + cigar.model : ''} (${pocet} ks)`);
     renderCigarDetail();
 
@@ -1578,7 +1697,7 @@ async function deleteCigar(cigarId) {
     relatedLog.forEach(l => batch.delete(db.collection('cigar_log').doc(l.id)));
     await batch.commit();
     closeCigarDetail();
-    toast('Doutník smazán');
+    toast('Doutník smazán', 'ok');
     logChange('Smazán doutník', `${cigar.vyrobce}${cigar.model ? ' – ' + cigar.model : ''}${relatedLog.length ? ' (+' + relatedLog.length + ' záznamů)' : ''}`);
 
   } catch (e) {
@@ -1759,7 +1878,7 @@ async function addTerminUcastnik() {
     if (!jmeno) return;
     await db.collection('termin_ucastnici').add({ jmeno });
     ui.showTerminUcastnikForm = false;
-    toast('Účastník přidán');
+    toast('Účastník přidán', 'ok');
     logChange('Přidán účastník termínů', jmeno);
 
   } catch (e) {
@@ -1844,7 +1963,7 @@ async function deleteKolo(koloId) {
     if (!confirm('Opravdu smazat celé tohle kolo domlouvání termínu?')) return;
     await db.collection('termin_kola').doc(koloId).delete();
     closeKoloDetail();
-    toast('Kolo smazáno');
+    toast('Kolo smazáno', 'ok');
     logChange('Smazáno kolo termínů', koloId);
 
   } catch (e) {
@@ -1996,7 +2115,7 @@ async function createNewUcast() {
       datum: ui.newUcastDatum, misto: ui.newUcastMisto || '', ucastnici, poznamka: '', zdrojKoloId: null, _seq: Date.now(),
     });
     ui.showNewUcast = false;
-    toast('Účast uložena');
+    toast('Účast uložena', 'ok');
     logChange('Přidána účast', formatDatumCz(ui.newUcastDatum) + (ui.newUcastMisto ? ' · ' + ui.newUcastMisto : ''));
 
   } catch (e) {
@@ -2060,7 +2179,7 @@ async function deleteUcast(ucastId) {
     if (!confirm('Opravdu smazat tento záznam účasti?')) return;
     await db.collection('ucast').doc(ucastId).delete();
     closeUcastDetail();
-    toast('Účast smazána');
+    toast('Účast smazána', 'ok');
     logChange('Smazána účast', ucastId);
 
   } catch (e) {
@@ -2770,7 +2889,7 @@ async function addMember() {
     }
     await db.collection('members').add({ jmeno: name, aktivni: true });
     document.getElementById('newMemberName').value = '';
-    toast('Člen přidán');
+    toast('Člen přidán', 'ok');
     logChange('Přidán člen', name);
 
   } catch (e) {
@@ -3319,7 +3438,7 @@ async function init() {
     document.getElementById('offlineNote').hidden = false;
     document.getElementById('offlineNote').innerHTML =
       '<div class="big">🥃⚙️</div><div>Appka ještě není nastavená.<br>Otevři soubor <code>index.html</code> a do <code>FIREBASE_CONFIG</code> na začátku &lt;script&gt; vlož údaje ze svého Firebase projektu (návod je v README-NASAZENI.md).</div>';
-    document.getElementById('syncLabel').innerHTML = '<span class="sync-dot"></span>off';
+    updateSyncIndicator();
     return;
   }
   try {
@@ -3336,6 +3455,7 @@ async function init() {
       // 'failed-precondition' = appka otevřená ve víc panelech, 'unimplemented' = prohlížeč to neumí — appka funguje dál, jen bez offline režimu
       console.warn('Offline režim se nezapnul:', persistErr && persistErr.code);
     }
+    instrumentWrites();
     try {
       storage = firebase.storage();
     } catch (storageErr) {
@@ -3349,10 +3469,10 @@ async function init() {
   }
   if (!db) {
     document.getElementById('offlineNote').hidden = false;
-    document.getElementById('syncLabel').innerHTML = '<span class="sync-dot"></span>off';
+    updateSyncIndicator();
     return;
   }
-  document.getElementById('syncLabel').innerHTML = '<span class="sync-dot live"></span>on';
+  updateSyncIndicator();
   try {
     await maybeSeed();
   } catch(e) { /* seeding races are harmless; ignore */ console.error('Seed:', e); }

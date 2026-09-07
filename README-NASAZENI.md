@@ -4,6 +4,18 @@ Appka je hotová (`index.html`), jen potřebuje propojit s vlastní databází (
 
 Pozn. k budoucnu: appka je postavená tak, že později půjde snadno přidat i druhou sekci (např. doutníky) jako samostatnou sadu dat vedle rumů — proto se nemusíš bát pojmenování zamknout jen na rum.
 
+Pozn. k souborům: appka je rozdělená do několika souborů, které patří k sobě a musí se nahrávat všechny společně:
+
+| soubor | co je | pro ostrou appku | pro testovací appku |
+|---|---|---|---|
+| `index.html` | ostrá appka (jen kostra + Firebase konfigurace) | ✅ | — |
+| `index-test.html` | testovací appka (jiný Firebase projekt, červený pruh) | — | ✅ |
+| `style.css` | vzhled (sdílí obě) | ✅ | ✅ |
+| `app.js` | veškerá logika appky (sdílí obě) | ✅ | ✅ |
+| `seed-data.js` | výchozí data pro první naplnění databáze | — | ✅ |
+| `logo.png`, `favicon.png` | obrázky | ✅ | ✅ |
+| `manifest.json`, `sw.js`, `icon-*.png`, `apple-touch-icon.png` | PWA (instalace na plochu) | ✅ | ✅ |
+
 ## Krok 1 — Firestore databáze ve Firebase
 
 1. Jdi na [console.firebase.google.com](https://console.firebase.google.com) a přihlas se svým Google účtem.
@@ -37,7 +49,7 @@ Díky tomu appka může používat databázi, aniž by po lidech chtěla heslo �
 2. Dole v sekci **Your apps** klikni na ikonu **`</>`** (Web).
 3. Appku pojmenuj (např. `klub-web`), **Firebase Hosting nezaškrtávej** (nepotřebujeme, používáme GitHub Pages) → **Register app**.
 4. Zobrazí se kód s objektem `firebaseConfig` — zkopíruj ty hodnoty (apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId).
-5. Otevři soubor `index.html` (třeba v Poznámkovém bloku), úplně nahoře ve `<script>` najdi blok:
+5. Otevři soubor `index.html` (třeba v Poznámkovém bloku), dole ve `<script>` bloku najdi:
 
    ```js
    const FIREBASE_CONFIG = {
@@ -52,7 +64,7 @@ Díky tomu appka může používat databázi, aniž by po lidech chtěla heslo �
 
 1. Jdi na [github.com](https://github.com), přihlas se → vpravo nahoře **+** → **New repository**.
 2. Název repozitáře např. `klub-app` (opět bez "rum", ať se to nemusí přejmenovávat) → **Public** → **Create repository**.
-3. Na stránce repozitáře klikni **Add file → Upload files** → přetáhni tam upravený `index.html` (a klidně i tenhle `README-NASAZENI.md`) → **Commit changes**.
+3. Na stránce repozitáře klikni **Add file → Upload files** → přetáhni tam **všechny** soubory appky: `index.html`, `style.css`, `app.js`, `logo.png`, `favicon.png`, `manifest.json`, `sw.js`, ikony (`icon-*.png`, `apple-touch-icon.png`) a klidně i tenhle `README-NASAZENI.md`. (Pokud chceš i testovací appku, přidej ještě `index-test.html` a `seed-data.js`.) → **Commit changes**. Důležité: musí být pohromadě, jinak se appka nenačte.
 4. Jdi do **Settings** repozitáře → v levém menu **Pages**.
 5. U **Source** vyber **Deploy from a branch**, branch **main**, složka **/ (root)** → **Save**.
 6. Za chvíli (do 1–2 minut) se nahoře objeví veřejná adresa appky, něco jako:
@@ -68,4 +80,5 @@ V appce v záložce **👥 Klub** je dole tlačítko **⬇️ Exportovat všechn
 
 - Appka ukazuje "Appka ještě není nastavená" → v `index.html` zůstaly nevyplněné `SEM_VLOZ_...` hodnoty.
 - Appka ukazuje "offline" i po vyplnění konfigurace → zkontroluj, že jsi v kroku 2 zapnul Anonymous přihlašování a v kroku 1 publikoval pravidla.
-- Po nahrání nové verze `index.html` na GitHub appka na staré adrese nereaguje → dej v prohlížeči tvrdý refresh (Ctrl+F5), GitHub Pages si stránku chvíli cachuje.
+- Po nahrání nové verze na GitHub appka na staré adrese nereaguje → dej v prohlížeči tvrdý refresh (Ctrl+F5), GitHub Pages si stránku chvíli cachuje.
+- Appka je bílá / rozbitá po nahrání → nejspíš chybí některý ze souborů (`style.css`, `app.js`, `logo.png`…). Musí být nahrané všechny a ve stejné složce jako `index.html`.

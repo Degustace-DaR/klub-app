@@ -78,14 +78,16 @@
     padding: 14px 16px 10px;
   }
   .head-row { display:flex; align-items:center; justify-content:center; gap:10px; }
-  .brand { display:flex; align-items:center; gap:10px; }
+  /* první řádek nese vpravo nahoře absolutní indikátor synchronizace — nechat mu místo */
+  header.app-head > .head-row:first-child { padding: 0 44px; }
+  .brand { display:flex; align-items:center; gap:10px; min-width:0; }
   .brand-glass { font-size: 22px; line-height:1; }
-  .brand-text { display:flex; flex-direction:column; }
-  .brand-name { font-family: var(--font-display); font-weight:600; font-size:1.25rem; line-height:1.05; }
+  .brand-text { display:flex; flex-direction:column; min-width:0; }
+  .brand-name { font-family: var(--font-display); font-weight:600; font-size:1.15rem; line-height:1.05; white-space:nowrap; }
   .brand-tag {
-    font-family: var(--font-mono); font-size:9px; font-weight:500;
-    letter-spacing:0.24em; text-transform:uppercase; color: var(--ink-faint);
-    margin-top:3px; padding-left:1px;
+    font-family: var(--font-mono); font-size:8.5px; font-weight:500;
+    letter-spacing:0.18em; text-transform:uppercase; color: var(--ink-faint);
+    margin-top:3px; white-space:nowrap;
   }
   .sync-dot { width:10px; height:10px; border-radius:50%; background: var(--ink-faint); display:inline-block; }
   .sync-dot.live { background: var(--good); box-shadow:0 0 0 3px var(--good-soft); }

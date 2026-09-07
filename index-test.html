@@ -87,13 +87,13 @@
     background: var(--bg); border-bottom: 1px solid var(--line);
     padding: 14px 16px 10px;
   }
-  .head-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .head-row { display:flex; align-items:center; justify-content:center; gap:10px; }
   .brand { display:flex; align-items:center; gap:9px; }
   .brand-glass { font-size: 22px; line-height:1; }
   .brand-name { font-family: var(--font-display); font-weight:600; font-size:1.25rem; }
   .sync-dot { width:10px; height:10px; border-radius:50%; background: var(--ink-faint); display:inline-block; }
   .sync-dot.live { background: var(--good); box-shadow:0 0 0 3px var(--good-soft); }
-  .sync-label { font-family: var(--font-mono); font-size:10.5px; color:var(--ink-faint); display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .sync-label { position:absolute; top:14px; right:16px; font-family: var(--font-mono); font-size:10.5px; color:var(--ink-faint); display:flex; flex-direction:column; align-items:center; gap:3px; }
   .balance-chip {
     font-family: var(--font-mono); font-size:12.5px; font-weight:500;
     background: var(--surface); border:1px solid var(--line); border-radius:999px;
@@ -106,7 +106,7 @@
   /* ---------- tabs ---------- */
   nav.tabs {
     display:flex; gap:4px; overflow-x:auto; margin-top:12px; padding-bottom:2px;
-    scrollbar-width:none;
+    scrollbar-width:none; justify-content:safe center;
   }
   nav.tabs::-webkit-scrollbar { display:none; }
   .tab-btn {
@@ -123,7 +123,7 @@
   /* Šířka 210 px na tlačítko na širších displejích; na úzkých mobilech se oba
      segmenty poměrně zmenší tak, aby se vždy vešly vedle sebe. */
   .toggle-row {
-    display:flex; gap:0; border:1px solid var(--line-strong); border-radius:999px; padding:3px; margin-top:12px;
+    display:flex; gap:0; border:1px solid var(--line-strong); border-radius:999px; padding:3px; margin:12px auto 0;
     width:100%; max-width:420px;
   }
   .toggle-seg {
@@ -360,7 +360,7 @@
     </div>
     <span class="sync-label" id="syncLabel"><span class="sync-dot" id="syncDot"></span>off</span>
   </div>
-  <div class="head-row" style="gap:8px; margin-top:6px; justify-content:flex-end;">
+  <div class="head-row" style="gap:8px; margin-top:6px; justify-content:center; flex-wrap:wrap;">
     <button class="tab-btn tab-btn-sm" data-tab="terminy" onclick="goTab('terminy')">🗓️ Termíny</button>
     <button class="tab-btn tab-btn-sm" data-tab="ucast" onclick="goTab('ucast')">🙋 Účast</button>
     <button class="tab-btn tab-btn-sm" data-tab="klub" onclick="goTab('klub')">👥 Klub</button>

@@ -1,0 +1,7 @@
+# Sjednotit konce řádků na LF (bez ohledu na nastavení Windows)
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.jpg binary
+*.jpeg binary

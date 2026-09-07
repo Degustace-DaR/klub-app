@@ -1,0 +1,18 @@
+# Časové zálohy HTML – verzování řeší git
+index_[0-9]*.html
+index-test_[0-9]*.html
+index_v[0-9]*.html
+index-[0-9].html
+index-test-[0-9].html
+
+# Smetí OS / editorů
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+*.tmp
+*.bak
+
+# Claude / dočasné
+/scratchpad/
+.claude/

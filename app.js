@@ -2133,8 +2133,12 @@ function openCigarDetail(cigarId) {
 }
 function closeCigarDetail() { document.getElementById('cigarDetailOverlay').hidden = true; }
 
+function cigarLogEditable(l) {
+  return hasPerm(PERM_SPRAVCI) || (!!currentUser && l.clen === currentUser);
+}
+
 function renderCigarLogRowHtml(l) {
-  if (!isGuest && ui.editingCigarLogId === l.id) {
+  if (cigarLogEditable(l) && ui.editingCigarLogId === l.id) {
     const members = sortedActiveMembers().map(m => m.jmeno);
     if (!members.includes(l.clen)) members.push(l.clen);
     return `
@@ -2154,8 +2158,8 @@ function renderCigarLogRowHtml(l) {
         </div>
       </div>`;
   }
-  const click = isGuest ? '' : ` onclick="ui.editingCigarLogId='${l.id}'; renderCigarDetail();"`;
-  const style = isGuest ? ' style="cursor:default;"' : '';
+  const click = cigarLogEditable(l) ? ` onclick="ui.editingCigarLogId='${l.id}'; renderCigarDetail();"` : '';
+  const style = cigarLogEditable(l) ? '' : ' style="cursor:default;"';
   return `<div class="ledger-row"${click}${style}><span class="stat-row-main">č. ${l.cislo} · ${esc(l.datum || '')}</span><span>${esc(l.clen || '')}</span></div>`;
 }
 
@@ -2200,6 +2204,8 @@ async function submitCigarLog() {
 
 async function saveCigarLogEdit(logId) {
   try {
+    const orig = state.cigarLog.find(x => x.id === logId);
+    if (orig && !cigarLogEditable(orig)) return;
     const datum = document.getElementById('editCigarLogDatum').value;
     const clen = document.getElementById('editCigarLogClen').value;
     await db.collection('cigar_log').doc(logId).update({ datum, clen });
@@ -2216,8 +2222,9 @@ async function saveCigarLogEdit(logId) {
 
 async function deleteCigarLogEntry(logId) {
   try {
-    if (!confirm('Opravdu smazat tenhle záznam kouření?')) return;
     const l = state.cigarLog.find(x => x.id === logId);
+    if (l && !cigarLogEditable(l)) return;
+    if (!confirm('Opravdu smazat tenhle záznam kouření?')) return;
     await db.collection('cigar_log').doc(logId).delete();
     ui.editingCigarLogId = null;
     toast('Záznam smazán', 'ok');

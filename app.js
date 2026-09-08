@@ -390,10 +390,13 @@ function renderRumy() {
   const totalAll = state.rums.filter(r => (r.typ||'rum') === ui.typ).length;
   const countLine = `<div class="list-count">${search ? total + ' z ' + totalAll : total} ${isDoutnik ? 'doutníků' : 'rumů'}</div>`;
   list.innerHTML = countLine + rows.map(({rum, stats}, i) => {
+    const expr = [
+      rum.znacka ? esc(rum.znacka) : null,
+      (!isDoutnik && rum.abv) ? esc(String(rum.abv)) + ' %' : null,
+    ].filter(Boolean).join(' · ');
     const meta = [
       ...puvodList(rum),
       rum.cena ? esc(String(rum.cena)) + ' Kč' : null,
-      rum.abv ? esc(String(rum.abv)) + ' %' : null,
     ].filter(Boolean).join(' · ');
     return `
     <div class="card rum-card" onclick="openRumDetail('${rum.id}')">
@@ -403,7 +406,7 @@ function renderRumy() {
         : `<div class="rum-thumb rum-thumb-empty"></div>`}
       <div class="rum-main">
         <div class="rum-title">${esc(rum.nazev)}</div>
-        ${rum.znacka ? `<div class="rum-expr">${esc(rum.znacka)}</div>` : ''}
+        ${expr ? `<div class="rum-expr">${expr}</div>` : ''}
         ${meta ? `<div class="rum-meta">${meta}</div>` : ''}
       </div>
       <div class="rum-score">

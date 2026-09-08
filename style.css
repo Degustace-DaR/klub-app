@@ -286,6 +286,16 @@
   .recent-item.clickable { cursor:pointer; }
   .recent-item.clickable:active { background: var(--surface-2, rgba(0,0,0,0.04)); }
   .recent-list-scroll { max-height: 265px; overflow-y: auto; }
+  .rate-progress { font-family: var(--font-mono); font-size:12.5px; color: var(--ink-soft); margin-bottom:10px; }
+  .rate-progress b { color: var(--ink); }
+  .rate-acc-head {
+    width:100%; display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background:none; border:none; padding:2px 0; font-family: var(--font-body);
+    font-size:14px; font-weight:600; color: var(--ink); cursor:pointer;
+  }
+  .rate-acc-head b { font-family: var(--font-mono); color: var(--accent); font-weight:700; }
+  .rate-acc-chev { font-family: var(--font-mono); color: var(--ink-faint); font-size:11.5px; font-weight:500; }
+  .picker-item:active { background: var(--surface); }
 
   /* statistika */
   .stat-filters { display:flex; gap:8px; margin-bottom:14px; }

@@ -22,6 +22,8 @@ let ui = {
   tab: 'rumy',
   selectedRatingRumId: null,
   selectedMember: null,
+  rateShowDone: false,
+  rateAllUnrated: false,
   scores: { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 },
   showNewRum: false,
   showNewRumRumy: false,
@@ -222,7 +224,7 @@ function syncTypUI() {
   const rumyTitle = document.getElementById('rumyViewTitle');
   if (rumyTitle) rumyTitle.textContent = isDoutnik ? 'Doutníky' : 'Rumy';
   const degTitle = document.getElementById('degustaceViewTitle');
-  if (degTitle) degTitle.textContent = isDoutnik ? 'Přidat hodnocení doutníku' : 'Přidat hodnocení rumu';
+  if (degTitle) degTitle.textContent = isDoutnik ? 'Hodnocení – Doutníky' : 'Hodnocení – Rumy';
   const ucetTitle = document.getElementById('ucetViewTitle');
   if (ucetTitle) ucetTitle.textContent = isDoutnik ? 'Účet klubu – Doutníky' : 'Účet klubu';
   const wishTitle = document.getElementById('wishlistViewTitle');
@@ -236,6 +238,8 @@ function syncTypUI() {
 function setTyp(t) {
   ui.typ = t;
   syncTypUI();
+  ui.selectedRatingRumId = null;
+  ui.rateAllUnrated = false;
   ui.showNameCleanup = false; ui.nameGroups = null;
   if (typeof renderNameCleanupSection === 'function') renderNameCleanupSection();
   if (t === 'rum' && ui.tab === 'humidor') { goTab('rumy'); return; }
@@ -303,6 +307,157 @@ function initTheme() {
 function renderActiveDegustaceForm() {
   if (ui.typ === 'doutnik') renderCigarDegustaceForm();
   else renderDegustaceForm();
+}
+
+/* ---------- Hodnocení: úvodní seznam „co ještě nemám ohodnocené" ---------- */
+// Koho hodnotíme: přihlášený člen = sám sebe; admin = vybraný člen (chipy).
+function ratingWhoLabel() {
+  return currentUser || ui.selectedMember || null;
+}
+function myRatingFor(rumId, who) {
+  if (!who) return null;
+  const pool = ui.typ === 'doutnik' ? state.cigarRatings : state.ratings;
+  return pool.find(r => r.rumId === rumId && r.clen === who) || null;
+}
+
+function ratingLandingHtml() {
+  const isDoutnik = ui.typ === 'doutnik';
+  const noun = isDoutnik ? 'doutník' : 'rum';
+  const who = ratingWhoLabel();
+
+  let html = '<div class="card">';
+
+  // Admin (bez jména) volí, za koho zapisuje
+  if (isAdmin && !currentUser) {
+    if (who) {
+      html += `<div class="field"><label>Za koho hodnotíš</label>
+        <div class="selected-chip"><span>${esc(who)}</span>
+        <button class="x" onclick="ui.selectedMember=null; renderActiveDegustaceForm();">×</button></div></div>`;
+    } else {
+      const ms = state.members.filter(m => m.aktivni !== false).slice().sort((a, b) => {
+        const ia = CLUB_MEMBER_ORDER.indexOf(a.jmeno), ib = CLUB_MEMBER_ORDER.indexOf(b.jmeno);
+        const ra = ia === -1 ? 99 : ia, rb = ib === -1 ? 99 : ib;
+        return ra !== rb ? ra - rb : a.jmeno.localeCompare(b.jmeno, 'cs');
+      });
+      html += '<div class="field"><label>Za koho hodnotíš</label><div class="member-chips">' +
+        ms.map(m => `<button class="member-chip" onclick="ui.selectedMember='${esc(m.jmeno).replace(/'/g, "\\'")}'; renderActiveDegustaceForm();">${esc(m.jmeno)}</button>`).join('') +
+        '</div></div>';
+    }
+  }
+
+  html += `<input class="input" id="rumPickSearch" placeholder="Hledat ${noun}…" oninput="renderRatingLandingList()">`;
+  html += '<div id="rumPickList" style="margin-top:8px;"></div>';
+  html += '</div>';
+
+  if (who) {
+    const items = state.rums.filter(r => (r.typ || 'rum') === ui.typ);
+    const doneCount = items.filter(r => myRatingFor(r.id, who)).length;
+    html += `<div class="card" style="margin-top:14px;">
+      <button class="rate-acc-head" onclick="ui.rateShowDone=!ui.rateShowDone; renderActiveDegustaceForm();">
+        <span>Hodnoceno <b>${doneCount}</b></span>
+        <span class="rate-acc-chev">${ui.rateShowDone ? '▾ skrýt' : '▸ zobrazit'}</span>
+      </button>
+      <div id="rateDoneList" ${ui.rateShowDone ? '' : 'hidden'}></div>
+    </div>`;
+  }
+  return html;
+}
+
+function ratingRow(r, who) {
+  const st = ui.typ === 'doutnik' ? cigarStats(r.id) : rumStats(r.id);
+  const mine = who ? myRatingFor(r.id, who) : null;
+  const sub = mine
+    ? `tvoje ${mine.celkem} b.` + (st ? ` · Ø klubu ${st.celkem}` : '')
+    : (st ? `Ø klubu ${st.celkem} · ${st.count}×` : 'zatím nikdo nehodnotil');
+  const fn = mine ? 'editRating' : 'startRating';
+  return `<div class="picker-item" onclick="${fn}('${r.id}')">${esc(r.nazev)}${r.znacka ? ' – ' + esc(r.znacka) : ''}<div class="sub">${sub}</div></div>`;
+}
+
+function renderRatingLanding() {
+  const el = document.getElementById('degustaceForm');
+  if (!el) return;
+  el.innerHTML = ratingLandingHtml();
+  renderRatingLandingList();
+  renderRatingDoneList();
+  const rec = document.getElementById('recentRatings');
+  if (rec) { rec.innerHTML = ''; rec.style.display = 'none'; }
+}
+
+function renderRatingLandingList() {
+  const el = document.getElementById('rumPickList');
+  if (!el) return;
+  const isDoutnik = ui.typ === 'doutnik';
+  const nounGen = isDoutnik ? 'doutníků' : 'rumů';
+  const who = ratingWhoLabel();
+  const q = (document.getElementById('rumPickSearch')?.value || '').trim().toLowerCase();
+  const items = state.rums.filter(r => (r.typ || 'rum') === ui.typ);
+
+  if (q) {
+    const hits = items
+      .filter(r => (r.nazev || '').toLowerCase().includes(q) || (r.znacka || '').toLowerCase().includes(q))
+      .sort((a, b) => (b._seq || 0) - (a._seq || 0)).slice(0, 40);
+    el.innerHTML = '<div class="picker-list">' +
+      (hits.map(r => ratingRow(r, who)).join('') || '<div class="picker-item muted">Nic nenalezeno</div>') +
+      '</div>';
+    return;
+  }
+
+  if (!who) {
+    el.innerHTML = `<div class="muted" style="font-size:13px;">${isAdmin ? 'Vyber člena výše.' : 'Přihlas se, abys mohl hodnotit.'}</div>`;
+    return;
+  }
+
+  const unrated = items.filter(r => !myRatingFor(r.id, who)).sort((a, b) => (b._seq || 0) - (a._seq || 0));
+  const total = items.length;
+  let h = `<div class="rate-progress">Ohodnoceno <b>${total - unrated.length}</b> · Chybí <b>${unrated.length}</b> z ${total} ${nounGen}</div>`;
+  if (unrated.length === 0) {
+    h += '<div class="muted" style="font-size:13px;">Všechno máš ohodnocené 🎉</div>';
+  } else {
+    const LIM = 8;
+    const shown = ui.rateAllUnrated ? unrated : unrated.slice(0, LIM);
+    h += '<div class="picker-list">' + shown.map(r => ratingRow(r, who)).join('') + '</div>';
+    if (!ui.rateAllUnrated && unrated.length > LIM) {
+      h += `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.rateAllUnrated=true; renderRatingLandingList();">Zobrazit všech ${unrated.length}</button>`;
+    }
+  }
+  el.innerHTML = h;
+}
+
+function renderRatingDoneList() {
+  const el = document.getElementById('rateDoneList');
+  if (!el) return;
+  const who = ratingWhoLabel();
+  if (!who) { el.innerHTML = ''; return; }
+  const pool = ui.typ === 'doutnik' ? state.cigarRatings : state.ratings;
+  const mine = pool.filter(r => r.clen === who).slice().sort((a, b) => (b._seq || 0) - (a._seq || 0));
+  if (mine.length === 0) { el.innerHTML = '<div class="muted" style="font-size:13px;margin-top:8px;">Zatím nic.</div>'; return; }
+  el.innerHTML = '<div class="recent-list-scroll" style="margin-top:8px;">' + mine.map(rt => {
+    const rum = state.rums.find(x => x.id === rt.rumId);
+    if (!rum) return '';
+    return `<div class="recent-item clickable" onclick="editRating('${rt.rumId}')"><span>${esc(rum.nazev)}${rum.znacka ? ' – ' + esc(rum.znacka) : ''}</span><b>${rt.celkem}</b></div>`;
+  }).join('') + '</div>';
+}
+
+function startRating(rumId) {
+  const rum = state.rums.find(r => r.id === rumId);
+  if (!rum) return;
+  if ((rum.typ || 'rum') !== ui.typ) { ui.typ = (rum.typ || 'rum'); syncTypUI(); }
+  ui.selectedRatingRumId = rumId;
+  if (!ui.selectedMember) ui.selectedMember = currentUser || null;
+  ui.showNewRum = false;
+  ui.rateAllUnrated = false;
+  if (ui.typ === 'doutnik') ui.cigarScores = { vzhled: 8, vune: 8, tah: 8, chut: 15, kour: 15, horeni: 15, popel: 8 };
+  else ui.scores = { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 };
+  renderActiveDegustaceForm();
+  const v = document.getElementById('view-degustace');
+  if (v) v.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function editRating(rumId) {
+  const r = myRatingFor(rumId, ratingWhoLabel());
+  if (!r) { startRating(rumId); return; }
+  if (ui.typ === 'doutnik') editRecentCigarRating(r.id);
+  else editRecentRating(r.id);
 }
 
 /* ---------------- derived data helpers ---------------- */
@@ -608,9 +763,10 @@ async function deleteRum(rumId) {
 /* ---------------- DEGUSTACE (add rating) tab ---------------- */
 function backToRatingStart() {
   ui.selectedRatingRumId = null;
-  ui.selectedMember = currentUser || null;
+  ui.selectedMember = currentUser || ui.selectedMember || null;
   ui.showNewRum = false;
   ui.showNewMember = false;
+  ui.rateAllUnrated = false;
   if (ui.typ === 'doutnik') {
     ui.cigarScores = { vzhled: 8, vune: 8, tah: 8, chut: 15, kour: 15, horeni: 15, popel: 8 };
   } else {
@@ -629,6 +785,7 @@ function presetRatingRum(rumId) {
 
 function renderDegustaceForm() {
   const rum = state.rums.find(r => r.id === ui.selectedRatingRumId);
+  if (!rum || (rum.typ || 'rum') !== ui.typ) { renderRatingLanding(); return; }
   const crit = RUM_CRIT;
   const total = crit.reduce((s,[k])=>s+Number(ui.scores[k]||0),0);
 
@@ -720,6 +877,7 @@ function updateScore(key, val) {
 /* ---------------- DEGUSTACE DOUTNÍKŮ (add cigar rating) ---------------- */
 function renderCigarDegustaceForm() {
   const rum = state.rums.find(r => r.id === ui.selectedRatingRumId);
+  if (!rum || (rum.typ || 'rum') !== ui.typ) { renderRatingLanding(); return; }
   const crit = CIGAR_CRIT;
   const total = crit.reduce((s,[k])=>s+Number(ui.cigarScores[k]||0),0);
 
@@ -817,9 +975,10 @@ async function submitCigarRating() {
       toast('Hodnocení uloženo', 'ok');
       logChange('Přidáno hodnocení doutníku', `${ui.selectedMember} → ${rum.nazev}${rum.znacka?' – '+rum.znacka:''} (${celkem})`);
     }
-    ui.selectedMember = currentUser || null;
+    ui.selectedMember = currentUser || ui.selectedMember || null;
+    ui.selectedRatingRumId = null;
     ui.cigarScores = { vzhled: 8, vune: 8, tah: 8, chut: 15, kour: 15, horeni: 15, popel: 8 };
-    renderCigarDegustaceForm();
+    renderActiveDegustaceForm();
 
   } catch (e) {
     console.error('submitCigarRating:', e);
@@ -829,6 +988,7 @@ async function submitCigarRating() {
 
 function renderRecentCigarRatings() {
   const el = document.getElementById('recentRatings');
+  el.style.display = '';
   const recent = [...state.cigarRatings].sort((a,b)=>(b._seq||0)-(a._seq||0)).slice(0,100);
   if (recent.length === 0) { el.innerHTML = ''; return; }
   el.innerHTML = '<div class="muted" style="font-size:12px;margin-bottom:6px;">Naposledy přidáno</div>' +
@@ -1274,9 +1434,10 @@ async function submitRating() {
       toast('Hodnocení uloženo', 'ok');
       logChange('Přidáno hodnocení', `${ui.selectedMember} → ${rum.nazev}${rum.znacka?' – '+rum.znacka:''} (${celkem})`);
     }
-    ui.selectedMember = currentUser || null;
+    ui.selectedMember = currentUser || ui.selectedMember || null;
+    ui.selectedRatingRumId = null;
     ui.scores = { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 };
-    renderDegustaceForm();
+    renderActiveDegustaceForm();
 
   } catch (e) {
     console.error('submitRating:', e);
@@ -1286,6 +1447,7 @@ async function submitRating() {
 
 function renderRecentRatings() {
   const el = document.getElementById('recentRatings');
+  el.style.display = '';
   const recent = [...state.ratings].sort((a,b)=>(b._seq||0)-(a._seq||0)).slice(0,100);
   if (recent.length === 0) { el.innerHTML = ''; return; }
   el.innerHTML = '<div class="muted" style="font-size:12px;margin-bottom:6px;">Naposledy přidáno</div>' +

@@ -191,6 +191,8 @@ function fotoButtonsHtml(pickExpr, labelPrefix) {
 const MORE_TABS = ['ucet', 'terminy', 'ucast', 'klub', 'info', 'humidor'];
 
 function goTab(tab) {
+  // Humidor je vždy o doutnících – přepni přepínač, pokud je na Rumu
+  if (tab === 'humidor' && ui.typ !== 'doutnik') { ui.typ = 'doutnik'; syncTypUI(); }
   ui.tab = tab;
   document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   const moreBtn = document.getElementById('botnavMore');
@@ -260,18 +262,16 @@ function closeMoreMenu() {
 function renderMoreMenu() {
   const el = document.getElementById('moreMenuSheet');
   if (!el) return;
-  const isDoutnik = ui.typ === 'doutnik';
-  // 2sloupcová mřížka, plněná po řádcích. Levý horní roh = Humidor (jen doutník),
-  // jinak prázdno, aby Účet / Klub zůstaly na stejném místě v obou režimech.
+  // Pevná 2sloupcová mřížka, stejná pro Rum i Doutník (host nemá Účet).
   let cells = [
-    isDoutnik ? ['humidor', '🚬', 'Humidor'] : ['', '', ''],
+    ['humidor', '🚬', 'Humidor'],
     ['terminy', '🗓️', 'Termíny'],
     ['ucet', '💰', 'Účet'],
     ['ucast', '🙋', 'Účast'],
     ['klub', '👥', 'Klub'],
     ['info', 'ℹ️', 'Info'],
   ];
-  if (isGuest) cells = cells.filter(([tab]) => tab && tab !== 'ucet');
+  if (isGuest) cells = cells.filter(([tab]) => tab !== 'ucet');
   const cur = (() => { try { return localStorage.getItem('rumklub_theme') || 'auto'; } catch (e) { return 'auto'; } })();
   const themeBtn = (val, label) => `<button class="toggle-seg ${cur === val ? 'active' : ''}" onclick="setTheme('${val}')">${label}</button>`;
   el.innerHTML = `
@@ -281,9 +281,7 @@ function renderMoreMenu() {
     </div>
     <div class="more-grid">
       ${cells.map(([tab, ico, label]) =>
-        tab
-          ? `<button class="more-item ${ui.tab === tab ? 'active' : ''}" data-tab="${tab}" onclick="goTab('${tab}')"><span class="more-ico">${ico}</span>${label}</button>`
-          : '<div aria-hidden="true"></div>'
+        `<button class="more-item ${ui.tab === tab ? 'active' : ''}" data-tab="${tab}" onclick="goTab('${tab}')"><span class="more-ico">${ico}</span>${label}</button>`
       ).join('')}
     </div>
     <div class="stat-section-title" style="margin-top:18px;">Vzhled</div>

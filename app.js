@@ -721,7 +721,10 @@ function openRumDetail(rumId) {
       : ''}
     <div class="muted" style="font-size:12px;margin-top:14px;margin-bottom:2px;">${rum.foto ? 'Změnit fotku' : 'Přidat fotku'}</div>
     ${fotoButtonsHtml(`uploadRumFoto('${rum.id}', this.files[0])`)}
-    ${rum.foto && hasPerm(PERM_MAZANI) ? `<div class="btn-row" style="margin-top:6px;"><button class="btn btn-ghost btn-sm" onclick="removeRumFoto('${rum.id}')">Smazat fotku</button></div>` : ''}
+    ${rum.foto ? `<div class="btn-row" style="margin-top:6px;">
+      <button class="btn btn-ghost btn-sm" onclick="recropRumFoto('${rum.id}')">✂️ Oříznout</button>
+      ${hasPerm(PERM_MAZANI) ? `<button class="btn btn-ghost btn-sm" onclick="removeRumFoto('${rum.id}')">Smazat fotku</button>` : ''}
+    </div>` : ''}
     `}
     ${hasPerm(PERM_MAZANI) ? `
     <div class="btn-row" style="margin-top:8px;">
@@ -1101,7 +1104,7 @@ function renderNewRumSection() {
   if (isGuest) { el.innerHTML = ''; return; }
   const isDoutnik = ui.typ === 'doutnik';
   if (!ui.showNewRumRumy) {
-    window._newRumFotoFile = null;
+    window._newRumFotoBlob = null;
     el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewRumRumy=true; renderNewRumSection();">+ Nov${isDoutnik?'ý doutník':'ý rum'}, který ještě není v seznamu</button>`;
     return;
   }
@@ -1125,8 +1128,8 @@ function renderNewRumSection() {
     </div>
     <div class="field">
       <label>Fotka (nepovinné)</label>
-      ${fotoButtonsHtml("window._newRumFotoFile = this.files[0]; var s=document.getElementById('newRumFotoStatus'); if(s) s.textContent='✓ fotka připravena: '+this.files[0].name")}
-      <div class="muted" id="newRumFotoStatus" style="font-size:11.5px;margin-top:4px;">Appka prázdné pozadí kolem lahve sama ořeže — nejlépe to funguje na jednolitém světlém pozadí.</div>
+      ${fotoButtonsHtml("prepNewRumFoto(this.files[0])")}
+      <div class="muted" id="newRumFotoStatus" style="font-size:11.5px;margin-top:4px;">Po výběru fotky si ještě ořízneš výřez.</div>
     </div>
     <div class="btn-row" style="margin-top:4px;">
       <button class="btn btn-primary btn-sm" onclick="createNewRum()">Přidat ${isDoutnik?'doutník':'rum'}</button>
@@ -1144,8 +1147,8 @@ async function createNewRum() {
     const cena = document.getElementById('newRumCena').value;
     const nfVal = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
     const nfNum = (id) => { const el = document.getElementById(id); return (el && el.value) ? Number(el.value) : null; };
-    const fotoFile = window._newRumFotoFile || null;
-    window._newRumFotoFile = null;
+    const fotoBlob = window._newRumFotoBlob || null;
+    window._newRumFotoBlob = null;
     const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, poznamka: '', typ: ui.typ, _seq: Date.now() };
     if (isDoutnik) {
       rum.format = nfVal('newRumFormat');
@@ -1159,7 +1162,7 @@ async function createNewRum() {
     ui.showNewRumRumy = false;
     toast(isDoutnik ? 'Doutník přidán do katalogu' : 'Rum přidán do katalogu');
     logChange(isDoutnik ? 'Přidán doutník' : 'Přidán rum', `${nazev}${znacka?' – '+znacka:''}`);
-    if (fotoFile) await uploadRumFoto(ref.id, fotoFile, { silent: true });
+    if (fotoBlob) await uploadRumFoto(ref.id, fotoBlob, { processed: true, silent: true });
 
   } catch (e) {
     console.error('createNewRum:', e);
@@ -1203,11 +1206,10 @@ async function saveRumEdit(rumId) {
 }
 
 /* ---------------- Fotky k rumům/doutníkům (Firebase Storage) ---------------- */
-// Detekuje, jestli má fotka jednolité pozadí (typické u produktových fotek lahví na
-// bílém/šedém pozadí) a pokud ano, vrátí ořez na obsah (aby lahev na fotce nebyla
-// zbytečně malá uprostřed velké plochy pozadí). Pracuje na malém zmenšeném náhledu
-// kvůli rychlosti; u běžné "živé" fotky (bez jednolitého pozadí) ořez nenajde a
-// vrátí null - funkce pak fotku nechá beze změny.
+// Odhad ohraničení obsahu na jednolitém pozadí (produktové fotky lahví na bílém/šedém).
+// Slouží jen jako VÝCHOZÍ poloha ořezového rámečku v cropPhoto() — konečný ořez si
+// vždy potvrzuje uživatel. Na strukturovaném pozadí vrátí null → rámeček je pak 86 % na střed.
+// Pracuje na zmenšeném náhledu kvůli rychlosti.
 function detectContentBbox(img) {
   const W = 200;
   const H = Math.max(1, Math.round(img.height * W / img.width));
@@ -1282,38 +1284,222 @@ function detectContentBbox(img) {
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
-function resizeImageFile(file, maxDim = 800, quality = 0.74) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const crop = detectContentBbox(img);
-      const srcX = crop ? crop.x : 0, srcY = crop ? crop.y : 0;
-      const srcW = crop ? crop.w : img.width, srcH = crop ? crop.h : img.height;
+/* ---------------- Ruční ořez fotky ---------------- */
+// cropPhoto(src): src = File/Blob (nová fotka) nebo URL string (ořez už nahrané).
+// Otevře celoobrazovkový ořez, vrátí zpracovaný JPEG blob (≤800 px) nebo null (Zrušit).
+let _cropState = null;
+let _cropDragCleanup = null;
 
-      let width = srcW, height = srcH;
-      if (width > maxDim || height > maxDim) {
-        if (width >= height) { height = Math.round(height * maxDim / width); width = maxDim; }
-        else { width = Math.round(width * maxDim / height); height = maxDim; }
+function _clampN(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+async function cropPhoto(src) {
+  let objUrl = null, img;
+  try {
+    if (typeof src === 'string') {
+      const resp = await fetch(src, { mode: 'cors' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      objUrl = URL.createObjectURL(await resp.blob());
+    } else {
+      objUrl = URL.createObjectURL(src);
+    }
+    img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('load')); img.src = objUrl; });
+  } catch (e) {
+    if (objUrl) URL.revokeObjectURL(objUrl);
+    console.error('cropPhoto load:', e);
+    toast(typeof src === 'string'
+      ? 'Tuhle fotku nejde znovu oříznout — vyfoť nebo vyber ji prosím znovu.'
+      : 'Fotku se nepodařilo načíst.');
+    return null;
+  }
+
+  const choice = await runCropUI(img);
+  URL.revokeObjectURL(objUrl);
+  if (choice === 'cancel') return null;
+
+  const NW = img.naturalWidth, NH = img.naturalHeight;
+  let sx = 0, sy = 0, sw = NW, sh = NH;
+  if (choice.mode === 'crop') { sx = choice.box.x; sy = choice.box.y; sw = choice.box.w; sh = choice.box.h; }
+
+  const maxDim = 800;
+  let w = sw, h = sh;
+  if (w > maxDim || h > maxDim) {
+    if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+    else { w = Math.round(w * maxDim / h); h = maxDim; }
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+  return await new Promise(res => canvas.toBlob(b => res(b), 'image/jpeg', 0.74));
+}
+
+function ensureCropDom() {
+  let ov = document.getElementById('cropOverlay');
+  if (ov) return ov;
+  ov = document.createElement('div');
+  ov.id = 'cropOverlay';
+  ov.className = 'crop-overlay';
+  ov.hidden = true;
+  ov.innerHTML = `
+    <div class="crop-top">Táhni rámeček – vyber výřez fotky</div>
+    <div class="crop-stage" id="cropStage">
+      <div class="crop-wrap" id="cropWrap">
+        <img id="cropImg" alt="">
+        <div class="crop-box" id="cropBox">
+          <span class="crop-handle h-nw" data-h="nw"></span>
+          <span class="crop-handle h-ne" data-h="ne"></span>
+          <span class="crop-handle h-sw" data-h="sw"></span>
+          <span class="crop-handle h-se" data-h="se"></span>
+        </div>
+      </div>
+    </div>
+    <div class="crop-bar">
+      <button class="btn btn-ghost" id="cropCancel">Zrušit</button>
+      <button class="btn btn-ghost" id="cropFull">Celá fotka</button>
+      <button class="btn btn-primary" id="cropApply">Použít</button>
+    </div>`;
+  document.body.appendChild(ov);
+  return ov;
+}
+
+function _applyCropBox(boxEl, st) {
+  const b = st.box;
+  boxEl.style.left = b.x + 'px';
+  boxEl.style.top = b.y + 'px';
+  boxEl.style.width = b.w + 'px';
+  boxEl.style.height = b.h + 'px';
+}
+
+function _attachCropDrag(wrap, boxEl, st) {
+  let drag = null;
+  const pt = (e) => { const r = wrap.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  const onMove = (e) => {
+    if (!drag) return;
+    const p = pt(e);
+    const dx = p.x - drag.p.x, dy = p.y - drag.p.y;
+    const sb = drag.box;
+    if (drag.type === 'move') {
+      st.box = {
+        x: _clampN(sb.x + dx, 0, st.RW - sb.w),
+        y: _clampN(sb.y + dy, 0, st.RH - sb.h),
+        w: sb.w, h: sb.h,
+      };
+    } else {
+      let x0 = sb.x, y0 = sb.y, x1 = sb.x + sb.w, y1 = sb.y + sb.h;
+      const c = drag.corner, m = st.minPx;
+      if (c === 'nw') { x0 = _clampN(sb.x + dx, 0, x1 - m); y0 = _clampN(sb.y + dy, 0, y1 - m); }
+      if (c === 'ne') { x1 = _clampN(x1 + dx, x0 + m, st.RW); y0 = _clampN(sb.y + dy, 0, y1 - m); }
+      if (c === 'sw') { x0 = _clampN(sb.x + dx, 0, x1 - m); y1 = _clampN(y1 + dy, y0 + m, st.RH); }
+      if (c === 'se') { x1 = _clampN(x1 + dx, x0 + m, st.RW); y1 = _clampN(y1 + dy, y0 + m, st.RH); }
+      st.box = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    }
+    _applyCropBox(boxEl, st);
+  };
+  const onUp = () => { drag = null; window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
+  const onDown = (e) => {
+    const handle = e.target.closest('.crop-handle');
+    if (!handle && !e.target.closest('.crop-box')) return;
+    e.preventDefault();
+    drag = { type: handle ? 'resize' : 'move', corner: handle ? handle.dataset.h : null, p: pt(e), box: { ...st.box } };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+  wrap.addEventListener('pointerdown', onDown);
+  _cropDragCleanup = () => { wrap.removeEventListener('pointerdown', onDown); onUp(); };
+}
+
+function runCropUI(img) {
+  return new Promise(resolve => {
+    const ov = ensureCropDom();
+    const stage = ov.querySelector('#cropStage');
+    const wrap = ov.querySelector('#cropWrap');
+    const imgEl = ov.querySelector('#cropImg');
+    const boxEl = ov.querySelector('#cropBox');
+
+    wrap.style.visibility = 'hidden';
+    imgEl.src = img.src;
+    ov.hidden = false;
+
+    requestAnimationFrame(() => {
+      const SW = stage.clientWidth, SH = stage.clientHeight;
+      const NW = img.naturalWidth, NH = img.naturalHeight;
+      const scale = Math.min(SW / NW, SH / NH) || 1;
+      const RW = Math.max(1, Math.round(NW * scale)), RH = Math.max(1, Math.round(NH * scale));
+      wrap.style.width = RW + 'px';
+      wrap.style.height = RH + 'px';
+      wrap.style.visibility = 'visible';
+
+      const bb = detectContentBbox(img);
+      let box;
+      if (bb) {
+        box = { x: bb.x * scale, y: bb.y * scale, w: bb.w * scale, h: bb.h * scale };
+      } else {
+        const mgn = 0.07;
+        box = { x: RW * mgn, y: RH * mgn, w: RW * (1 - 2 * mgn), h: RH * (1 - 2 * mgn) };
       }
-      const canvas = document.createElement('canvas');
-      canvas.width = width; canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, width, height);
-      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Převod obrázku selhal')), 'image/jpeg', quality);
+      const st = { box, RW, RH, scale, minPx: Math.max(30, Math.min(RW, RH) * 0.12) };
+      _cropState = st;
+      _applyCropBox(boxEl, st);
+      _attachCropDrag(wrap, boxEl, st);
+    });
+
+    const done = (val) => {
+      ov.hidden = true;
+      if (_cropDragCleanup) { _cropDragCleanup(); _cropDragCleanup = null; }
+      ov.querySelector('#cropCancel').onclick = null;
+      ov.querySelector('#cropFull').onclick = null;
+      ov.querySelector('#cropApply').onclick = null;
+      resolve(val);
     };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Obrázek se nepodařilo načíst')); };
-    img.src = url;
+    ov.querySelector('#cropCancel').onclick = () => done('cancel');
+    ov.querySelector('#cropFull').onclick = () => done({ mode: 'full' });
+    ov.querySelector('#cropApply').onclick = () => {
+      const b = _cropState.box, sc = _cropState.scale;
+      done({ mode: 'crop', box: {
+        x: Math.max(0, Math.round(b.x / sc)),
+        y: Math.max(0, Math.round(b.y / sc)),
+        w: Math.round(b.w / sc),
+        h: Math.round(b.h / sc),
+      } });
+    };
   });
+}
+
+async function recropRumFoto(rumId) {
+  const rum = state.rums.find(r => r.id === rumId);
+  if (!rum || !rum.foto) return;
+  const blob = await cropPhoto(rum.foto);
+  if (!blob) return;
+  await uploadRumFoto(rumId, blob, { processed: true });
+}
+
+async function recropCigarFoto(cigarId) {
+  const c = state.cigars.find(x => x.id === cigarId);
+  if (!c || !c.foto) return;
+  const blob = await cropPhoto(c.foto);
+  if (!blob) return;
+  await uploadCigarFoto(cigarId, blob, { processed: true });
+}
+
+async function prepNewRumFoto(file) {
+  const s = document.getElementById('newRumFotoStatus');
+  if (s) s.textContent = 'Připravuji fotku…';
+  const blob = await cropPhoto(file);
+  window._newRumFotoBlob = blob || null;
+  if (s) s.textContent = blob ? '✓ fotka připravena' : 'fotka nevybrána';
 }
 
 async function uploadRumFoto(rumId, file, opts = {}) {
   if (!storage) { toast('Fotky nejsou zapnuté (chybí Firebase Storage) — appka funguje dál i bez nich.'); return; }
-  if (!file || !file.type || !file.type.startsWith('image/')) { toast('Vyber prosím obrázek'); return; }
+  let blob;
+  if (opts.processed) {
+    blob = file;
+  } else {
+    if (!file || !file.type || !file.type.startsWith('image/')) { toast('Vyber prosím obrázek'); return; }
+    blob = await cropPhoto(file);
+    if (!blob) return;
+  }
   try {
-    if (!opts.silent) toast('Připravuji fotku…');
-    const blob = await resizeImageFile(file);
     if (!opts.silent) toast('Nahrávám fotku (' + Math.round(blob.size / 1024) + ' kB)…');
     const path = `rum-photos/${rumId}-${Date.now()}.jpg`;
     const ref = storage.ref(path);
@@ -1349,12 +1535,17 @@ async function removeRumFoto(rumId) {
   }
 }
 
-async function uploadCigarFoto(cigarId, file) {
+async function uploadCigarFoto(cigarId, file, opts = {}) {
   if (!storage) { toast('Fotky nejsou zapnuté (chybí Firebase Storage) — appka funguje dál i bez nich.'); return; }
-  if (!file || !file.type || !file.type.startsWith('image/')) { toast('Vyber prosím obrázek'); return; }
+  let blob;
+  if (opts.processed) {
+    blob = file;
+  } else {
+    if (!file || !file.type || !file.type.startsWith('image/')) { toast('Vyber prosím obrázek'); return; }
+    blob = await cropPhoto(file);
+    if (!blob) return;
+  }
   try {
-    toast('Připravuji fotku…');
-    const blob = await resizeImageFile(file);
     toast('Nahrávám fotku (' + Math.round(blob.size / 1024) + ' kB)…');
     const ref = storage.ref(`cigar-photos/${cigarId}-${Date.now()}.jpg`);
     await ref.put(blob, { contentType: 'image/jpeg' });
@@ -2108,7 +2299,10 @@ function renderCigarDetail() {
     ${isGuest ? '' : `
     <div class="muted" style="font-size:12px;margin-top:16px;margin-bottom:2px;">${cigar.foto ? 'Změnit fotku' : 'Přidat fotku'}</div>
     ${fotoButtonsHtml(`uploadCigarFoto('${cigar.id}', this.files[0])`)}
-    ${cigar.foto && hasPerm(PERM_MAZANI) ? `<div class="btn-row" style="margin-top:6px;"><button class="btn btn-ghost btn-sm" onclick="removeCigarFoto('${cigar.id}')">Smazat fotku</button></div>` : ''}
+    ${cigar.foto ? `<div class="btn-row" style="margin-top:6px;">
+      <button class="btn btn-ghost btn-sm" onclick="recropCigarFoto('${cigar.id}')">✂️ Oříznout</button>
+      ${hasPerm(PERM_MAZANI) ? `<button class="btn btn-ghost btn-sm" onclick="removeCigarFoto('${cigar.id}')">Smazat fotku</button>` : ''}
+    </div>` : ''}
     `}
 
     <div class="btn-row" style="margin-top:18px;">

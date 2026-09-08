@@ -13,7 +13,7 @@
 <title>Degustační klub</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!-- ?v=N u style.css a app.js: při každé změně vzhledu/logiky zvyš číslo (i v index-test.html), ať prohlížeč načte novou verzi -->
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 <script>try{var t=localStorage.getItem('rumklub_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
@@ -135,7 +135,7 @@
   </div>
 
   <div class="view" id="view-statistika">
-    <h2 class="view-title">Statistika</h2>
+    <h2 class="view-title" id="statistikaViewTitle">Statistika</h2>
     <div class="stat-filters">
       <select class="input" id="statMemberFilter" onchange="ui.statMember=this.value; renderStatistika();"></select>
       <select class="input" id="statOriginFilter" onchange="ui.statOrigin=this.value; renderStatistika();"></select>
@@ -210,7 +210,7 @@
   <button class="botnav-item" data-tab="degustace" onclick="goTab('degustace')"><span class="botnav-ico">➕</span>Hodnotit</button>
   <button class="botnav-item" data-tab="wishlist" onclick="goTab('wishlist')"><span class="botnav-ico">⭐</span>Wishlist</button>
   <button class="botnav-item" data-tab="statistika" onclick="goTab('statistika')"><span class="botnav-ico">📊</span>Statistika</button>
-  <button class="botnav-item" id="botnavMore" onclick="toggleMoreMenu()"><span class="botnav-ico">☰</span>Víc</button>
+  <button class="botnav-item" id="botnavMore" onclick="toggleMoreMenu()"><span class="botnav-ico">☰</span>Více</button>
 </nav>
 
 <div class="toast-wrap"><div class="toast" id="toast" role="status" aria-live="polite"></div></div>
@@ -263,6 +263,6 @@ const MEMBER_PINS = {
   "Mirek": "19890",
 };
 </script>
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

@@ -223,11 +223,13 @@ function syncTypUI() {
   const rumyTitle = document.getElementById('rumyViewTitle');
   if (rumyTitle) rumyTitle.textContent = isDoutnik ? 'Doutníky' : 'Rumy';
   const degTitle = document.getElementById('degustaceViewTitle');
-  if (degTitle) degTitle.textContent = isDoutnik ? 'Přidat hodnocení doutníku' : 'Přidat hodnocení';
+  if (degTitle) degTitle.textContent = isDoutnik ? 'Přidat hodnocení doutníku' : 'Přidat hodnocení rumu';
   const ucetTitle = document.getElementById('ucetViewTitle');
   if (ucetTitle) ucetTitle.textContent = isDoutnik ? 'Účet klubu – Doutníky' : 'Účet klubu';
   const wishTitle = document.getElementById('wishlistViewTitle');
-  if (wishTitle) wishTitle.textContent = isDoutnik ? 'Wishlist – Doutníky' : 'Wishlist';
+  if (wishTitle) wishTitle.textContent = isDoutnik ? 'Wishlist – Doutníky' : 'Wishlist – Rumy';
+  const statTitle = document.getElementById('statistikaViewTitle');
+  if (statTitle) statTitle.textContent = isDoutnik ? 'Statistika – Doutníky' : 'Statistika – Rumy';
   const humidorBtn = document.getElementById('humidorTabBtn');
   if (humidorBtn) humidorBtn.hidden = !isDoutnik;
 }
@@ -266,7 +268,7 @@ function renderMoreMenu() {
   const themeBtn = (val, label) => `<button class="toggle-seg ${cur === val ? 'active' : ''}" onclick="setTheme('${val}')">${label}</button>`;
   el.innerHTML = `
     <div class="sheet-head">
-      <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.4rem;margin:0;">Víc</h2>
+      <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.4rem;margin:0;">Více</h2>
       <button class="sheet-close" onclick="closeMoreMenu()" aria-label="Zavřít">×</button>
     </div>
     <div class="more-grid">
@@ -2989,7 +2991,7 @@ function renderInfo() {
   let html = `
     <div class="card">
       <div class="rum-name">O aplikaci</div>
-      <div class="muted" style="font-size:13px;margin-top:6px;">Degustační klub – appka pro evidenci rumů, degustační hodnocení, účet klubu a wishlist. Data se ukládají do sdílené databáze a appka funguje v prohlížeči, i na mobilu.</div>
+      <div class="muted" style="font-size:13px;margin-top:6px;">Degustační klub – appka pro evidenci rumů a doutníků, degustační hodnocení, účet klubu a wishlist. Data se ukládají do sdílené databáze a appka funguje v prohlížeči, i na mobilu.</div>
     </div>
     <div class="card" style="margin-top:12px;">
       <div class="rum-name">Návod k záložkám</div>

@@ -13,7 +13,7 @@
 <title>Degustační klub</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!-- ?v=N u style.css a app.js: při každé změně vzhledu/logiky zvyš číslo (i v index-test.html), ať prohlížeč načte novou verzi -->
-<link rel="stylesheet" href="style.css?v=44">
+<link rel="stylesheet" href="style.css?v=45">
 <script>try{var t=localStorage.getItem('rumklub_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
@@ -213,6 +213,8 @@
 <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-check-compat.js"></script>
+<script>if (['localhost','127.0.0.1'].includes(location.hostname)) self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;</script>
 <!-- SheetJS pro export do Excelu -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Chart.js pro grafy ve Statistice (lokální kopie, v4.4.1) -->
@@ -233,6 +235,10 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "236208817142",
   appId: "1:236208817142:web:41be60c1f855b89bfabdd7",
 };
+
+/* Firebase App Check – reCAPTCHA Enterprise site key (veřejný).
+   Ověřuje, že požadavky jdou z téhle appky, ne ze skriptu. */
+const APP_CHECK_KEY = "6Lf0ZLAtAAAAAKZ2lQkb8zjB55s19K8lmPBbHZZy";
 
 /* ======================================================================
    PINy — uložené jako SHA-256(PIN + PIN_SALT), plaintext nikde ve zdroji.
@@ -256,6 +262,6 @@ const MEMBER_PIN_HASHES = {
   "Mirek":  "1ed3558ad2a49db6ce8dbd0e896bb49afe4439b6bc30178fc7b11e61ba4d2c0c",
 };
 </script>
-<script src="app.js?v=44"></script>
+<script src="app.js?v=45"></script>
 </body>
 </html>

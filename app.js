@@ -4100,6 +4100,17 @@ async function init() {
   }
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
+    // App Check (reCAPTCHA Enterprise) – hned po initu, před ostatními službami.
+    try {
+      if (typeof APP_CHECK_KEY === 'string' && APP_CHECK_KEY && firebase.appCheck) {
+        firebase.appCheck().activate(
+          new firebase.appCheck.ReCaptchaEnterpriseProvider(APP_CHECK_KEY),
+          true,
+        );
+      }
+    } catch (acErr) {
+      console.warn('App Check se nezapnul (appka funguje dál):', acErr);
+    }
     try {
       await firebase.auth().signInAnonymously();
     } catch (authErr) {

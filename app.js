@@ -3827,6 +3827,38 @@ async function exportDatabase() {
   }
 }
 
+// Stáhne poslední noční zálohu (soubor z GitHubu) do počítače – kopie mimo GitHub.
+const BACKUP_REPO = 'Degustace-DaR/klub-app';
+async function downloadLatestBackup() {
+  if (!isAdmin) return;
+  toast('Hledám poslední zálohu na GitHubu…');
+  try {
+    const list = await fetch(`https://api.github.com/repos/${BACKUP_REPO}/contents/backups/db`)
+      .then(r => (r.ok ? r.json() : []));
+    const files = (Array.isArray(list) ? list : [])
+      .filter(f => /^klub-\d{4}-\d{2}-\d{2}\.json$/.test(f.name || ''))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (!files.length) {
+      toast('Zatím žádná noční záloha – spusť na GitHubu „Akce → Záloha databáze".');
+      return;
+    }
+    const newest = files[files.length - 1];
+    const blob = await fetch(`backups/db/${newest.name}`, { cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = newest.name.replace(/^klub-/, 'klub-zaloha-');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+    toast('Stahuje se ' + newest.name, 'ok');
+  } catch (e) {
+    console.error('downloadLatestBackup:', e);
+    toast('Zálohu se nepodařilo stáhnout (GitHub nedostupný?).');
+  }
+}
+
 function triggerImportDatabase() {
   if (!hasPerm(PERM_MAZANI)) return;
   const input = document.getElementById('importDbFileInput');
@@ -4123,6 +4155,10 @@ function applyAdminFeatures() {
   if (historyBtn) historyBtn.hidden = !isAdmin;
   const exportDbBtn = document.getElementById('exportDbBtn');
   if (exportDbBtn) exportDbBtn.hidden = !isAdmin;
+  const downloadBackupBtn = document.getElementById('downloadBackupBtn');
+  if (downloadBackupBtn) downloadBackupBtn.hidden = !isAdmin;
+  const downloadRepoZipBtn = document.getElementById('downloadRepoZipBtn');
+  if (downloadRepoZipBtn) downloadRepoZipBtn.hidden = !isAdmin;
   const importDbBtn = document.getElementById('importDbBtn');
   const canImport = hasPerm(PERM_MAZANI);
   if (importDbBtn) importDbBtn.hidden = !canImport;

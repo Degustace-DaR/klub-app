@@ -118,6 +118,13 @@ document.addEventListener('click', (e) => {
 let _pending = 0;
 let _savedTimer = null;
 
+function whoLabel() {
+  if (currentUser) return currentUser;
+  if (isAdmin) return 'Admin';
+  if (isGuest) return 'Host';
+  return '';
+}
+
 function updateSyncIndicator() {
   const el = document.getElementById('syncLabel');
   if (!el) return;
@@ -126,7 +133,7 @@ function updateSyncIndicator() {
   else if (!navigator.onLine) { cls = 'is-offline'; text = _pending ? _pending + ' čeká na síť' : 'offline'; }
   else if (_pending > 0) { cls = 'is-saving'; text = 'ukládám…'; }
   else if (el.dataset.justSaved === '1') { cls = 'is-saved'; text = '✓ uloženo'; }
-  // jinak (v klidu, online) se nic nezobrazuje
+  else { cls = 'is-user'; text = whoLabel(); }  // v klidu: kdo je přihlášený
   el.className = 'sync-label ' + cls;
   el.textContent = text;
 }
@@ -4208,6 +4215,7 @@ function applyAdminFeatures() {}
 
 function startApp() {
   if (currentUser) ui.selectedMember = currentUser;
+  updateSyncIndicator();
   syncTypUI();
   renderRumy();
   applyGuestRestrictions();

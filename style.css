@@ -92,7 +92,7 @@
   }
   /* stavový text vpravo nahoře – v klidu prázdný, ukáže se jen „ukládám…" / „✓ uloženo" / „offline" */
   /* pravý okraj vycentrovaného obsahu (max-width 420 → půlka 210), na úzkém 14px */
-  .sync-label { position:absolute; top:-1px; right:max(14px, calc(50% - 210px)); font-family: var(--font-mono); font-size:11px; color:var(--ink-faint); }
+  .sync-label { position:absolute; top:-4px; right:max(14px, calc(50% - 210px)); font-family: var(--font-mono); font-size:11px; color:var(--ink-faint); }
   .sync-label:empty { display:none; }
   .sync-label.is-saving { color: var(--gold); animation: syncPulse 0.9s ease-in-out infinite; }
   .sync-label.is-saved { color: var(--good); }

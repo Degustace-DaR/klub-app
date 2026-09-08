@@ -2658,17 +2658,18 @@ function renderStatistika() {
     html += '<div class="chart-note">Vyber člena nahoře pro jeho 3 nejlepší a 3 nejhorší.</div>';
   }
 
+  // Nejlépe/nejhůře hodnocené = vždy za celý klub (průměr všech), aby to nebylo totéž co Osobní žebříček.
   const byRum = {};
-  filteredRatings.forEach(r => { (byRum[r.rumId] = byRum[r.rumId] || []).push(Number(r.celkem)||0); });
+  originRatings.forEach(r => { (byRum[r.rumId] = byRum[r.rumId] || []).push(Number(r.celkem)||0); });
   const rumAgg = Object.keys(byRum).map(id => ({ id, count: byRum[id].length, avg: byRum[id].reduce((s,v)=>s+v,0)/byRum[id].length }));
-  const renderRumRankRow = (r) => `<div class="stat-row"><span class="stat-row-main">${rumLabel(r.id)}</span><span class="stat-row-sub">${r.avg.toFixed(1)} b. · ${r.count}×</span></div>`;
+  const renderRumRankRow = (r, i) => `<div class="stat-row"><span class="stat-row-main"><span class="rank-badge rank-${i + 1}">${i + 1}.</span>${rumLabel(r.id)}</span><span class="stat-row-sub">Ø ${r.avg.toFixed(1)} · ${r.count}×</span></div>`;
 
-  const topRated = [...rumAgg].sort((a,b)=>b.avg-a.avg).slice(0,5);
-  html += '<div class="stat-section-title">Nejlépe hodnocené</div>';
-  html += topRated.length ? topRated.map(renderRumRankRow).join('') : '<div class="empty-note">Zatím žádná data.</div>';
+  const topRated = [...rumAgg].filter(r=>r.count>=2).sort((a,b)=>b.avg-a.avg).slice(0,5);
+  html += '<div class="stat-section-title">Nejlépe hodnocené v klubu</div>';
+  html += topRated.length ? topRated.map(renderRumRankRow).join('') : `<div class="empty-note">Zatím málo dat (min. 2 hodnocení na ${wordJedn}).</div>`;
 
   const bottomRated = [...rumAgg].filter(r=>r.count>=2).sort((a,b)=>a.avg-b.avg).slice(0,5);
-  html += '<div class="stat-section-title">Nejhůře hodnocené</div>';
+  html += '<div class="stat-section-title">Nejhůře hodnocené v klubu</div>';
   html += bottomRated.length ? bottomRated.map(renderRumRankRow).join('') : `<div class="empty-note">Zatím málo dat (min. 2 hodnocení na ${wordJedn}).</div>`;
 
 

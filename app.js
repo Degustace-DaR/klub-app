@@ -3420,15 +3420,16 @@ function renderInfo() {
     </div>
     <div class="card" style="margin-top:12px;">
       <div class="rum-name">Návod k záložkám</div>
-      <div class="stat-row"><span class="stat-row-main">🥃 Rumy</span><span class="stat-row-sub">katalog a žebříček</span></div>
+      <div class="stat-row"><span class="stat-row-main">🥃 Rumy · 🚬 Doutníky</span><span class="stat-row-sub">katalog a žebříček (přepínač nahoře)</span></div>
       <div class="stat-row"><span class="stat-row-main">➕ Hodnocení</span><span class="stat-row-sub">zadání nové ochutnávky</span></div>
       <div class="stat-row"><span class="stat-row-main">💰 Účet</span><span class="stat-row-sub">zůstatek a transakce klubu</span></div>
       <div class="stat-row"><span class="stat-row-main">⭐ Wishlist</span><span class="stat-row-sub">tipy na příští nákup</span></div>
-      <div class="stat-row"><span class="stat-row-main">🚬 Humidor</span><span class="stat-row-sub">evidence doutníků a kouření</span></div>
+      <div class="stat-row"><span class="stat-row-main">🚬 Humidor</span><span class="stat-row-sub">evidence a kouření doutníků</span></div>
       <div class="stat-row"><span class="stat-row-main">🗓️ Termíny</span><span class="stat-row-sub">domlouvání dalších degustací</span></div>
       <div class="stat-row"><span class="stat-row-main">📊 Statistika</span><span class="stat-row-sub">přehledy a žebříčky</span></div>
       <div class="stat-row"><span class="stat-row-main">🙋 Účast</span><span class="stat-row-sub">docházka na degustace</span></div>
-      <div class="stat-row"><span class="stat-row-main">👥 Klub</span><span class="stat-row-sub">členové, export dat</span></div>
+      <div class="stat-row"><span class="stat-row-main">👥 Klub</span><span class="stat-row-sub">členové klubu</span></div>
+      <div class="stat-row"><span class="stat-row-main">ℹ️ Info</span><span class="stat-row-sub">tenhle návod, export dat a nastavení</span></div>
     </div>
     <div class="card" style="margin-top:12px;">
       <div class="rum-name">Zamykání PINu</div>

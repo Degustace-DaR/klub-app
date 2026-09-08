@@ -231,6 +231,9 @@
   }
   .sheet-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; gap: 10px;}
   .sheet-close { background:none; border:none; font-size:22px; color: var(--ink-faint); cursor:pointer; line-height:1; padding:4px; }
+  .detail-info { margin: 4px 0 4px; font-size:13.5px; }
+  .detail-info-row { padding: 3px 0; color: var(--ink-soft); }
+  .detail-info-row b { color: var(--ink); font-weight:600; }
   .crit-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
   .crit-label { width: 78px; font-size:12.5px; color: var(--ink-soft); flex-shrink:0; }
   .crit-bar-track { flex:1; height:8px; border-radius:5px; background: var(--surface-2); overflow:hidden; }

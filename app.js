@@ -434,15 +434,57 @@ function openRumDetail(rumId) {
   const isDoutnik = (rum.typ||'rum') === 'doutnik';
   const stats = isDoutnik ? cigarStats(rumId) : rumStats(rumId);
   const crit = isDoutnik ? CIGAR_CRIT : RUM_CRIT;
+  const has = (v) => v != null && String(v).trim() !== '';
+
+  // Info řádky v pořadí podle typu
+  const infoRows = [];
+  if (isDoutnik) {
+    if (has(rum.format)) infoRows.push(`Formát: <b>${esc(rum.format)}</b>`);
+    if (has(rum.sila)) infoRows.push(`Síla/plnost: <b>${esc(rum.sila)}</b>`);
+  } else {
+    if (has(rum.surovina)) infoRows.push(`Surovina: <b>${esc(rum.surovina)}</b>`);
+    if (has(rum.cukr)) infoRows.push(`Obsah cukru: <b>${esc(String(rum.cukr))} g/l</b>`);
+  }
+  if (rum.puvod) infoRows.push(puvodBadges(rum));
+  if (has(rum.cena)) infoRows.push(`Cena: <b>${esc(String(rum.cena))} Kč</b>`);
+
+  const editFormHtml = `
+    <div class="card" style="margin-top:12px;">
+      <div class="field"><label>Značka ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="editRumNazev" value="${esc(rum.nazev||'')}"></div>
+      <div class="row2">
+        <div class="field"><label>Název ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="editRumZnacka" value="${esc(rum.znacka||'')}"></div>
+        <div class="field"><label>Původ</label><input class="input" id="editRumPuvod" value="${esc(rum.puvod||'')}" placeholder="Kuba · víc zemí odděl čárkou"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Cena (Kč)</label><input class="input" type="number" id="editRumCena" value="${has(rum.cena)?esc(String(rum.cena)):''}"></div>
+        ${isDoutnik
+          ? `<div class="field"><label>Formát</label><input class="input" id="editRumFormat" value="${esc(rum.format||'')}" placeholder="Toro, Robusto…"></div>`
+          : `<div class="field"><label>Obsah alkoholu (%)</label><input class="input" type="number" step="0.1" id="editRumAbv" value="${has(rum.abv)?esc(String(rum.abv)):''}"></div>`}
+      </div>
+      <div class="row2">
+        ${isDoutnik
+          ? `<div class="field"><label>Síla/plnost</label><input class="input" id="editRumSila" value="${esc(rum.sila||'')}" placeholder="střední, plná…"></div>`
+          : `<div class="field"><label>Surovina</label><input class="input" id="editRumSurovina" value="${esc(rum.surovina||'')}" placeholder="Melasa, třtinová šťáva…"></div>`}
+        ${isDoutnik
+          ? ''
+          : `<div class="field"><label>Obsah cukru (g/l)</label><input class="input" type="number" step="0.1" id="editRumCukr" value="${has(rum.cukr)?esc(String(rum.cukr)):''}"></div>`}
+      </div>
+      <div class="muted" style="font-size:11.5px;margin:-4px 0 8px;">Víc zemí (blend) odděl čárkou: „Barbados, Jamajka, Guyana". Ve statistice se pak započítá u každé.</div>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-sm" onclick="saveRumEdit('${rum.id}')">Uložit</button>
+        <button class="btn btn-ghost btn-sm" onclick="ui.editingRumId=null; openRumDetail('${rum.id}');">Zpět</button>
+      </div>
+    </div>`;
+
   document.getElementById('rumDetailSheet').innerHTML = `
     <div class="sheet-head">
       <div>
         <h2 style="font-family:var(--font-display);font-weight:600;font-size:1.75rem;margin:0;">${esc(rum.nazev)}</h2>
         <div style="font-size:17px;font-weight:500;color:var(--ink-soft);margin-top:3px;">${[rum.znacka?esc(rum.znacka):null, (!isDoutnik && rum.abv)?esc(String(rum.abv))+' %':null].filter(Boolean).join(' · ')}</div>
-        ${rum.puvod ? `<div style="margin-top:4px;">${puvodBadges(rum)}</div>` : ''}
       </div>
       <button class="sheet-close" onclick="closeRumDetail()" aria-label="Zavřít">×</button>
     </div>
+    ${infoRows.length ? `<div class="detail-info">${infoRows.map(r => `<div class="detail-info-row">${r}</div>`).join('')}</div>` : ''}
     ${rum.foto ? `<img src="${esc(rum.foto)}" alt="Fotka: ${esc(rum.nazev)}" class="rum-foto" loading="lazy" decoding="async" onerror="this.style.display='none';">` : ''}
     ${stats ? `
       <div style="text-align:center; margin: 10px 0 18px;">
@@ -460,28 +502,7 @@ function openRumDetail(rumId) {
         ${stats.perPerson.map(p => `<span class="person-chip">${esc(p.clen)} <b>${p.celkem}</b></span>`).join('')}
       </div>
     ` : '<div class="empty-note">Zatím bez hodnocení.</div>'}
-    ${rum.cena ? `<div class="muted" style="margin-top:14px;font-size:13px;">Cena: ${esc(String(rum.cena))} Kč</div>` : ''}
-    ${rum.cukr ? `<div class="muted" style="font-size:13px;${(rum.cena)?'':'margin-top:14px;'}">Cukr: ${esc(String(rum.cukr))} g/l</div>` : ''}
-    ${(!isGuest && hasPerm(PERM_SPRAVCI)) ? (ui.editingRumId === rum.id ? `
-    <div class="card" style="margin-top:16px;">
-      <div class="field"><label>Značka ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="editRumNazev" value="${esc(rum.nazev||'')}"></div>
-      <div class="row2">
-        <div class="field"><label>Název ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="editRumZnacka" value="${esc(rum.znacka||'')}"></div>
-        <div class="field"><label>Původ</label><input class="input" id="editRumPuvod" value="${esc(rum.puvod||'')}" placeholder="Kuba · víc zemí odděl čárkou"></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>Cena</label><input class="input" type="number" id="editRumCena" value="${rum.cena!=null?esc(String(rum.cena)):''}"></div>
-        ${isDoutnik ? '' : `<div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="editRumAbv" value="${rum.abv!=null?esc(String(rum.abv)):''}"></div>`}
-      </div>
-      <div class="muted" style="font-size:11.5px;margin:-4px 0 8px;">Víc zemí (blend) odděl čárkou: „Barbados, Jamajka, Guyana". Ve statistice se pak započítá u každé.</div>
-      <div class="btn-row">
-        <button class="btn btn-primary btn-sm" onclick="saveRumEdit('${rum.id}')">Uložit</button>
-        <button class="btn btn-ghost btn-sm" onclick="ui.editingRumId=null; openRumDetail('${rum.id}');">Zpět</button>
-      </div>
-    </div>` : `
-    <div class="btn-row" style="margin-top:12px;">
-      <button class="btn btn-ghost btn-sm" onclick="ui.editingRumId='${rum.id}'; openRumDetail('${rum.id}');">✏️ Upravit údaje</button>
-    </div>`) : ''}
+
     <div class="btn-row" style="margin-top:18px;">
       <button class="btn btn-ghost" onclick="closeRumDetail()">← Zpět</button>
     </div>
@@ -489,13 +510,19 @@ function openRumDetail(rumId) {
     <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-primary" onclick="closeRumDetail(); presetRatingRum('${rum.id}'); goTab('degustace');">+ Přidat hodnocení</button>
     </div>
-    <div class="muted" style="font-size:12px;margin-top:12px;margin-bottom:2px;">${rum.foto ? 'Změnit fotku' : 'Přidat fotku'}</div>
+    ${hasPerm(PERM_SPRAVCI)
+      ? (ui.editingRumId === rum.id ? editFormHtml : `
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="ui.editingRumId='${rum.id}'; openRumDetail('${rum.id}');">✏️ Upravit údaje</button>
+        </div>`)
+      : ''}
+    <div class="muted" style="font-size:12px;margin-top:14px;margin-bottom:2px;">${rum.foto ? 'Změnit fotku' : 'Přidat fotku'}</div>
     ${fotoButtonsHtml(`uploadRumFoto('${rum.id}', this.files[0])`)}
     ${rum.foto && hasPerm(PERM_MAZANI) ? `<div class="btn-row" style="margin-top:6px;"><button class="btn btn-ghost btn-sm" onclick="removeRumFoto('${rum.id}')">Smazat fotku</button></div>` : ''}
     `}
     ${hasPerm(PERM_MAZANI) ? `
     <div class="btn-row" style="margin-top:8px;">
-      <button class="btn btn-danger" onclick="deleteRum('${rum.id}')">Smazat ${isDoutnik?'doutník':'rum'}</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteRum('${rum.id}')">Smazat ${isDoutnik?'doutník':'rum'}</button>
     </div>
     ` : ''}
   `;
@@ -877,8 +904,16 @@ function renderNewRumSection() {
       <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba · víc zemí odděl čárkou"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Cena</label><input class="input" type="number" id="newRumCena"></div>
-      ${isDoutnik ? '' : '<div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>'}
+      <div class="field"><label>Cena (Kč)</label><input class="input" type="number" id="newRumCena"></div>
+      ${isDoutnik
+        ? '<div class="field"><label>Formát</label><input class="input" id="newRumFormat" placeholder="Toro, Robusto…"></div>'
+        : '<div class="field"><label>Obsah alkoholu (%)</label><input class="input" type="number" step="0.1" id="newRumAbv" placeholder="40"></div>'}
+    </div>
+    <div class="row2">
+      ${isDoutnik
+        ? '<div class="field"><label>Síla/plnost</label><input class="input" id="newRumSila" placeholder="střední, plná…"></div>'
+        : '<div class="field"><label>Surovina</label><input class="input" id="newRumSurovina" placeholder="Melasa, třtinová šťáva…"></div>'}
+      ${isDoutnik ? '' : '<div class="field"><label>Obsah cukru (g/l)</label><input class="input" type="number" step="0.1" id="newRumCukr"></div>'}
     </div>
     <div class="field">
       <label>Fotka (nepovinné)</label>
@@ -899,11 +934,19 @@ async function createNewRum() {
     const znacka = document.getElementById('newRumZnacka').value.trim();
     const puvod = puvodList(document.getElementById('newRumPuvod').value).join(', ');
     const cena = document.getElementById('newRumCena').value;
-    const abvEl = document.getElementById('newRumAbv');
-    const abv = (!isDoutnik && abvEl) ? abvEl.value : '';
+    const nfVal = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    const nfNum = (id) => { const el = document.getElementById(id); return (el && el.value) ? Number(el.value) : null; };
     const fotoFile = window._newRumFotoFile || null;
     window._newRumFotoFile = null;
-    const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, abv: abv ? Number(abv) : null, cukr: null, poznamka: '', typ: ui.typ, _seq: Date.now() };
+    const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, poznamka: '', typ: ui.typ, _seq: Date.now() };
+    if (isDoutnik) {
+      rum.format = nfVal('newRumFormat');
+      rum.sila = nfVal('newRumSila');
+    } else {
+      rum.abv = nfNum('newRumAbv');
+      rum.surovina = nfVal('newRumSurovina');
+      rum.cukr = nfNum('newRumCukr');
+    }
     const ref = await db.collection('rums').add(rum);
     ui.showNewRumRumy = false;
     toast(isDoutnik ? 'Doutník přidán do katalogu' : 'Rum přidán do katalogu');
@@ -927,12 +970,17 @@ async function saveRumEdit(rumId) {
     const znacka = document.getElementById('editRumZnacka').value.trim();
     const puvod = puvodList(document.getElementById('editRumPuvod').value).join(', ');
     const cenaRaw = document.getElementById('editRumCena').value;
-    const abvEl = document.getElementById('editRumAbv');
-    const payload = {
-      nazev, znacka, puvod,
-      cena: cenaRaw ? Number(cenaRaw) : null,
-      abv: (!isDoutnik && abvEl && abvEl.value) ? Number(abvEl.value) : null,
-    };
+    const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    const num = (id) => { const el = document.getElementById(id); return (el && el.value) ? Number(el.value) : null; };
+    const payload = { nazev, znacka, puvod, cena: cenaRaw ? Number(cenaRaw) : null };
+    if (isDoutnik) {
+      payload.format = val('editRumFormat');
+      payload.sila = val('editRumSila');
+    } else {
+      payload.abv = num('editRumAbv');
+      payload.surovina = val('editRumSurovina');
+      payload.cukr = num('editRumCukr');
+    }
     await db.collection('rums').doc(rumId).update(payload);
     Object.assign(rum, payload);
     ui.editingRumId = null;

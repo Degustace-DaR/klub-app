@@ -2416,7 +2416,7 @@ function terminRespLabel(jmeno, val) {
 }
 
 function koloSummary(kolo) {
-  const datumy = kolo.datumy || [];
+  const datumy = [...(kolo.datumy || [])].sort();
   if (datumy.length === 0) return '';
   return datumy.length === 1 ? formatDatumCz(datumy[0]) : formatDatumCz(datumy[0]) + ' – ' + formatDatumCz(datumy[datumy.length - 1]);
 }
@@ -2574,7 +2574,9 @@ async function addKoloDatum(koloId) {
     const input = document.getElementById('newKoloDetailDatum');
     const datum = input.value;
     if (!datum) { toast('Vyber datum'); return; }
-    await db.collection('termin_kola').doc(koloId).update({ datumy: firebase.firestore.FieldValue.arrayUnion(datum) });
+    const kolo = state.terminKola.find(k => k.id === koloId);
+    const datumy = [...new Set([...(kolo && kolo.datumy || []), datum])].sort();
+    await db.collection('termin_kola').doc(koloId).update({ datumy });
     input.value = '';
 
   } catch (e) {
@@ -2617,6 +2619,10 @@ function renderKoloDetail() {
   if (!kolo) { closeKoloDetail(); return; }
   const ucastnici = sortedTerminUcastnici();
   const datumy = [...(kolo.datumy || [])].sort();
+  // jednorázově srovnat i uložené pořadí datumů (starší kola mohla mít termín přidaný na konec)
+  if (hasPerm(PERM_SPRAVCI) && db && JSON.stringify(datumy) !== JSON.stringify(kolo.datumy || [])) {
+    db.collection('termin_kola').doc(kolo.id).update({ datumy }).catch(() => {});
+  }
 
   const html = `
     <div class="sheet-head">
@@ -3715,9 +3721,10 @@ async function exportToExcel() {
     return { vyrobce: c ? c.vyrobce : '', model: c ? c.model : '', cislo: l.cislo, datum: l.datum || '', clen: l.clen || '' };
   }));
   addSheet('Terminy', state.terminKola.flatMap(k => {
-    const rozsah = (k.datumy && k.datumy.length) ? (k.datumy[0] + ' – ' + k.datumy[k.datumy.length-1]) : '';
+    const datumy = [...(k.datumy || [])].sort();
+    const rozsah = datumy.length ? (datumy[0] + ' – ' + datumy[datumy.length-1]) : '';
     const out = [];
-    (k.datumy || []).forEach(datum => {
+    datumy.forEach(datum => {
       Object.keys(k.odpovedi || {}).forEach(jmeno => {
         out.push({ kolo: rozsah, datum, jmeno, odpoved: (k.odpovedi[jmeno] || {})[datum] || '', vybrano: k.vybrano === datum ? 'ano' : '' });
       });

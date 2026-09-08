@@ -77,10 +77,10 @@
     background: var(--bg); border-bottom: 1px solid var(--line);
     padding: 12px 14px 10px;
   }
-  /* značka i přepínač Rum/Doutník ve stejném 420px boxu na střed → mají stejný levý okraj */
+  /* značka i přepínač Rum/Doutník ve stejném 420px boxu na střed */
   header.app-head > .head-row,
-  header.app-head > .toggle-row { max-width: 420px; margin-left: auto; margin-right: auto; }
-  .head-row { display:flex; align-items:center; justify-content:flex-start; gap:11px; }
+  header.app-head > .toggle-row { width:100%; max-width: 420px; margin-left: auto; margin-right: auto; }
+  .head-row { display:flex; align-items:center; justify-content:center; gap:11px; }
   .brand { display:flex; align-items:center; gap:11px; min-width:0; }
   .brand-glass { font-size: 22px; line-height:1; }
   .brand-text { display:flex; flex-direction:column; min-width:0; }

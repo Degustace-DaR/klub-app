@@ -216,7 +216,10 @@ function syncTypUI() {
   const rumyBtn = document.getElementById('rumyTabBtn');
   if (rumyBtn) rumyBtn.innerHTML = isDoutnik ? '🚬 Doutníky' : '🥃 Rumy';
   const katIco = document.getElementById('botnavKatalogIco');
-  if (katIco) katIco.textContent = isDoutnik ? '🚬' : '🥃';
+  if (katIco) {
+    if (katIco.tagName === 'IMG') katIco.src = isDoutnik ? 'icon-cigar.svg' : 'icon-glass.svg';
+    else katIco.textContent = isDoutnik ? '🚬' : '🥃';
+  }
   const rumyTitle = document.getElementById('rumyViewTitle');
   if (rumyTitle) rumyTitle.textContent = isDoutnik ? 'Doutníky' : 'Rumy';
   const degTitle = document.getElementById('degustaceViewTitle');

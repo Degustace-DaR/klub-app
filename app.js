@@ -431,6 +431,31 @@ function puvodBadges(x) {
   return puvodList(x).map(p => `<span class="origin-badge">${esc(p)}</span>`).join('');
 }
 
+// Surovina rumu jako rozbalovací seznam (přednastavené + už použité + „jiná…") kvůli překlepům.
+const SUROVINA_PRESETY = ['Melasa', 'Čerstvá třtinová šťáva', 'Třtinový sirup'];
+function surovinaSelectHtml(id, current) {
+  const existing = [...new Set(state.rums
+    .filter(r => (r.typ || 'rum') === 'rum')
+    .map(r => (r.surovina || '').trim())
+    .filter(Boolean))];
+  const opts = [...new Set([...SUROVINA_PRESETY, ...existing])].sort((a, b) => a.localeCompare(b, 'cs'));
+  const cur = (current || '').trim();
+  const known = !cur || opts.includes(cur);
+  return `
+    <select class="input" id="${id}" onchange="var j=document.getElementById('${id}Jina'); if(j){ j.hidden = this.value!=='__jina__'; if(!j.hidden) j.focus(); }">
+      <option value="">—</option>
+      ${opts.map(o => `<option value="${esc(o)}" ${cur === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+      <option value="__jina__" ${!known ? 'selected' : ''}>jiná…</option>
+    </select>
+    <input class="input" id="${id}Jina" placeholder="jiná surovina" value="${!known ? esc(cur) : ''}" ${known ? 'hidden' : ''} style="margin-top:6px;">`;
+}
+function readSurovina(id) {
+  const sel = document.getElementById(id);
+  if (!sel) return '';
+  if (sel.value === '__jina__') return (document.getElementById(id + 'Jina')?.value || '').trim();
+  return sel.value.trim();
+}
+
 function openRumDetail(rumId) {
   ui.detailRumId = rumId;
   const rum = state.rums.find(r => r.id === rumId);
@@ -467,7 +492,7 @@ function openRumDetail(rumId) {
       <div class="row2">
         ${isDoutnik
           ? `<div class="field"><label>Síla/plnost</label><input class="input" id="editRumSila" value="${esc(rum.sila||'')}" placeholder="střední, plná…"></div>`
-          : `<div class="field"><label>Surovina</label><input class="input" id="editRumSurovina" value="${esc(rum.surovina||'')}" placeholder="Melasa, třtinová šťáva…"></div>`}
+          : `<div class="field"><label>Surovina</label>${surovinaSelectHtml('editRumSurovina', rum.surovina)}</div>`}
         ${isDoutnik
           ? ''
           : `<div class="field"><label>Obsah cukru (g/l)</label><input class="input" type="number" step="0.1" id="editRumCukr" value="${has(rum.cukr)?esc(String(rum.cukr)):''}"></div>`}
@@ -915,7 +940,7 @@ function renderNewRumSection() {
     <div class="row2">
       ${isDoutnik
         ? '<div class="field"><label>Síla/plnost</label><input class="input" id="newRumSila" placeholder="střední, plná…"></div>'
-        : '<div class="field"><label>Surovina</label><input class="input" id="newRumSurovina" placeholder="Melasa, třtinová šťáva…"></div>'}
+        : `<div class="field"><label>Surovina</label>${surovinaSelectHtml('newRumSurovina', '')}</div>`}
       ${isDoutnik ? '' : '<div class="field"><label>Obsah cukru (g/l)</label><input class="input" type="number" step="0.1" id="newRumCukr"></div>'}
     </div>
     <div class="field">
@@ -947,7 +972,7 @@ async function createNewRum() {
       rum.sila = nfVal('newRumSila');
     } else {
       rum.abv = nfNum('newRumAbv');
-      rum.surovina = nfVal('newRumSurovina');
+      rum.surovina = readSurovina('newRumSurovina');
       rum.cukr = nfNum('newRumCukr');
     }
     const ref = await db.collection('rums').add(rum);
@@ -981,7 +1006,7 @@ async function saveRumEdit(rumId) {
       payload.sila = val('editRumSila');
     } else {
       payload.abv = num('editRumAbv');
-      payload.surovina = val('editRumSurovina');
+      payload.surovina = readSurovina('editRumSurovina');
       payload.cukr = num('editRumCukr');
     }
     await db.collection('rums').doc(rumId).update(payload);

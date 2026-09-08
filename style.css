@@ -291,7 +291,16 @@
   .stat-tile .val { font-family: var(--font-display); font-weight:700; font-size:1.5rem; line-height:1.1; }
   .stat-tile .val.small { font-size:1.05rem; }
   .stat-tile .lbl { font-size:11px; color: var(--ink-soft); margin-top:4px; }
-  .stat-section-title { font-size:12px; color: var(--ink-soft); margin: 18px 0 6px; text-transform:uppercase; letter-spacing:.03em; }
+  .stat-section-title {
+    font-size:13px; font-weight:600; color: var(--accent);
+    margin: 24px 0 8px; text-transform:uppercase; letter-spacing:.04em;
+    border-bottom:1px solid var(--line-strong); padding-bottom:5px;
+  }
+  .stat-year-head { font-family: var(--font-mono); font-size:12px; font-weight:600; color: var(--ink-soft); margin:10px 0 2px; }
+  .rank-badge { font-family: var(--font-mono); font-weight:700; font-size:12px; margin-right:5px; }
+  .rank-1 { color: var(--gold); }
+  .rank-2 { color: var(--ink-faint); }
+  .rank-3 { color: #B06A3B; }
   .stat-row { display:flex; justify-content:space-between; align-items:center; font-size:13.5px; padding:7px 0; border-bottom:1px solid var(--line); gap:10px; }
   .stat-row:last-child { border-bottom:none; }
   .stat-row .stat-row-main { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

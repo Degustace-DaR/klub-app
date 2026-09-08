@@ -16,7 +16,6 @@ function hasPerm(names) {
 }
 let state = { members: [], rums: [], ratings: [], ledger: [], wishlist: [], cigars: [], cigarLog: [], terminUcastnici: [], terminKola: [], ucasti: [], cigarRatings: [], ledgerDoutniky: [] };
 let _chartPriceQuality = null;
-let _chartTasteProfile = null;
 let _chartMemberTimeline = null;
 function cssVarVal(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 let ui = {
@@ -2410,7 +2409,8 @@ function statTile(val, lbl, small) {
 /* --- pomocné výpočty pro statistiky (čisté funkce) --- */
 
 // Nejlepší položka za každý rok (min. minPerYear hodnocení v daném roce).
-function statBestOfYear(ratings, minPerYear) {
+function statBestOfYear(ratings, minPerYear, topN) {
+  topN = topN || 3;
   const byYear = {};
   ratings.forEach(r => {
     const y = (r.datum || '').slice(0, 4);
@@ -2419,14 +2419,13 @@ function statBestOfYear(ratings, minPerYear) {
     (byYear[y][r.rumId] = byYear[y][r.rumId] || []).push(Number(r.celkem) || 0);
   });
   return Object.keys(byYear).sort((a, b) => b.localeCompare(a)).map(y => {
-    let bestId = null, bestAvg = -1, bestN = 0;
-    Object.keys(byYear[y]).forEach(id => {
+    const items = Object.keys(byYear[y]).map(id => {
       const arr = byYear[y][id];
-      if (arr.length < minPerYear) return;
-      const avg = arr.reduce((s, v) => s + v, 0) / arr.length;
-      if (avg > bestAvg) { bestAvg = avg; bestId = id; bestN = arr.length; }
-    });
-    return bestId ? { rok: y, id: bestId, avg: bestAvg, count: bestN } : null;
+      return arr.length >= minPerYear
+        ? { id, avg: arr.reduce((s, v) => s + v, 0) / arr.length, count: arr.length }
+        : null;
+    }).filter(Boolean).sort((a, b) => b.avg - a.avg).slice(0, topN);
+    return items.length ? { rok: y, top: items } : null;
   }).filter(Boolean);
 }
 
@@ -2593,10 +2592,13 @@ function renderStatistika() {
 
   // --- Nejlepší za rok ---
   const nyni = String(new Date().getFullYear());
-  const roky = statBestOfYear(originRatings, 2).slice(0, 4);
+  const roky = statBestOfYear(originRatings, 2, 3).slice(0, 3);
   html += `<div class="stat-section-title">Nej ${wordJedn} roku</div>`;
   html += roky.length ? roky.map(y =>
-    `<div class="stat-row"><span class="stat-row-main">${y.rok === nyni ? '★ ' : ''}${y.rok} — ${rumLabel(y.id)}</span><span class="stat-row-sub">Ø ${y.avg.toFixed(1)} · ${y.count} hodn.</span></div>`
+    `<div class="stat-year-head">${y.rok === nyni ? '★ ' : ''}${y.rok}</div>` +
+    y.top.map((t, i) =>
+      `<div class="stat-row"><span class="stat-row-main"><span class="rank-badge rank-${i + 1}">${i + 1}.</span>${rumLabel(t.id)}</span><span class="stat-row-sub">Ø ${t.avg.toFixed(1)} · ${t.count} hodn.</span></div>`
+    ).join('')
   ).join('') : `<div class="empty-note">Zatím málo dat (min. 2 hodnocení na ${wordJedn} za rok).</div>`;
 
   html += '<div class="stat-section-title">Žebříček členů</div>';
@@ -2632,12 +2634,12 @@ function renderStatistika() {
       .map(r => ({ id: r.rumId, celkem: Number(r.celkem) || 0, datum: r.datum || '' }))
       .sort((a, b) => b.celkem - a.celkem || b.datum.localeCompare(a.datum));
     if (mine.length) {
-      const rowP = (r) => `<div class="stat-row"><span class="stat-row-main">${rumLabel(r.id)}</span><span class="stat-row-sub">${r.celkem} b.${r.datum ? ' · ' + esc(r.datum) : ''}</span></div>`;
-      html += `<div class="chart-note" style="margin-top:0;">${esc(ui.statMember)} — TOP ${Math.min(10, mine.length)}</div>`;
-      html += mine.slice(0, 10).map(rowP).join('');
-      if (mine.length > 10) {
-        html += `<div class="chart-note">${esc(ui.statMember)} — 5 nejhorších</div>`;
-        html += mine.slice(-5).reverse().map(rowP).join('');
+      const rowP = (r, i) => `<div class="stat-row"><span class="stat-row-main"><span class="rank-badge rank-${i + 1}">${i + 1}.</span>${rumLabel(r.id)}</span><span class="stat-row-sub">${r.celkem} b.</span></div>`;
+      html += `<div class="stat-year-head">${esc(ui.statMember)} — nejlepší</div>`;
+      html += mine.slice(0, 3).map((r, i) => rowP(r, i)).join('');
+      if (mine.length > 3) {
+        html += `<div class="stat-year-head">${esc(ui.statMember)} — nejhorší</div>`;
+        html += mine.slice(-3).reverse().map((r, i) => rowP(r, i)).join('');
       }
     } else {
       html += '<div class="empty-note">Tento člen zatím nic neohodnotil.</div>';
@@ -2653,7 +2655,7 @@ function renderStatistika() {
       return `<div class="stat-row" style="display:block;"><div class="stat-row-main" style="white-space:normal;">${esc(name)}</div><div class="stat-row-sub" style="margin-top:2px;">${sub}</div></div>`;
     }).filter(Boolean);
     html += rows.length ? rows.join('') : '<div class="empty-note">Zatím žádná data.</div>';
-    html += '<div class="chart-note">Vyber člena nahoře pro jeho celý TOP 10 a 5 nejhorších.</div>';
+    html += '<div class="chart-note">Vyber člena nahoře pro jeho 3 nejlepší a 3 nejhorší.</div>';
   }
 
   const byRum = {};
@@ -2669,9 +2671,6 @@ function renderStatistika() {
   html += '<div class="stat-section-title">Nejhůře hodnocené</div>';
   html += bottomRated.length ? bottomRated.map(renderRumRankRow).join('') : `<div class="empty-note">Zatím málo dat (min. 2 hodnocení na ${wordJedn}).</div>`;
 
-  const mostTasted = [...rumAgg].sort((a,b)=>b.count-a.count).slice(0,5);
-  html += '<div class="stat-section-title">Nejvíc ochutnávané</div>';
-  html += mostTasted.length ? mostTasted.map(renderRumRankRow).join('') : '<div class="empty-note">Zatím žádná data.</div>';
 
   // --- Největší rozpory v hodnocení (napříč členy, filtr člena se neuplatní) ---
   const rozpory = statDisagreement(originRatings, 3).slice(0, 8);
@@ -2792,14 +2791,10 @@ function renderStatistika() {
   html += '<div class="stat-section-title">Vývoj hodnocení členů v čase</div>';
   html += `<div class="chart-card"><div class="chart-wrap"><canvas id="chartMemberTimeline"></canvas></div><div class="chart-note" id="chartMemberTimelineNote"></div></div>`;
 
-  html += '<div class="stat-section-title">Chuťový profil</div>';
-  html += `<div class="chart-card"><div class="chart-wrap"><canvas id="chartTasteProfile"></canvas></div><div class="chart-note" id="chartTasteProfileNote"></div></div>`;
-
   document.getElementById('statContent').innerHTML = html;
 
   if (!isGuest) renderPriceQualityChart(rumsSrc, originRatings, rumIdsByOrigin, rumLabel);
   renderMemberTimelineChart(originRatings, activeMembers.map(m => m.jmeno));
-  renderTasteProfileChart(isDoutnik, originRatings, activeMembers);
 }
 
 function renderMemberTimelineChart(originRatings, memberNames) {
@@ -2899,86 +2894,6 @@ function renderPriceQualityChart(rumsSrc, originRatings, rumIdsByOrigin, rumLabe
             label: (ctx) => { const p = ctx.raw; return `${p.nazev}: ${p.x} Kč, Ø ${p.y} b.`; }
           }
         }
-      }
-    }
-  });
-}
-
-function renderTasteProfileChart(isDoutnik, originRatings, activeMembers) {
-  const canvas = document.getElementById('chartTasteProfile');
-  if (!canvas) return;
-  const noteEl = document.getElementById('chartTasteProfileNote');
-  if (typeof Chart === 'undefined') { canvas.closest('.chart-card').querySelector('.chart-wrap').style.display = 'none'; noteEl.textContent = 'Graf se nenačetl (Chart.js není k dispozici).'; return; }
-  const critArr = isDoutnik ? CIGAR_CRIT : RUM_CRIT;
-  const seriesVars = ['--series-1', '--series-2', '--series-3'];
-
-  const profileFor = (jmeno) => {
-    const rs = originRatings.filter(r => r.clen === jmeno);
-    if (rs.length < 3) return null;
-    return { count: rs.length, vals: critArr.map(([k, , max]) => {
-      const avg = rs.reduce((s, r) => s + Number(r[k] || 0), 0) / rs.length;
-      return Math.round((avg / max) * 1000) / 10;
-    }) };
-  };
-
-  let entries;
-  if (ui.statMember !== 'vse') {
-    const p = profileFor(ui.statMember);
-    entries = p ? [[ui.statMember, p]] : [];
-  } else {
-    entries = activeMembers
-      .map(m => [m.jmeno, profileFor(m.jmeno)])
-      .filter(([, p]) => p)
-      .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, 3);
-  }
-
-  if (_chartTasteProfile) { _chartTasteProfile.destroy(); _chartTasteProfile = null; }
-
-  if (entries.length === 0) {
-    canvas.closest('.chart-card').querySelector('.chart-wrap').style.display = 'none';
-    noteEl.textContent = ui.statMember !== 'vse'
-      ? 'Zatím málo hodnocení tohoto člena (potřeba aspoň 3).'
-      : 'Zatím málo dat — potřeba aspoň 3 hodnocení od člena.';
-    return;
-  }
-  canvas.closest('.chart-card').querySelector('.chart-wrap').style.display = '';
-  noteEl.textContent = 'Hodnoty jsou v % z maximálního bodového zisku u dané kategorie, aby šly srovnat i kritéria s různou váhou.';
-
-  const textColor = cssVarVal('--ink-soft');
-  const textStrong = cssVarVal('--ink');
-  const gridColor = cssVarVal('--line');
-
-  _chartTasteProfile = new Chart(canvas, {
-    type: 'radar',
-    data: {
-      labels: critArr.map(([, label]) => label),
-      datasets: entries.map(([jmeno, p], i) => {
-        const color = cssVarVal(seriesVars[i % seriesVars.length]);
-        return {
-          label: jmeno,
-          data: p.vals,
-          borderColor: color,
-          backgroundColor: color + '22',
-          borderWidth: 2,
-          pointBackgroundColor: color,
-          pointRadius: 3,
-        };
-      })
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: {
-        r: {
-          min: 0, max: 100,
-          ticks: { stepSize: 20, backdropColor: 'transparent', color: textColor },
-          grid: { color: gridColor },
-          angleLines: { color: gridColor },
-          pointLabels: { color: textStrong, font: { size: 12 } },
-        }
-      },
-      plugins: {
-        legend: { display: entries.length > 1, position: 'bottom', labels: { color: textColor, usePointStyle: true } }
       }
     }
   });

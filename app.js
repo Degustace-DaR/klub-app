@@ -3475,9 +3475,52 @@ function renderInfo() {
   }
   el.innerHTML = html;
 
+  renderInfoTools();
+}
+
+// Nástroje v Info – seskládané podle důležitosti a role.
+function renderInfoTools() {
+  const box = document.getElementById('infoAdminTools');
+  if (!box) return;
+  const spravce = hasPerm(PERM_SPRAVCI);
+  const mazani = hasPerm(PERM_MAZANI);
+  let h = '';
+
+  if (isAdmin || mazani) {
+    h += `<div class="stat-section-title" style="margin-top:16px;">Zálohy a obnova</div>`;
+    if (isAdmin) {
+      h += `<div class="muted" style="font-size:12px;margin-bottom:8px;">Databáze i fotky se zálohují automaticky každou noc na GitHub.</div>
+      <button class="btn btn-ghost tools-btn" onclick="downloadLatestBackup()">⬇️ Stáhnout poslední noční zálohu (JSON)</button>
+      <a class="btn btn-ghost tools-btn" href="https://github.com/Degustace-DaR/klub-app/archive/refs/heads/main.zip" target="_blank" rel="noopener">📦 Stáhnout vše (ZIP: kód + JSON + fotky)</a>`;
+    }
+    if (mazani) {
+      h += `<button class="btn btn-ghost tools-btn" onclick="triggerImportDatabase()">📥 Obnovit databázi ze zálohy (JSON)</button>
+      <div class="muted" style="font-size:11px;margin-top:4px;">Přepíše VŠECHNA data v aktuálně otevřené appce. Používej pro obnovu ze zálohy nebo naplnění testovací appky – nikdy „jen tak" v ostré.</div>`;
+    }
+  }
+
+  if (spravce) {
+    h += `<div class="stat-section-title" style="margin-top:18px;">Export dat</div>
+      <button class="btn btn-ghost tools-btn" onclick="exportToExcel()">⬇️ Exportovat všechno do Excelu</button>`;
+  }
+  if (isAdmin) {
+    h += `<button class="btn btn-ghost tools-btn" onclick="exportDatabase()">🗄️ Ruční export databáze (JSON)</button>`;
+  }
+
+  if (isAdmin) {
+    h += `<div class="stat-section-title" style="margin-top:18px;">Údržba a kontrola</div>
+      <button class="btn btn-ghost tools-btn" onclick="openHistory()">📋 Přehled změn</button>
+      <div id="puvodCleanupSection" style="margin-top:8px;"></div>
+      <div id="nameCleanupSection" style="margin-top:8px;"></div>`;
+  }
+
+  h += `<div class="stat-section-title" style="margin-top:18px;">Appka</div>
+    <button class="btn btn-ghost tools-btn" onclick="lockApp()">🔒 Zamknout appku (znovu vyžádat PIN)</button>
+    <input type="file" id="importDbFileInput" accept="application/json,.json" hidden onchange="importDatabaseFile(this)">`;
+
+  box.innerHTML = h;
   renderPuvodCleanupSection();
   renderNameCleanupSection();
-  renderBackupReminder();
 }
 
 /* ---------------- KLUB tab ---------------- */
@@ -3526,26 +3569,6 @@ function renderKlub() {
 
   const addCard = document.getElementById('addMemberCard');
   if (addCard) addCard.hidden = !hasPerm(PERM_SPRAVCI);
-}
-
-async function renderBackupReminder() {
-  const el = document.getElementById('backupReminderSection');
-  if (!el) return;
-  if (!isAdmin || !db) { el.innerHTML = ''; return; }
-  try {
-    const snap = await db.doc('meta/last_db_export').get();
-    const data = snap.exists ? snap.data() : null;
-    if (!data || !data.at) {
-      el.innerHTML = `<div class="card" style="border-color:var(--warn); background:var(--warn-soft); font-size:12.5px;">⚠️ Appka eviduje, že ještě nikdy nebyl použit Export databáze (tlačítko níž). Čas od času se hodí udělat zálohu stranou.</div>`;
-      return;
-    }
-    const days = Math.floor((Date.now() - new Date(data.at).getTime()) / 86400000);
-    el.innerHTML = days >= 30
-      ? `<div class="card" style="border-color:var(--warn); background:var(--warn-soft); font-size:12.5px;">⚠️ Poslední Export databáze byl před ${days} dny. Zvaž novou zálohu.</div>`
-      : '';
-  } catch (e) {
-    el.innerHTML = '';
-  }
 }
 
 /* ---------------- Sjednocení názvů původu (admin) ---------------- */
@@ -3818,7 +3841,6 @@ async function exportDatabase() {
     if (payload._sourceProject === 'degustace-dar') {
       try {
         await db.doc('meta/last_db_export').set({ at: new Date().toISOString() });
-        renderBackupReminder();
       } catch (e2) { /* nekritické, jen si appka nezapamatuje datum poslední zálohy */ }
     }
   } catch (e) {
@@ -4144,27 +4166,10 @@ function applyGuestRestrictions() {
   if (addMemberCard) addMemberCard.hidden = true;
   const wishToggleBtn = document.getElementById('wishToggleBtn');
   if (wishToggleBtn) wishToggleBtn.hidden = true;
-  const exportBtn = document.getElementById('exportBtn');
-  if (exportBtn) exportBtn.hidden = true;
 }
 
-function applyAdminFeatures() {
-  const exportBtn = document.getElementById('exportBtn');
-  if (exportBtn) exportBtn.hidden = !hasPerm(PERM_SPRAVCI);
-  const historyBtn = document.getElementById('historyBtn');
-  if (historyBtn) historyBtn.hidden = !isAdmin;
-  const exportDbBtn = document.getElementById('exportDbBtn');
-  if (exportDbBtn) exportDbBtn.hidden = !isAdmin;
-  const downloadBackupBtn = document.getElementById('downloadBackupBtn');
-  if (downloadBackupBtn) downloadBackupBtn.hidden = !isAdmin;
-  const downloadRepoZipBtn = document.getElementById('downloadRepoZipBtn');
-  if (downloadRepoZipBtn) downloadRepoZipBtn.hidden = !isAdmin;
-  const importDbBtn = document.getElementById('importDbBtn');
-  const canImport = hasPerm(PERM_MAZANI);
-  if (importDbBtn) importDbBtn.hidden = !canImport;
-  const importDbNote = document.getElementById('importDbNote');
-  if (importDbNote) importDbNote.hidden = !canImport;
-}
+// Nástroje v Info se skládají v renderInfoTools() podle role; tady už nic netřeba.
+function applyAdminFeatures() {}
 
 function startApp() {
   if (currentUser) ui.selectedMember = currentUser;

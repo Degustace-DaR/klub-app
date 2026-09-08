@@ -313,6 +313,7 @@
     border-bottom:1px solid var(--line-strong); padding-bottom:5px;
   }
   .stat-year-head { font-family: var(--font-mono); font-size:12px; font-weight:600; color: var(--ink-soft); margin:10px 0 2px; }
+  .tools-btn { margin-top: 8px; }
   .rank-badge { font-family: var(--font-mono); font-weight:700; font-size:12px; margin-right:5px; }
   .rank-1 { color: var(--gold); }
   .rank-2 { color: var(--ink-faint); }

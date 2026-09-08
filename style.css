@@ -77,8 +77,9 @@
     background: var(--bg); border-bottom: 1px solid var(--line);
     padding: 12px 14px 10px;
   }
-  /* značka zarovnaná na stejný levý okraj jako obsah stránky (max 720 px) */
-  header.app-head > .head-row { max-width: 720px; margin-left: auto; margin-right: auto; }
+  /* značka i přepínač Rum/Doutník ve stejném 420px boxu na střed → mají stejný levý okraj */
+  header.app-head > .head-row,
+  header.app-head > .toggle-row { max-width: 420px; margin-left: auto; margin-right: auto; }
   .head-row { display:flex; align-items:center; justify-content:flex-start; gap:11px; }
   .brand { display:flex; align-items:center; gap:11px; min-width:0; }
   .brand-glass { font-size: 22px; line-height:1; }
@@ -125,8 +126,8 @@
   /* Šířka 210 px na tlačítko na širších displejích; na úzkých mobilech se oba
      segmenty poměrně zmenší tak, aby se vždy vešly vedle sebe. */
   .toggle-row {
-    display:flex; gap:0; border:1px solid var(--line-strong); border-radius:999px; padding:3px; margin:12px auto 0;
-    width:100%; max-width:420px;
+    display:flex; gap:0; border:1px solid var(--line-strong); border-radius:999px; padding:3px; margin-top:12px;
+    width:100%;
   }
   .toggle-seg {
     flex:1 1 0; min-width:0; width:210px; text-align:center; padding:7px 4px; border-radius:999px; font-size:13px; font-weight:600;

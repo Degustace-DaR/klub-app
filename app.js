@@ -188,7 +188,7 @@ function fotoButtonsHtml(pickExpr, labelPrefix) {
     </div>`;
 }
 
-const MORE_TABS = ['terminy', 'ucast', 'klub', 'info', 'humidor'];
+const MORE_TABS = ['ucet', 'terminy', 'ucast', 'klub', 'info', 'humidor'];
 
 function goTab(tab) {
   ui.tab = tab;
@@ -261,11 +261,12 @@ function renderMoreMenu() {
   const el = document.getElementById('moreMenuSheet');
   if (!el) return;
   const items = [
+    ['ucet', '💰', 'Účet'],
     ['terminy', '🗓️', 'Termíny'],
     ['ucast', '🙋', 'Účast'],
     ['klub', '👥', 'Klub'],
     ['info', 'ℹ️', 'Info'],
-  ];
+  ].filter(([tab]) => !(isGuest && tab === 'ucet'));
   if (ui.typ === 'doutnik') items.splice(1, 0, ['humidor', '🚬', 'Humidor']);
   const cur = (() => { try { return localStorage.getItem('rumklub_theme') || 'auto'; } catch (e) { return 'auto'; } })();
   const themeBtn = (val, label) => `<button class="toggle-seg ${cur === val ? 'active' : ''}" onclick="setTheme('${val}')">${label}</button>`;

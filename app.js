@@ -390,10 +390,10 @@ function renderRumy() {
   const totalAll = state.rums.filter(r => (r.typ||'rum') === ui.typ).length;
   const countLine = `<div class="list-count">${search ? total + ' z ' + totalAll : total} ${isDoutnik ? 'doutníků' : 'rumů'}</div>`;
   list.innerHTML = countLine + rows.map(({rum, stats}, i) => {
-    const expr = [
-      rum.znacka ? esc(rum.znacka) : null,
-      (!isDoutnik && rum.abv) ? esc(String(rum.abv)) + ' %' : null,
-    ].filter(Boolean).join(' · ');
+    const expr = (isDoutnik
+      ? [rum.znacka, rum.format, rum.sila]
+      : [rum.znacka, rum.abv ? String(rum.abv) + ' %' : null]
+    ).filter(Boolean).map(esc).join(' · ');
     const meta = [
       ...puvodList(rum),
       rum.cena ? esc(String(rum.cena)) + ' Kč' : null,

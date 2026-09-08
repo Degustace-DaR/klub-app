@@ -382,7 +382,10 @@ function renderRumy() {
     list.innerHTML = `<div class="empty-note">Žádný ${isDoutnik?'doutník':'rum'} neodpovídá hledání.</div>`;
     return;
   }
-  list.innerHTML = rows.map(({rum, stats}) => {
+  const total = rows.length;
+  const totalAll = state.rums.filter(r => (r.typ||'rum') === ui.typ).length;
+  const countLine = `<div class="list-count">${search ? total + ' z ' + totalAll : total} ${isDoutnik ? 'doutníků' : 'rumů'}</div>`;
+  list.innerHTML = countLine + rows.map(({rum, stats}, i) => {
     const meta = [
       ...puvodList(rum),
       rum.cena ? esc(String(rum.cena)) + ' Kč' : null,
@@ -390,6 +393,7 @@ function renderRumy() {
     ].filter(Boolean).join(' · ');
     return `
     <div class="card rum-card" onclick="openRumDetail('${rum.id}')">
+      <div class="rum-rank">${i + 1}</div>
       ${rum.foto
         ? `<img src="${esc(rum.foto)}" alt="" class="rum-thumb" loading="lazy" decoding="async" onerror="this.classList.add('rum-thumb-empty');this.removeAttribute('src');">`
         : `<div class="rum-thumb rum-thumb-empty"></div>`}

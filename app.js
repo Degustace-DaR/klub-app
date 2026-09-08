@@ -260,14 +260,18 @@ function closeMoreMenu() {
 function renderMoreMenu() {
   const el = document.getElementById('moreMenuSheet');
   if (!el) return;
-  const items = [
-    ['ucet', '💰', 'Účet'],
+  const isDoutnik = ui.typ === 'doutnik';
+  // 2sloupcová mřížka, plněná po řádcích. Levý horní roh = Humidor (jen doutník),
+  // jinak prázdno, aby Účet / Klub zůstaly na stejném místě v obou režimech.
+  let cells = [
+    isDoutnik ? ['humidor', '🚬', 'Humidor'] : ['', '', ''],
     ['terminy', '🗓️', 'Termíny'],
+    ['ucet', '💰', 'Účet'],
     ['ucast', '🙋', 'Účast'],
     ['klub', '👥', 'Klub'],
     ['info', 'ℹ️', 'Info'],
-  ].filter(([tab]) => !(isGuest && tab === 'ucet'));
-  if (ui.typ === 'doutnik') items.splice(1, 0, ['humidor', '🚬', 'Humidor']);
+  ];
+  if (isGuest) cells = cells.filter(([tab]) => tab && tab !== 'ucet');
   const cur = (() => { try { return localStorage.getItem('rumklub_theme') || 'auto'; } catch (e) { return 'auto'; } })();
   const themeBtn = (val, label) => `<button class="toggle-seg ${cur === val ? 'active' : ''}" onclick="setTheme('${val}')">${label}</button>`;
   el.innerHTML = `
@@ -276,8 +280,10 @@ function renderMoreMenu() {
       <button class="sheet-close" onclick="closeMoreMenu()" aria-label="Zavřít">×</button>
     </div>
     <div class="more-grid">
-      ${items.map(([tab, ico, label]) =>
-        `<button class="more-item ${ui.tab === tab ? 'active' : ''}" data-tab="${tab}" onclick="goTab('${tab}')"><span class="more-ico">${ico}</span>${label}</button>`
+      ${cells.map(([tab, ico, label]) =>
+        tab
+          ? `<button class="more-item ${ui.tab === tab ? 'active' : ''}" data-tab="${tab}" onclick="goTab('${tab}')"><span class="more-ico">${ico}</span>${label}</button>`
+          : '<div aria-hidden="true"></div>'
       ).join('')}
     </div>
     <div class="stat-section-title" style="margin-top:18px;">Vzhled</div>

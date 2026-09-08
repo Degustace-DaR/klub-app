@@ -226,7 +226,7 @@ function syncTypUI() {
   const degTitle = document.getElementById('degustaceViewTitle');
   if (degTitle) degTitle.textContent = isDoutnik ? 'Hodnocení – Doutníky' : 'Hodnocení – Rumy';
   const ucetTitle = document.getElementById('ucetViewTitle');
-  if (ucetTitle) ucetTitle.textContent = isDoutnik ? 'Účet klubu – Doutníky' : 'Účet klubu';
+  if (ucetTitle) ucetTitle.textContent = isDoutnik ? 'Účet klubu – Doutníky' : 'Účet klubu – Rumy';
   const wishTitle = document.getElementById('wishlistViewTitle');
   if (wishTitle) wishTitle.textContent = isDoutnik ? 'Wishlist – Doutníky' : 'Wishlist – Rumy';
   const statTitle = document.getElementById('statistikaViewTitle');

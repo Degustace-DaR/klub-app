@@ -719,20 +719,19 @@ function openRumDetail(rumId) {
     ${isGuest ? '' : `
     <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-primary" onclick="closeRumDetail(); presetRatingRum('${rum.id}'); goTab('degustace');">+ Přidat hodnocení</button>
-    </div>
-    ${hasPerm(PERM_SPRAVCI)
-      ? (ui.editingRumId === rum.id ? editFormHtml : `
+    </div>`}
+    ${hasPerm(PERM_SPRAVCI) ? `
+    ${ui.editingRumId === rum.id ? editFormHtml : `
         <div class="btn-row" style="margin-top:8px;">
           <button class="btn btn-ghost btn-sm" onclick="ui.editingRumId='${rum.id}'; openRumDetail('${rum.id}');">✏️ Upravit údaje</button>
-        </div>`)
-      : ''}
+        </div>`}
     <div class="muted" style="font-size:12px;margin-top:14px;margin-bottom:2px;">${rum.foto ? 'Změnit fotku' : 'Přidat fotku'}</div>
     ${fotoButtonsHtml(`uploadRumFoto('${rum.id}', this.files[0])`)}
     ${rum.foto ? `<div class="btn-row" style="margin-top:6px;">
       <button class="btn btn-ghost btn-sm" onclick="recropRumFoto('${rum.id}')">✂️ Oříznout</button>
-      ${hasPerm(PERM_MAZANI) ? `<button class="btn btn-ghost btn-sm" onclick="removeRumFoto('${rum.id}')">Smazat fotku</button>` : ''}
+      <button class="btn btn-ghost btn-sm" onclick="removeRumFoto('${rum.id}')">Smazat fotku</button>
     </div>` : ''}
-    `}
+    ` : ''}
     ${hasPerm(PERM_MAZANI) ? `
     <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-danger btn-sm" onclick="deleteRum('${rum.id}')">Smazat ${isDoutnik?'doutník':'rum'}</button>
@@ -1108,7 +1107,7 @@ function closeHistory() { document.getElementById('historyOverlay').hidden = tru
 function renderNewRumSection() {
   const el = document.getElementById('newRumSection');
   if (!el) return;
-  if (isGuest) { el.innerHTML = ''; return; }
+  if (!hasPerm(PERM_SPRAVCI)) { el.innerHTML = ''; return; }
   const isDoutnik = ui.typ === 'doutnik';
   if (!ui.showNewRumRumy) {
     window._newRumFotoBlob = null;
@@ -1146,6 +1145,7 @@ function renderNewRumSection() {
 
 async function createNewRum() {
   try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
     const nazev = document.getElementById('newRumNazev').value.trim();
     const isDoutnik = ui.typ === 'doutnik';
     if (!nazev) { toast('Zadej název'); return; }
@@ -1497,6 +1497,7 @@ async function prepNewRumFoto(file) {
 }
 
 async function uploadRumFoto(rumId, file, opts = {}) {
+  if (!hasPerm(PERM_SPRAVCI)) return;
   if (!storage) { toast('Fotky nejsou zapnuté (chybí Firebase Storage) — appka funguje dál i bez nich.'); return; }
   let blob;
   if (opts.processed) {
@@ -1543,6 +1544,7 @@ async function removeRumFoto(rumId) {
 }
 
 async function uploadCigarFoto(cigarId, file, opts = {}) {
+  if (!hasPerm(PERM_SPRAVCI)) return;
   if (!storage) { toast('Fotky nejsou zapnuté (chybí Firebase Storage) — appka funguje dál i bez nich.'); return; }
   let blob;
   if (opts.processed) {
@@ -1685,6 +1687,8 @@ function renderUcet() {
   const big = document.getElementById('ucetBalanceBig');
   big.textContent = Math.round(bal).toLocaleString('cs-CZ') + ' Kč';
   big.className = 'num ' + (bal < 0 ? 'neg' : 'pos');
+  const addCard = document.getElementById('ucetAddCard');
+  if (addCard) addCard.hidden = !hasPerm(PERM_SPRAVCI);
   if (!document.getElementById('ucetDatum').value) {
     document.getElementById('ucetDatum').value = new Date().toISOString().slice(0,10);
   }
@@ -1805,6 +1809,7 @@ function enforceNakupSign() {
 
 async function addLedger() {
   try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
     const datum = document.getElementById('ucetDatum').value;
     const popis = document.getElementById('ucetPopis').value.trim();
     let castka = Number(document.getElementById('ucetCastka').value);
@@ -1853,6 +1858,7 @@ function toggleWishForm() {
 
 async function addWish() {
   try {
+    if (isGuest) return;
     const nazev = document.getElementById('wishNazev').value.trim();
     if (!nazev) { toast('Zadej název'); return; }
     const isDoutnik = ui.typ === 'doutnik';
@@ -1942,7 +1948,7 @@ function renderWishlist() {
     return `
     <div class="card wish-card" data-id="${w.id}">
       <div style="display:flex; gap:8px; align-items:flex-start;">
-        ${isGuest ? '' : '<div class="drag-handle" style="cursor:grab; touch-action:none; user-select:none; color:var(--ink-faint); font-size:18px; line-height:1.4; padding:2px 4px 2px 0; flex-shrink:0;">⠿</div>'}
+        ${hasPerm(PERM_SPRAVCI) ? '<div class="drag-handle" style="cursor:grab; touch-action:none; user-select:none; color:var(--ink-faint); font-size:18px; line-height:1.4; padding:2px 4px 2px 0; flex-shrink:0;">⠿</div>' : ''}
         <div style="flex:1; min-width:0;">
           <div class="rum-name">${esc(w.znacka)} ${w.nazev?'<span class="muted" style="font-weight:400;">– '+esc(w.nazev)+'</span>':''}</div>
           <div class="rum-sub">${subParts.join(' · ')}</div>
@@ -1966,7 +1972,7 @@ function initWishSortable() {
   const el = document.getElementById('wishList');
   if (!el) return;
   if (wishSortable) { wishSortable.destroy(); wishSortable = null; }
-  if (isGuest || typeof Sortable === 'undefined') return;
+  if (!hasPerm(PERM_SPRAVCI) || typeof Sortable === 'undefined') return;
   wishSortable = new Sortable(el, {
     handle: '.drag-handle',
     animation: 150,
@@ -2071,7 +2077,7 @@ function renderHumidor() {
 function renderNewCigarSection() {
   const el = document.getElementById('newCigarSection');
   if (!el) return;
-  if (isGuest) { el.innerHTML = ''; return; }
+  if (!hasPerm(PERM_SPRAVCI)) { el.innerHTML = ''; return; }
   if (!ui.showNewCigarHumidor) {
     el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewCigarHumidor=true; renderNewCigarSection();">+ Nový doutník, který ještě není v seznamu</button>`;
     return;
@@ -2095,6 +2101,7 @@ function renderNewCigarSection() {
 
 async function createNewCigar() {
   try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
     const vyrobce = document.getElementById('newCigarVyrobce').value.trim();
     if (!vyrobce) { toast('Zadej výrobce'); return; }
     const model = document.getElementById('newCigarModel').value.trim();
@@ -2246,6 +2253,7 @@ function renderCigarNakupFormHtml() {
 
 async function addCigarNakup() {
   try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
     const cigar = state.cigars.find(c => c.id === ui.detailCigarId);
     if (!cigar) return;
     const datum = document.getElementById('newCigarNakupDatum').value;
@@ -2297,20 +2305,20 @@ function renderCigarDetail() {
         <span class="stat-row-sub">${n.cena_celkem ? esc(String(n.cena_celkem)) + ' Kč celkem' : ''}${n.cena_ks ? ' (' + esc(String(n.cena_ks)) + ' Kč/ks)' : ''}</span>
       </div>
     `).join('') : '<div class="empty-note" style="padding:14px 0;">Zatím žádný nákup.</div>'}
-    ${isGuest ? '' : renderCigarNakupFormHtml()}
+    ${hasPerm(PERM_SPRAVCI) ? renderCigarNakupFormHtml() : ''}
 
     <div class="stat-section-title">Kouření</div>
     ${logs.length ? logs.map(l => renderCigarLogRowHtml(l)).join('') : '<div class="empty-note" style="padding:14px 0;">Zatím nikdo nekouřil.</div>'}
     ${isGuest ? '' : renderCigarLogFormHtml()}
 
-    ${isGuest ? '' : `
+    ${hasPerm(PERM_SPRAVCI) ? `
     <div class="muted" style="font-size:12px;margin-top:16px;margin-bottom:2px;">${cigar.foto ? 'Změnit fotku' : 'Přidat fotku'}</div>
     ${fotoButtonsHtml(`uploadCigarFoto('${cigar.id}', this.files[0])`)}
     ${cigar.foto ? `<div class="btn-row" style="margin-top:6px;">
       <button class="btn btn-ghost btn-sm" onclick="recropCigarFoto('${cigar.id}')">✂️ Oříznout</button>
-      ${hasPerm(PERM_MAZANI) ? `<button class="btn btn-ghost btn-sm" onclick="removeCigarFoto('${cigar.id}')">Smazat fotku</button>` : ''}
+      <button class="btn btn-ghost btn-sm" onclick="removeCigarFoto('${cigar.id}')">Smazat fotku</button>
     </div>` : ''}
-    `}
+    ` : ''}
 
     <div class="btn-row" style="margin-top:18px;">
       <button class="btn btn-ghost" onclick="closeCigarDetail()">← Zpět</button>
@@ -2505,22 +2513,25 @@ function renderTerminUcastniciSection() {
   const ucastnici = sortedTerminUcastnici();
   let html = `<div class="rum-name" style="margin-bottom:8px;">Účastníci domlouvání</div>`;
   html += `<div class="member-chips">${ucastnici.map(u => `<span class="member-chip">${esc(u.jmeno)}</span>`).join('')}</div>`;
-  if (!ui.showTerminUcastnikForm) {
-    html += `<button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="ui.showTerminUcastnikForm=true; renderTerminUcastniciSection();">+ Přidat účastníka</button>`;
-  } else {
-    html += `
-      <div style="display:flex; gap:8px; margin-top:10px;">
-        <input class="input" id="newTerminUcastnikJmeno" placeholder="Jméno">
-        <button class="btn btn-primary btn-sm" onclick="addTerminUcastnik()" style="flex-shrink:0;">Přidat</button>
-      </div>
-      <div class="btn-row" style="margin-top:8px;"><button class="btn btn-ghost btn-sm" onclick="ui.showTerminUcastnikForm=false; renderTerminUcastniciSection();">Zpět</button></div>
-    `;
+  if (hasPerm(PERM_SPRAVCI)) {
+    if (!ui.showTerminUcastnikForm) {
+      html += `<button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="ui.showTerminUcastnikForm=true; renderTerminUcastniciSection();">+ Přidat účastníka</button>`;
+    } else {
+      html += `
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <input class="input" id="newTerminUcastnikJmeno" placeholder="Jméno">
+          <button class="btn btn-primary btn-sm" onclick="addTerminUcastnik()" style="flex-shrink:0;">Přidat</button>
+        </div>
+        <div class="btn-row" style="margin-top:8px;"><button class="btn btn-ghost btn-sm" onclick="ui.showTerminUcastnikForm=false; renderTerminUcastniciSection();">Zpět</button></div>
+      `;
+    }
   }
   el.innerHTML = html;
 }
 
 async function addTerminUcastnik() {
   try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
     const jmeno = document.getElementById('newTerminUcastnikJmeno').value.trim();
     if (!jmeno) return;
     await db.collection('termin_ucastnici').add({ jmeno });
@@ -2725,7 +2736,7 @@ function renderUcast() {
 function renderNewUcastSection() {
   const el = document.getElementById('newUcastSection');
   if (!el) return;
-  if (isGuest) { el.innerHTML = ''; return; }
+  if (!hasPerm(PERM_SPRAVCI)) { el.innerHTML = ''; return; }
   if (!ui.showNewUcast) {
     el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewUcast=true; ui.newUcastDatum=''; ui.newUcastMisto=''; ui.newUcastLidi=[]; ui.newUcastDalsi=''; renderNewUcastSection();">+ Nová účast</button>`;
     return;
@@ -2761,6 +2772,7 @@ function toggleNewUcastOsoba(jmeno) {
 
 async function createNewUcast() {
   try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
     if (!ui.newUcastDatum) { toast('Vyber datum'); return; }
     const dalsi = ui.newUcastDalsi.split(',').map(s => s.trim()).filter(Boolean);
     const ucastnici = [...ui.newUcastLidi, ...dalsi];
@@ -2786,6 +2798,7 @@ function closeUcastDetail() { document.getElementById('ucastDetailOverlay').hidd
 
 async function updateUcastField(ucastId, field, value) {
   try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
     if (isGuest) return;
     await db.collection('ucast').doc(ucastId).update({ [field]: value });
     logChange('Upravena účast', field + ': ' + value);
@@ -2798,6 +2811,7 @@ async function updateUcastField(ucastId, field, value) {
 
 async function toggleUcastOsoba(ucastId, jmeno) {
   try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
     if (isGuest) return;
     const u = state.ucasti.find(x => x.id === ucastId);
     if (!u) return;
@@ -2814,6 +2828,7 @@ async function toggleUcastOsoba(ucastId, jmeno) {
 
 async function addUcastDalsiOsoba(ucastId) {
   try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
     const input = document.getElementById('ucastDalsiOsoba');
     const jmeno = input.value.trim();
     if (!jmeno) return;
@@ -2846,13 +2861,14 @@ function renderUcastDetail() {
   if (!u) { closeUcastDetail(); return; }
   const lidi = u.ucastnici || [];
   const extraLidi = lidi.filter(j => !UCAST_KNOWN_PEOPLE.includes(j));
+  const canEdit = hasPerm(PERM_SPRAVCI);
   const chips = UCAST_KNOWN_PEOPLE.map(jm => {
     const active = lidi.includes(jm);
-    const click = isGuest ? '' : ` onclick="toggleUcastOsoba('${u.id}','${jm}')"`;
+    const click = canEdit ? ` onclick="toggleUcastOsoba('${u.id}','${jm}')"` : '';
     return `<button class="member-chip ${active ? 'active' : ''}"${click}>${esc(jm)}</button>`;
   }).join('') + extraLidi.map(jm => {
     const safe = jm.replace(/'/g, "\\'");
-    const click = isGuest ? '' : ` onclick="toggleUcastOsoba('${u.id}','${esc(safe)}')"`;
+    const click = canEdit ? ` onclick="toggleUcastOsoba('${u.id}','${esc(safe)}')"` : '';
     return `<button class="member-chip active"${click}>${esc(jm)}</button>`;
   }).join('');
 
@@ -2863,23 +2879,23 @@ function renderUcastDetail() {
     </div>
     ${u.zdrojKoloId ? `<div class="origin-badge" style="margin-bottom:10px;">🗓️ vytvořeno automaticky z termínu</div>` : ''}
     <div class="field"><label>Datum</label>
-      <input class="input" type="date" value="${esc(u.datum||'')}" ${isGuest?'disabled':''} onchange="updateUcastField('${u.id}','datum',this.value)">
+      <input class="input" type="date" value="${esc(u.datum||'')}" ${canEdit?'':'disabled'} onchange="updateUcastField('${u.id}','datum',this.value)">
     </div>
     <div class="field"><label>Místo</label>
-      <input class="input" list="ucastMistoOptions" value="${esc(u.misto||'')}" ${isGuest?'disabled':''} onchange="updateUcastField('${u.id}','misto',this.value)" placeholder="Ostrožská Lhota / Staré Město">
+      <input class="input" list="ucastMistoOptions" value="${esc(u.misto||'')}" ${canEdit?'':'disabled'} onchange="updateUcastField('${u.id}','misto',this.value)" placeholder="Ostrožská Lhota / Staré Město">
       <datalist id="ucastMistoOptions"><option value="Ostrožská Lhota"><option value="Staré Město"></datalist>
     </div>
     <div class="field"><label>Účastníci</label>
       <div class="member-chips">${chips}</div>
-      ${isGuest ? '' : `
+      ${canEdit ? `
       <div style="display:flex; gap:8px; margin-top:8px;">
         <input class="input" id="ucastDalsiOsoba" placeholder="Přidat jiného hosta">
         <button class="btn btn-ghost btn-sm" style="flex-shrink:0;" onclick="addUcastDalsiOsoba('${u.id}')">Přidat</button>
       </div>
-      `}
+      ` : ''}
     </div>
     <div class="field"><label>Poznámka</label>
-      <textarea class="input" rows="2" ${isGuest?'disabled':''} onchange="updateUcastField('${u.id}','poznamka',this.value)">${esc(u.poznamka||'')}</textarea>
+      <textarea class="input" rows="2" ${canEdit?'':'disabled'} onchange="updateUcastField('${u.id}','poznamka',this.value)">${esc(u.poznamka||'')}</textarea>
     </div>
     <div class="btn-row" style="margin-top:18px;">
       <button class="btn btn-ghost" onclick="closeUcastDetail()">← Zpět</button>
@@ -3462,6 +3478,7 @@ function renderInfo() {
 /* ---------------- KLUB tab ---------------- */
 async function addMember() {
   try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
     const name = document.getElementById('newMemberName').value.trim();
     if (!name) return;
     if (state.members.some(m => (m.jmeno||'').trim().toLowerCase() === name.toLowerCase())) {
@@ -3502,6 +3519,8 @@ function renderKlub() {
     `;
   }).join('');
 
+  const addCard = document.getElementById('addMemberCard');
+  if (addCard) addCard.hidden = !hasPerm(PERM_SPRAVCI);
 }
 
 async function renderBackupReminder() {
@@ -3705,6 +3724,7 @@ async function mergePuvodGroup(gi) {
 
 /* ---------------- EXPORT DO EXCELU ---------------- */
 async function exportToExcel() {
+  if (!hasPerm(PERM_SPRAVCI)) return;
   if (typeof XLSX === 'undefined') { toast('Export se nepodařilo načíst, zkus obnovit stránku'); return; }
   const wb = XLSX.utils.book_new();
   const addSheet = (name, rows) => {
@@ -4092,6 +4112,8 @@ function applyGuestRestrictions() {
 }
 
 function applyAdminFeatures() {
+  const exportBtn = document.getElementById('exportBtn');
+  if (exportBtn) exportBtn.hidden = !hasPerm(PERM_SPRAVCI);
   const historyBtn = document.getElementById('historyBtn');
   if (historyBtn) historyBtn.hidden = !isAdmin;
   const exportDbBtn = document.getElementById('exportDbBtn');

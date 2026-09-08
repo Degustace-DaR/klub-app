@@ -120,14 +120,14 @@ let _savedTimer = null;
 function updateSyncIndicator() {
   const el = document.getElementById('syncLabel');
   if (!el) return;
-  let cls, dot, text;
-  if (!db) { cls = 'is-offline'; dot = ''; text = 'offline'; }
-  else if (!navigator.onLine) { cls = 'is-offline'; dot = ''; text = _pending ? _pending + ' čeká na síť' : 'offline'; }
-  else if (_pending > 0) { cls = 'is-saving'; dot = ''; text = 'ukládám…'; }
-  else if (el.dataset.justSaved === '1') { cls = 'is-saved'; dot = 'live'; text = 'uloženo'; }
-  else { cls = ''; dot = 'live'; text = 'živě'; }
+  let cls = '', text = '';
+  if (!db) { cls = 'is-offline'; text = 'offline'; }
+  else if (!navigator.onLine) { cls = 'is-offline'; text = _pending ? _pending + ' čeká na síť' : 'offline'; }
+  else if (_pending > 0) { cls = 'is-saving'; text = 'ukládám…'; }
+  else if (el.dataset.justSaved === '1') { cls = 'is-saved'; text = '✓ uloženo'; }
+  // jinak (v klidu, online) se nic nezobrazuje
   el.className = 'sync-label ' + cls;
-  el.innerHTML = `<span class="sync-dot${dot ? ' ' + dot : ''}"></span>${text}`;
+  el.textContent = text;
 }
 
 // Jednorázově obalí zápisové metody Firestore, aby appka věděla, kolik změn ještě

@@ -89,14 +89,13 @@
     letter-spacing:0.18em; text-transform:uppercase; color: var(--ink-faint);
     margin-top:3px; white-space:nowrap;
   }
-  .sync-dot { width:10px; height:10px; border-radius:50%; background: var(--ink-faint); display:inline-block; }
-  .sync-dot.live { background: var(--good); box-shadow:0 0 0 3px var(--good-soft); }
-  .sync-label { position:absolute; top:12px; right:14px; font-family: var(--font-mono); font-size:11px; color:var(--ink-faint); display:flex; flex-direction:column; align-items:center; gap:3px; }
-  .sync-label.is-saving { color: var(--gold); }
-  .sync-label.is-saving .sync-dot { background: var(--gold); animation: syncPulse 0.9s ease-in-out infinite; }
+  /* stavový text vpravo nahoře – v klidu prázdný, ukáže se jen „ukládám…" / „✓ uloženo" / „offline" */
+  .sync-label { position:absolute; top:12px; right:14px; font-family: var(--font-mono); font-size:11px; color:var(--ink-faint); }
+  .sync-label:empty { display:none; }
+  .sync-label.is-saving { color: var(--gold); animation: syncPulse 0.9s ease-in-out infinite; }
   .sync-label.is-saved { color: var(--good); }
-  .sync-label.is-offline { color: var(--ink-faint); }
-  @keyframes syncPulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
+  .sync-label.is-offline { color: var(--warn); }
+  @keyframes syncPulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
   .balance-chip {
     font-family: var(--font-mono); font-size:12.5px; font-weight:500;
     background: var(--surface); border:1px solid var(--line); border-radius:999px;

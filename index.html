@@ -13,7 +13,7 @@
 <title>Degustační klub</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!-- ?v=N u style.css a app.js: při každé změně vzhledu/logiky zvyš číslo (i v index-test.html), ať prohlížeč načte novou verzi -->
-<link rel="stylesheet" href="style.css?v=28">
+<link rel="stylesheet" href="style.css?v=29">
 <script>try{var t=localStorage.getItem('rumklub_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
@@ -122,7 +122,10 @@
   </div>
 
   <div class="view" id="view-terminy">
-    <h2 class="view-title">Termíny degustací</h2>
+    <div class="view-head">
+      <h2 class="view-title">Termíny degustací</h2>
+      <div id="newKoloBtnSlot"></div>
+    </div>
     <div id="koloList"></div>
     <div class="card" id="newKoloSection" style="margin-top:16px;"></div>
     <div class="card" id="terminUcastniciSection" style="margin-top:16px;"></div>
@@ -146,6 +149,18 @@
   <div class="view" id="view-info">
     <h2 class="view-title">Info</h2>
     <div id="infoContent"></div>
+    <div id="infoAdminTools">
+      <div id="backupReminderSection" style="margin-top:12px;"></div>
+      <button class="btn btn-ghost" id="exportBtn" style="margin-top:12px;" onclick="exportToExcel()">⬇️ Exportovat všechna data (Excel)</button>
+      <button class="btn btn-ghost" id="historyBtn" hidden style="margin-top:8px;" onclick="openHistory()">📋 Přehled změn (jen pro admina)</button>
+      <button class="btn btn-ghost" id="exportDbBtn" hidden style="margin-top:8px;" onclick="exportDatabase()">🗄️ Export databáze (JSON, pro testovací appku)</button>
+      <button class="btn btn-ghost" id="importDbBtn" hidden style="margin-top:8px;" onclick="triggerImportDatabase()">📥 Import databáze (JSON)</button>
+      <input type="file" id="importDbFileInput" accept="application/json,.json" hidden onchange="importDatabaseFile(this)">
+      <div class="muted" id="importDbNote" hidden style="font-size:11px; margin-top:4px;">Import přepíše VŠECHNA data v appce, na kterou se právě díváš – používej jen v testovací appce, nikdy v ostré.</div>
+      <div id="puvodCleanupSection" style="margin-top:8px;"></div>
+      <div id="nameCleanupSection" style="margin-top:8px;"></div>
+      <button class="btn btn-ghost" style="margin-top:8px;" onclick="lockApp()">🔒 Zamknout appku (znovu vyžádat PIN)</button>
+    </div>
   </div>
 
   <div class="view" id="view-klub">
@@ -159,17 +174,6 @@
         </div>
       </div>
     </div>
-    <div class="card muted" style="font-size:12.5px; margin-top:16px;" id="clubStats"></div>
-    <div id="backupReminderSection" style="margin-top:12px;"></div>
-    <button class="btn btn-ghost" id="exportBtn" style="margin-top:12px;" onclick="exportToExcel()">⬇️ Exportovat všechna data (Excel)</button>
-    <button class="btn btn-ghost" id="historyBtn" hidden style="margin-top:8px;" onclick="openHistory()">📋 Přehled změn (jen pro admina)</button>
-    <button class="btn btn-ghost" id="exportDbBtn" hidden style="margin-top:8px;" onclick="exportDatabase()">🗄️ Export databáze (JSON, pro testovací appku)</button>
-    <button class="btn btn-ghost" id="importDbBtn" hidden style="margin-top:8px;" onclick="triggerImportDatabase()">📥 Import databáze (JSON)</button>
-    <input type="file" id="importDbFileInput" accept="application/json,.json" hidden onchange="importDatabaseFile(this)">
-    <div class="muted" id="importDbNote" hidden style="font-size:11px; margin-top:4px;">Import přepíše VŠECHNA data v appce, na kterou se právě díváš – používej jen v testovací appce, nikdy v ostré.</div>
-    <div id="puvodCleanupSection" style="margin-top:8px;"></div>
-    <div id="nameCleanupSection" style="margin-top:8px;"></div>
-    <button class="btn btn-ghost" style="margin-top:8px;" onclick="lockApp()">🔒 Zamknout appku (znovu vyžádat PIN)</button>
   </div>
 </main>
 
@@ -263,6 +267,6 @@ const MEMBER_PINS = {
   "Mirek": "19890",
 };
 </script>
-<script src="app.js?v=28"></script>
+<script src="app.js?v=29"></script>
 </body>
 </html>

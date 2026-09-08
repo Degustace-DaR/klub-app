@@ -151,6 +151,8 @@
   .view.active { display:block; }
 
   h2.view-title { font-family: var(--font-display); font-weight:600; font-size:1.3rem; margin: 4px 0 14px; }
+  .view-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin: 4px 0 14px; }
+  .view-head .view-title { margin: 0; }
   .muted { color: var(--ink-faint); }
   .empty-note { color: var(--ink-faint); font-size:0.92rem; text-align:center; padding: 30px 10px; }
 

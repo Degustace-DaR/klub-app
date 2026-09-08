@@ -2451,12 +2451,17 @@ function renderTerminy() {
 
 function renderNewKoloSection() {
   const el = document.getElementById('newKoloSection');
+  const slot = document.getElementById('newKoloBtnSlot');
   if (!el) return;
-  if (!hasPerm(PERM_SPRAVCI)) { el.innerHTML = ''; return; }
+  if (!hasPerm(PERM_SPRAVCI)) { el.innerHTML = ''; el.style.display = 'none'; if (slot) slot.innerHTML = ''; return; }
   if (!ui.showNewKoloTerminy) {
-    el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewKoloTerminy=true; ui.newKoloDatumy=['','']; renderNewKoloSection();">+ Nové kolo domlouvání termínu</button>`;
+    if (slot) slot.innerHTML = `<button class="btn btn-ghost btn-sm" style="white-space:nowrap;" onclick="ui.showNewKoloTerminy=true; ui.newKoloDatumy=['','']; renderNewKoloSection();">+ Nové kolo</button>`;
+    el.innerHTML = '';
+    el.style.display = 'none';
     return;
   }
+  if (slot) slot.innerHTML = '';
+  el.style.display = '';
   el.innerHTML = `
     <div class="field"><label>Navrhované termíny</label>
       ${ui.newKoloDatumy.map((d, i) => `<input class="input" type="date" style="margin-bottom:6px;" value="${esc(d)}" oninput="ui.newKoloDatumy[${i}]=this.value;">`).join('')}
@@ -3434,6 +3439,10 @@ function renderInfo() {
     `;
   }
   el.innerHTML = html;
+
+  renderPuvodCleanupSection();
+  renderNameCleanupSection();
+  renderBackupReminder();
 }
 
 /* ---------------- KLUB tab ---------------- */
@@ -3479,12 +3488,6 @@ function renderKlub() {
     `;
   }).join('');
 
-  document.getElementById('clubStats').innerHTML =
-    `Celkem v katalogu: <b>${state.rums.length}</b> rumů · <b>${state.ratings.length}</b> hodnocení · <b>${state.members.length}</b> členů`;
-
-  renderPuvodCleanupSection();
-  renderNameCleanupSection();
-  renderBackupReminder();
 }
 
 async function renderBackupReminder() {

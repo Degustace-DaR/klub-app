@@ -13,7 +13,7 @@
 <title>Degustační klub</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!-- ?v=N u style.css a app.js: při každé změně vzhledu/logiky zvyš číslo (i v index-test.html), ať prohlížeč načte novou verzi -->
-<link rel="stylesheet" href="style.css?v=43">
+<link rel="stylesheet" href="style.css?v=44">
 <script>try{var t=localStorage.getItem('rumklub_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
@@ -235,27 +235,27 @@ const FIREBASE_CONFIG = {
 };
 
 /* ======================================================================
-   PIN appky — kdo ho zná, appku otevře. Klidně si ho hned změň na svůj.
-   POZOR: tohle NENÍ opravdové zabezpečení (kód jde najít ve zdroji stránky),
-   je to jen zámek proti náhodným kolemjdoucím s odkazem, ne proti někomu,
-   kdo by si prohlížel kód appky.
+   PINy — uložené jako SHA-256(PIN + PIN_SALT), plaintext nikde ve zdroji.
+   Přidání/změna PINu: v konzoli prohlížeče spusť
+     await pinHash("novy-pin")
+   a výsledek vlož sem místo příslušného hashe.
+   Hlavní ochrana dat je Firebase App Check + pravidla, ne tyhle PINy.
    ====================================================================== */
-const APP_PIN = "2026";
-/* Hostovský PIN — kdo ho zná, appku otevře jen "na čtení": vidí Rumy, Wishlist a Klub,
-   ale nemůže nic přidávat/mazat/upravovat (Hodnocení a Účet jsou pro hosty úplně skryté).
-   Klidně si ho hned změň na svůj. */
-const GUEST_PIN = "1000";
-/* Osobní kódy členů — plný přístup jako u APP_PIN, navíc appka ví, kdo je přihlášený
-   (předvyplní jméno u hodnocení a zaznamená ho do přehledu změn). Klidně si kódy uprav. */
-const MEMBER_PINS = {
-  "Broněk": "19710",
-  "Libor": "1971",
-  "Jirka": "1961",
-  "Tonda": "1989",
-  "Tomáš": "1994",
-  "Mirek": "19890",
+const PIN_SALT = "rk-dar-2026-pinsalt";
+/* Super admin */
+const APP_PIN_HASH = "535b88cfa14ea1cf570240d077d6d26a6d2f34ae950c42846f1865ca4f278800";
+/* Host — jen čtení (Hodnocení a Účet jsou pro hosty skryté) */
+const GUEST_PIN_HASH = "369f5731db0e45108ccb20c737fae8cecf06d29cc63ef3004b22eef159fa3008";
+/* Osobní kódy členů — appka pak ví, kdo je přihlášený */
+const MEMBER_PIN_HASHES = {
+  "Broněk": "9c5b42f724ffff8bfc0d93339993d6d0c283987bb116b04eaaaa97504608420a",
+  "Libor":  "e8e58e7053dcd02dc449837c8997433aad77cc8c9a3c070a5c9e0d1b2fe2b296",
+  "Jirka":  "502030516a80fe2bd816a527f2818f9d1b3a6fa6aa5a03c6ffb5b09f95c1be39",
+  "Tonda":  "474377d0c9077f1a7a4750010afa126f826c118700520c02234961d842675ea1",
+  "Tomáš":  "2968ee48cc4531ea755d384d4c334e8f8f87ba9f2e4b7d2ca23cb5d72e7d38a1",
+  "Mirek":  "1ed3558ad2a49db6ce8dbd0e896bb49afe4439b6bc30178fc7b11e61ba4d2c0c",
 };
 </script>
-<script src="app.js?v=43"></script>
+<script src="app.js?v=44"></script>
 </body>
 </html>

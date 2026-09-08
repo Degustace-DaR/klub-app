@@ -3466,10 +3466,8 @@ function renderInfo() {
   if (isAdmin) {
     html += `
     <div class="card" style="margin-top:12px;">
-      <div class="rum-name">PIN kódy (jen pro admina)</div>
-      <div class="stat-row"><span class="stat-row-main">Super admin</span><span class="stat-row-sub">${esc(APP_PIN)}</span></div>
-      ${Object.keys(MEMBER_PINS).map(name => `<div class="stat-row"><span class="stat-row-main">${esc(name)}</span><span class="stat-row-sub">${esc(MEMBER_PINS[name])}</span></div>`).join('')}
-      <div class="stat-row"><span class="stat-row-main">Host</span><span class="stat-row-sub">${esc(GUEST_PIN)}</span></div>
+      <div class="rum-name">PINy</div>
+      <div class="muted" style="font-size:13px;margin-top:6px;">PINy jsou uložené zahašované, ve zdroji stránky nejsou čitelné. Seznam si drž bokem (heslový manažer / záloha). Změna PINu: v konzoli prohlížeče <code>await pinHash("novy-pin")</code> a výsledek vlož do <code>index.html</code>.</div>
     </div>
     `;
   }
@@ -4238,18 +4236,25 @@ function updatePinLockUI() {
   return false;
 }
 
-function checkPin() {
+// SHA-256(pin + PIN_SALT) v hex – stejně se počítají uložené hashe v index.html.
+async function pinHash(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(pin) + PIN_SALT));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function checkPin() {
   const err = document.getElementById('pinError');
   if (updatePinLockUI()) { document.getElementById('pinInput').value = ''; return; }
   const val = document.getElementById('pinInput').value.trim();
-  const memberName = Object.keys(MEMBER_PINS).find(name => MEMBER_PINS[name] === val && val !== '');
-  if (val && val === APP_PIN) {
+  const h = val ? await pinHash(val) : '';
+  const memberName = h ? Object.keys(MEMBER_PIN_HASHES).find(name => MEMBER_PIN_HASHES[name] === h) : null;
+  if (h && h === APP_PIN_HASH) {
     isGuest = false; isAdmin = true; currentUser = null;
     saveSession('admin', null);
-  } else if (val && memberName) {
+  } else if (memberName) {
     isGuest = false; isAdmin = false; currentUser = memberName;
     saveSession('member', memberName);
-  } else if (val && val === GUEST_PIN) {
+  } else if (h && h === GUEST_PIN_HASH) {
     isGuest = true; isAdmin = false; currentUser = null;
     saveSession('guest', null);
   } else {

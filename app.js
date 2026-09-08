@@ -1189,6 +1189,44 @@ async function removeRumFoto(rumId) {
   }
 }
 
+async function uploadCigarFoto(cigarId, file) {
+  if (!storage) { toast('Fotky nejsou zapnuté (chybí Firebase Storage) — appka funguje dál i bez nich.'); return; }
+  if (!file || !file.type || !file.type.startsWith('image/')) { toast('Vyber prosím obrázek'); return; }
+  try {
+    toast('Připravuji fotku…');
+    const blob = await resizeImageFile(file);
+    toast('Nahrávám fotku (' + Math.round(blob.size / 1024) + ' kB)…');
+    const ref = storage.ref(`cigar-photos/${cigarId}-${Date.now()}.jpg`);
+    await ref.put(blob, { contentType: 'image/jpeg' });
+    const url = await ref.getDownloadURL();
+    await db.collection('cigars').doc(cigarId).update({ foto: url });
+    const c = state.cigars.find(x => x.id === cigarId);
+    if (c) c.foto = url;
+    toast('Fotka uložena', 'ok');
+    if (ui.detailCigarId === cigarId) renderCigarDetail();
+    if (ui.tab === 'humidor') renderHumidor();
+  } catch (e) {
+    console.error('uploadCigarFoto:', e);
+    toast('Nahrání fotky se nezdařilo, zkus to znovu.');
+  }
+}
+
+async function removeCigarFoto(cigarId) {
+  if (!hasPerm(PERM_MAZANI)) return;
+  if (!confirm('Smazat fotku?')) return;
+  try {
+    await db.collection('cigars').doc(cigarId).update({ foto: firebase.firestore.FieldValue.delete() });
+    const c = state.cigars.find(x => x.id === cigarId);
+    if (c) delete c.foto;
+    toast('Fotka smazána', 'ok');
+    renderCigarDetail();
+    if (ui.tab === 'humidor') renderHumidor();
+  } catch (e) {
+    console.error('removeCigarFoto:', e);
+    toast('Uložení se nezdařilo, zkus to znovu.');
+  }
+}
+
 async function quickAddMember() {
   try {
     const name = document.getElementById('quickMemberName').value.trim();
@@ -1886,6 +1924,7 @@ function renderCigarDetail() {
       </div>
       <button class="sheet-close" onclick="closeCigarDetail()" aria-label="Zavřít">×</button>
     </div>
+    ${cigar.foto ? `<img src="${esc(cigar.foto)}" alt="Fotka: ${esc(cigar.vyrobce)}" class="rum-foto" loading="lazy" decoding="async" onerror="this.style.display='none';">` : ''}
     <div style="text-align:center; margin: 10px 0 18px;">
       <div class="num ${zbyvaClass}" style="font-family:var(--font-display);font-weight:700;font-size:2.2rem;">${zbyva}</div>
       <div class="muted" style="font-size:12px;">zbývá ks z ${koupeno} nakoupených${cenaKs ? ' · ' + Math.round(cenaKs) + ' Kč/ks' : ''}</div>
@@ -1904,12 +1943,18 @@ function renderCigarDetail() {
     ${logs.length ? logs.map(l => renderCigarLogRowHtml(l)).join('') : '<div class="empty-note" style="padding:14px 0;">Zatím nikdo nekouřil.</div>'}
     ${isGuest ? '' : renderCigarLogFormHtml()}
 
+    ${isGuest ? '' : `
+    <div class="muted" style="font-size:12px;margin-top:16px;margin-bottom:2px;">${cigar.foto ? 'Změnit fotku' : 'Přidat fotku'}</div>
+    ${fotoButtonsHtml(`uploadCigarFoto('${cigar.id}', this.files[0])`)}
+    ${cigar.foto && hasPerm(PERM_MAZANI) ? `<div class="btn-row" style="margin-top:6px;"><button class="btn btn-ghost btn-sm" onclick="removeCigarFoto('${cigar.id}')">Smazat fotku</button></div>` : ''}
+    `}
+
     <div class="btn-row" style="margin-top:18px;">
       <button class="btn btn-ghost" onclick="closeCigarDetail()">← Zpět</button>
     </div>
     ${isAdmin ? `
     <div class="btn-row" style="margin-top:8px;">
-      <button class="btn btn-danger" onclick="deleteCigar('${cigar.id}')">Smazat doutník</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCigar('${cigar.id}')">Smazat doutník</button>
     </div>
     ` : ''}
   `;

@@ -2315,7 +2315,7 @@ function renderCigarDetail() {
     <div class="btn-row" style="margin-top:18px;">
       <button class="btn btn-ghost" onclick="closeCigarDetail()">← Zpět</button>
     </div>
-    ${isAdmin ? `
+    ${hasPerm(PERM_SPRAVCI) ? `
     <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-danger btn-sm" onclick="deleteCigar('${cigar.id}')">Smazat doutník</button>
     </div>
@@ -2326,7 +2326,7 @@ function renderCigarDetail() {
 
 async function deleteCigar(cigarId) {
   try {
-    if (!isAdmin) return;
+    if (!hasPerm(PERM_SPRAVCI)) return;
     const cigar = state.cigars.find(c => c.id === cigarId);
     if (!cigar) return;
     const relatedLog = state.cigarLog.filter(l => l.cigarId === cigarId);
@@ -2608,7 +2608,7 @@ async function removeKoloDatum(koloId, datum) {
 
 async function deleteKolo(koloId) {
   try {
-    if (!isAdmin) return;
+    if (!hasPerm(PERM_SPRAVCI)) return;
     if (!confirm('Opravdu smazat celé tohle kolo domlouvání termínu?')) return;
     await db.collection('termin_kola').doc(koloId).delete();
     closeKoloDetail();
@@ -2683,7 +2683,7 @@ function renderKoloDetail() {
     <div class="btn-row" style="margin-top:18px;">
       <button class="btn btn-ghost" onclick="closeKoloDetail()">← Zpět</button>
     </div>
-    ${isAdmin ? `
+    ${hasPerm(PERM_SPRAVCI) ? `
     <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-danger" onclick="deleteKolo('${kolo.id}')">Smazat kolo</button>
     </div>

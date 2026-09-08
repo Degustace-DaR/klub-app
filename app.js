@@ -456,6 +456,26 @@ function readSurovina(id) {
   return sel.value.trim();
 }
 
+// Původ jako rozbalovací seznam už použitých zemí + „jiná…" (kam se dá napsat i blend).
+function puvodSelectHtml(id, current) {
+  const opts = [...new Set(state.rums.flatMap(r => puvodList(r)))].sort((a, b) => a.localeCompare(b, 'cs'));
+  const cur = (current || '').trim();
+  const known = cur && !cur.includes(',') && opts.includes(cur);
+  return `
+    <select class="input" id="${id}" onchange="var j=document.getElementById('${id}Jina'); if(j){ j.hidden = this.value!=='__jina__'; if(!j.hidden) j.focus(); }">
+      <option value="">—</option>
+      ${opts.map(o => `<option value="${esc(o)}" ${cur === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+      <option value="__jina__" ${(cur && !known) ? 'selected' : ''}>jiná / blend…</option>
+    </select>
+    <input class="input" id="${id}Jina" placeholder="nová země nebo blend: Barbados, Jamajka" value="${(cur && !known) ? esc(cur) : ''}" ${(cur && !known) ? '' : 'hidden'} style="margin-top:6px;">`;
+}
+function readPuvod(id) {
+  const sel = document.getElementById(id);
+  if (!sel) return '';
+  if (sel.value === '__jina__') return puvodList(document.getElementById(id + 'Jina')?.value || '').join(', ');
+  return sel.value.trim();
+}
+
 function openRumDetail(rumId) {
   ui.detailRumId = rumId;
   const rum = state.rums.find(r => r.id === rumId);
@@ -481,7 +501,7 @@ function openRumDetail(rumId) {
       <div class="field"><label>Značka ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="editRumNazev" value="${esc(rum.nazev||'')}"></div>
       <div class="row2">
         <div class="field"><label>Název ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="editRumZnacka" value="${esc(rum.znacka||'')}"></div>
-        <div class="field"><label>Původ</label><input class="input" id="editRumPuvod" value="${esc(rum.puvod||'')}" placeholder="Kuba · víc zemí odděl čárkou"></div>
+        <div class="field"><label>Původ</label>${puvodSelectHtml('editRumPuvod', rum.puvod)}</div>
       </div>
       <div class="row2">
         <div class="field"><label>Cena (Kč)</label><input class="input" type="number" id="editRumCena" value="${has(rum.cena)?esc(String(rum.cena)):''}"></div>
@@ -929,7 +949,7 @@ function renderNewRumSection() {
     <div class="field"><label>Značka ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="newRumNazev" placeholder="${isDoutnik?'např. COHIBA':'např. HAVANA CLUB'}"></div>
     <div class="row2">
       <div class="field"><label>Název ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="newRumZnacka" placeholder="${isDoutnik?'Robusto':'Anejo Especial'}"></div>
-      <div class="field"><label>Původ</label><input class="input" id="newRumPuvod" placeholder="Kuba · víc zemí odděl čárkou"></div>
+      <div class="field"><label>Původ</label>${puvodSelectHtml('newRumPuvod', '')}</div>
     </div>
     <div class="row2">
       <div class="field"><label>Cena (Kč)</label><input class="input" type="number" id="newRumCena"></div>
@@ -960,7 +980,7 @@ async function createNewRum() {
     const isDoutnik = ui.typ === 'doutnik';
     if (!nazev) { toast('Zadej název'); return; }
     const znacka = document.getElementById('newRumZnacka').value.trim();
-    const puvod = puvodList(document.getElementById('newRumPuvod').value).join(', ');
+    const puvod = readPuvod('newRumPuvod');
     const cena = document.getElementById('newRumCena').value;
     const nfVal = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
     const nfNum = (id) => { const el = document.getElementById(id); return (el && el.value) ? Number(el.value) : null; };
@@ -996,7 +1016,7 @@ async function saveRumEdit(rumId) {
     const nazev = document.getElementById('editRumNazev').value.trim();
     if (!nazev) { toast('Značka nesmí být prázdná'); return; }
     const znacka = document.getElementById('editRumZnacka').value.trim();
-    const puvod = puvodList(document.getElementById('editRumPuvod').value).join(', ');
+    const puvod = readPuvod('editRumPuvod');
     const cenaRaw = document.getElementById('editRumCena').value;
     const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
     const num = (id) => { const el = document.getElementById(id); return (el && el.value) ? Number(el.value) : null; };

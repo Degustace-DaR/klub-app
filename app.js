@@ -2134,7 +2134,7 @@ function openCigarDetail(cigarId) {
 function closeCigarDetail() { document.getElementById('cigarDetailOverlay').hidden = true; }
 
 function cigarLogEditable(l) {
-  return hasPerm(PERM_SPRAVCI) || (!!currentUser && l.clen === currentUser);
+  return hasPerm(PERM_SPRAVCI);
 }
 
 function renderCigarLogRowHtml(l) {

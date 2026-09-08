@@ -1,0 +1,44 @@
+name: Záloha databáze
+
+on:
+  schedule:
+    - cron: '23 2 * * *'   # denně ~02:23 UTC (~03:23–04:23 v ČR)
+  workflow_dispatch: {}     # + ruční spuštění z karty „Akce"
+
+concurrency:
+  group: zaloha
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalace závislostí
+        run: npm install --prefix scripts --no-audit --no-fund
+
+      - name: Export databáze + fotek
+        env:
+          FIREBASE_SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
+          STORAGE_BUCKET: ${{ vars.STORAGE_BUCKET }}
+        run: node scripts/backup.mjs
+
+      - name: Commit zálohy
+        run: |
+          git config user.name "klub-backup-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add backups
+          if git diff --staged --quiet; then
+            echo "Žádné změny – databáze i fotky beze změny."
+          else
+            git commit -m "záloha $(date -u +%Y-%m-%d)"
+            git push
+          fi

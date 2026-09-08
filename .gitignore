@@ -16,3 +16,7 @@ desktop.ini
 # Claude / dočasné
 /scratchpad/
 .claude/
+
+# Zálohovací skript – závislosti se instalují v GitHub Action
+/scripts/node_modules/
+/scripts/package-lock.json

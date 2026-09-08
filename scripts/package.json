@@ -1,0 +1,9 @@
+{
+  "name": "klub-backup",
+  "private": true,
+  "type": "module",
+  "description": "Denní záloha Firestore + Storage do backups/ (spouští GitHub Action).",
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

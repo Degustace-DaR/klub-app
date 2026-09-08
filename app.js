@@ -2542,8 +2542,8 @@ function renderStatistika() {
 
   const origins = [...new Set(rumsSrc.flatMap(r=>puvodList(r)))].sort((a,b)=>a.localeCompare(b,'cs'));
   if (ui.statOrigin !== 'vse' && !origins.includes(ui.statOrigin)) ui.statOrigin = 'vse';
-  originSel.innerHTML = '<option value="vse">Původ: Vše</option>' +
-    origins.map(o => `<option value="${esc(o)}" ${ui.statOrigin===o?'selected':''}>${esc(o)}</option>`).join('');
+  originSel.innerHTML = '<option value="vse">Všechny země</option>' +
+    origins.map(o => `<option value="${esc(o)}" ${ui.statOrigin===o?'selected':''}>Jen ${esc(o)}</option>`).join('');
 
   const rumIdsByOrigin = ui.statOrigin === 'vse' ? null : new Set(rumsSrc.filter(r=>puvodList(r).includes(ui.statOrigin)).map(r=>r.id));
   const originRatings = rumIdsByOrigin ? ratingsSrc.filter(r=>rumIdsByOrigin.has(r.rumId)) : ratingsSrc;

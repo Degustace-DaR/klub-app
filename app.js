@@ -10,7 +10,7 @@ let currentUser = null;
 
 /* ---------------- Oprávnění nad rámec běžného člena ---------------- */
 const PERM_SPRAVCI = ['Broněk', 'Libor'];   // potvrzování a zadávání termínů, účet, mazání účasti
-const PERM_MAZANI = ['Broněk'];             // mazání rumů a položek wishlistu
+const PERM_MAZANI = ['Broněk', 'Libor'];    // mazání rumů a položek wishlistu
 function hasPerm(names) {
   return isAdmin || (!!currentUser && names.includes(currentUser));
 }

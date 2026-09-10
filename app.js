@@ -33,7 +33,6 @@ let ui = {
   detailRumId: null,
   statMember: 'vse',
   statOrigin: 'vse',
-  statYear: '',
   showNewCigarHumidor: false,
   detailCigarId: null,
   cigarShowNakupForm: false,
@@ -959,102 +958,6 @@ async function shareRumCard(rumId) {
     toast(isMobile ? 'Uloženo do Stažené – odtud sdílej do chatu' : 'Obrázek stažen', 'ok');
   } catch (e) {
     console.error('shareRumCard:', e);
-    toast('Obrázek se nepodařilo vytvořit.');
-  }
-}
-
-// Hotový <canvas> → systémové sdílení (mobil) nebo stažení PNG (PC).
-// MUSÍ se volat synchronně z obslužné funkce onclick (jinak mobil ztratí „user gesture").
-function _dispatchCardImage(cv, slug, shareTitle, shareText) {
-  const dataUrl = cv.toDataURL('image/png');
-  const bin = atob(dataUrl.split(',')[1]);
-  const arr = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  const blob = new Blob([arr], { type: 'image/png' });
-  const s = (slug || 'karta').toLowerCase().normalize('NFD')
-    .replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'karta';
-  const fname = 'degustace-' + s + '.png';
-  const file = new File([blob], fname, { type: 'image/png' });
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-    || (matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches);
-  if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file], title: shareTitle, text: shareText })
-      .catch(e => { if (!e || e.name !== 'AbortError') _downloadBlob(blob, fname, true); });
-    return;
-  }
-  _downloadBlob(blob, fname, isMobile);
-}
-function _downloadBlob(blob, fname, isMobile) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = fname;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  toast(isMobile ? 'Uloženo do Stažené – odtud sdílej do chatu' : 'Obrázek stažen', 'ok');
-}
-
-// „Rok v číslech" jako sdílitelný obrázek.
-function shareYearCard() {
-  try { document.fonts.load('700 60px Fraunces'); document.fonts.load('500 40px "Public Sans"'); document.fonts.load('500 40px "IBM Plex Mono"'); } catch (e) {}
-  try {
-    const yr = ui.statYear || statYears()[0];
-    if (!yr) { toast('Zatím není žádný rok s daty.'); return; }
-    const yn = yearInNumbers(ui.typ, yr);
-    const isDoutnik = yn.isDoutnik;
-
-    const C = { bg: '#EAE2D0', ink: '#2B2013', soft: '#6B5D46', faint: '#948566' };
-    const W = 1080, pad = 84, rowH = 118;
-
-    const rows = [];
-    rows.push([(isDoutnik ? 'Doutníků' : 'Rumů') + ' ochutnáno', String(yn.ochutnano)]);
-    if (!isGuest && yn.utrata) rows.push(['Útrata z účtu', yn.utrata.toLocaleString('cs-CZ') + ' Kč']);
-    if (yn.degustaci) rows.push(['Degustací', String(yn.degustaci)]);
-    if (yn.nej) rows.push(['Nej ' + (isDoutnik ? 'doutník' : 'rum') + ' roku', yn.nej.label + '  ·  ' + yn.nej.score + ' b.']);
-    if (yn.topMember) rows.push(['Nejaktivnější člen', yn.topMember + '  ·  ' + yn.topMemberCnt + '×']);
-    if (yn.topOrigin) rows.push(['Oblíbený původ', yn.topOrigin]);
-
-    const headB = pad + 40 + 250;
-    const H = headB + rows.length * rowH + pad + 30;
-    const cv = document.createElement('canvas');
-    cv.width = W; cv.height = H;
-    const c = cv.getContext('2d');
-    c.fillStyle = C.bg; c.fillRect(0, 0, W, H);
-    c.textBaseline = 'alphabetic';
-
-    c.fillStyle = C.faint;
-    c.font = '500 26px "IBM Plex Mono", monospace';
-    c.fillText('DEGUSTAČNÍ KLUB', pad, pad + 20);
-    c.textAlign = 'right';
-    c.fillText('ROK V ČÍSLECH', W - pad, pad + 20);
-
-    c.textAlign = 'center';
-    c.fillStyle = C.ink;
-    c.font = '700 210px Fraunces, Georgia, serif';
-    c.fillText(String(yr), W / 2, pad + 240);
-    c.fillStyle = C.faint;
-    c.font = '500 30px "Public Sans", sans-serif';
-    c.fillText(isDoutnik ? 'Doutníky' : 'Rumy', W / 2, pad + 288);
-    c.textAlign = 'left';
-
-    let y = headB;
-    rows.forEach(([label, val], i) => {
-      if (i) { c.strokeStyle = C.faint + '55'; c.lineWidth = 1; c.beginPath(); c.moveTo(pad, y); c.lineTo(W - pad, y); c.stroke(); }
-      c.fillStyle = C.faint; c.font = '500 24px "IBM Plex Mono", monospace';
-      c.fillText(label.toUpperCase(), pad, y + 40);
-      c.fillStyle = C.ink; c.font = '600 42px "Public Sans", sans-serif';
-      c.fillText(_wrapCanvasText(c, val, W - pad * 2, 1)[0], pad, y + 90);
-      y += rowH;
-    });
-
-    c.fillStyle = C.faint;
-    c.font = 'italic 500 28px "Public Sans", sans-serif';
-    c.textAlign = 'center';
-    c.fillText('Společné chutě. Vlastní názor.', W / 2, H - pad + 8);
-
-    _dispatchCardImage(cv, 'rok-' + yr + '-' + (isDoutnik ? 'doutniky' : 'rumy'),
-      'Degustační klub ' + yr, 'Rok v číslech ' + yr);
-  } catch (e) {
-    console.error('shareYearCard:', e);
     toast('Obrázek se nepodařilo vytvořit.');
   }
 }
@@ -3338,57 +3241,6 @@ function statTile(val, lbl, small) {
 
 /* --- pomocné výpočty pro statistiky (čisté funkce) --- */
 
-// Roky, pro které vůbec něco máme (datum produktu / transakce / degustace), nejnovější první.
-function statYears() {
-  const yrOf = (d) => /^\d{4}/.test(d || '') ? String(d).slice(0, 4) : '';
-  const ys = [
-    ...state.rums.map(r => yrOf(r.datum)),
-    ...state.ledger.map(l => yrOf(l.datum)),
-    ...state.ledgerDoutniky.map(l => yrOf(l.datum)),
-    ...state.ucasti.map(u => yrOf(u.datum)),
-  ].filter(Boolean);
-  return [...new Set(ys)].sort((a, b) => b.localeCompare(a));
-}
-
-// „Rok v číslech" – souhrn za jeden rok a jeden typ (rum / doutník).
-function yearInNumbers(typ, year) {
-  const isDoutnik = typ === 'doutnik';
-  const rumsSrc = state.rums.filter(r => (r.typ || 'rum') === typ);
-  const ledgerSrc = isDoutnik ? state.ledgerDoutniky : state.ledger;
-  const yrOf = (d) => /^\d{4}/.test(d || '') ? String(d).slice(0, 4) : '';
-
-  const prodY = rumsSrc.filter(r => yrOf(r.datum) === year);
-  let nej = null;
-  prodY.forEach(r => {
-    const st = isDoutnik ? cigarStats(r.id) : rumStats(r.id);
-    if (st && st.count >= 2 && (!nej || st.celkem > nej.score)) {
-      nej = { id: r.id, score: st.celkem, label: r.nazev + (r.znacka ? ' – ' + r.znacka : '') };
-    }
-  });
-  const utrata = ledgerSrc
-    .filter(l => yrOf(l.datum) === year && Number(l.castka) < 0)
-    .reduce((s, l) => s + Math.abs(Number(l.castka) || 0), 0);
-
-  const ucY = state.ucasti.filter(u => yrOf(u.datum) === year);
-  const attCnt = {};
-  ucY.forEach(u => (u.ucastnici || []).forEach(jm => { attCnt[jm] = (attCnt[jm] || 0) + 1; }));
-  const topMember = Object.keys(attCnt).sort((a, b) => attCnt[b] - attCnt[a])[0] || null;
-
-  const origCnt = {};
-  prodY.forEach(r => puvodList(r).forEach(o => { origCnt[o] = (origCnt[o] || 0) + 1; }));
-  const topOrigin = Object.keys(origCnt).sort((a, b) => origCnt[b] - origCnt[a])[0] || null;
-
-  return {
-    year, typ, isDoutnik,
-    ochutnano: prodY.length,
-    utrata: Math.round(utrata),
-    degustaci: ucY.length,
-    nej,
-    topMember, topMemberCnt: topMember ? attCnt[topMember] : 0,
-    topOrigin, topOriginCnt: topOrigin ? origCnt[topOrigin] : 0,
-  };
-}
-
 // Nejlepší položka za každý rok (min. minPerYear hodnocení v daném roce).
 // Nej produkt roku – rok bere z pole `datum` u produktu (datum ochutnání).
 // Fallback: nejčastější rok z dat jednotlivých hodnocení. Skóre = průměr klubu.
@@ -3606,31 +3458,6 @@ function renderStatistika() {
   html += '</div>';
   if (best) html += `<div class="muted" style="font-size:12px;margin-top:8px;">Nejlépe hodnoceno: <b>${rumLabel(best.rumId)}</b> (${esc(best.clen)}, ${best.celkem} b.)</div>`;
   if (worst && worst !== best) html += `<div class="muted" style="font-size:12px;margin-top:2px;">Nejhůře hodnoceno: <b>${rumLabel(worst.rumId)}</b> (${esc(worst.clen)}, ${worst.celkem} b.)</div>`;
-
-  // --- Rok v číslech ---
-  const yrList = statYears();
-  if (yrList.length) {
-    if (!yrList.includes(ui.statYear)) ui.statYear = yrList[0];
-    const yn = yearInNumbers(ui.typ, ui.statYear);
-    html += '<div class="stat-section-title">Rok v číslech</div>';
-    html += `<div class="year-pick">
-      <select class="input" onchange="ui.statYear=this.value; renderStatistika()">
-        ${yrList.map(y => `<option value="${y}" ${y === ui.statYear ? 'selected' : ''}>${y}</option>`).join('')}
-      </select>
-      <button class="btn btn-ghost" onclick="shareYearCard()">📤 Sdílet</button>
-    </div>`;
-    html += '<div class="stat-grid">';
-    html += statTile(yn.ochutnano, wordMnoz + ' ochutnáno', true);
-    if (!isGuest) html += statTile(yn.utrata ? Math.round(yn.utrata).toLocaleString('cs-CZ') + ' Kč' : '–', 'útrata z účtu', true);
-    html += statTile(yn.degustaci, yn.degustaci === 1 ? 'degustace' : 'degustací', true);
-    html += '</div>';
-    const ynLines = [];
-    if (yn.nej) ynLines.push(`Nej ${wordJedn} roku: <b>${rumLabel(yn.nej.id)}</b> (${yn.nej.score} b.)`);
-    if (yn.topMember) ynLines.push(`Nejaktivnější: <b>${esc(yn.topMember)}</b> (${yn.topMemberCnt}× na degustaci)`);
-    if (yn.topOrigin) ynLines.push(`Oblíbený původ: <b>${esc(yn.topOrigin)}</b> (${yn.topOriginCnt} ${yn.topOriginCnt === 1 ? wordJedn : wordMnoz})`);
-    if (ynLines.length) html += `<div class="muted" style="font-size:12.5px;margin-top:8px;line-height:1.9;">${ynLines.join('<br>')}</div>`;
-    if (!yn.ochutnano && !yn.degustaci && !yn.utrata && !ynLines.length) html += `<div class="empty-note">Za rok ${ui.statYear} zatím žádná data (chybí datum ochutnání / transakce / degustace).</div>`;
-  }
 
   // --- Nejlepší za rok ---
   const nyni = String(new Date().getFullYear());

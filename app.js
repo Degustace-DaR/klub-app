@@ -851,16 +851,10 @@ async function shareRumCard(rumId) {
   const stats = isDoutnik ? cigarStats(rumId) : rumStats(rumId);
   if (!stats) { toast('Zatím bez hodnocení – není co sdílet.'); return; }
   const crit = isDoutnik ? CIGAR_CRIT : RUM_CRIT;
-  toast('Připravuji obrázek…');
+  // Žádné `await` před navigator.share – jinak mobil ztratí „user gesture" a spadne do stažení.
+  // Fonty appka používá v UI, takže do téhle chvíle jsou načtené; kdyby ne, canvas vezme fallback.
+  try { document.fonts.load('700 60px Fraunces'); document.fonts.load('500 40px "Public Sans"'); document.fonts.load('500 40px "IBM Plex Mono"'); } catch (e) {}
   try {
-    try {
-      await Promise.all([
-        document.fonts.load('700 60px Fraunces'),
-        document.fonts.load('500 40px "Public Sans"'),
-        document.fonts.load('500 40px "IBM Plex Mono"'),
-      ]);
-    } catch (e) { /* fallback fonty */ }
-
     const C = { bg: '#EAE2D0', surf: '#FBF8F0', ink: '#2B2013', soft: '#6B5D46', faint: '#948566', accent: '#9C5D18' };
     const scoreCol = stats.celkem >= 95 ? '#B8860B' : stats.celkem >= 90 ? '#3F6E4C' : C.ink;
     const W = 1080, pad = 76, rowH = 74;

@@ -3315,7 +3315,7 @@ function renderStatistika() {
       : null;
   }).filter(Boolean).sort((a, b) => (b.avg / b.cena) - (a.avg / a.cena)).slice(0, 6);
   if (valRanked.length) {
-    html += `<div class="stat-section-title">Nejlepší poměr cena/kvalita</div>`;
+    html += `<div class="stat-section-title">Nejlepší poměr cena / hodnocení</div>`;
     html += valRanked.map((v, i) =>
       `<div class="stat-row"><span class="stat-row-main"><span class="rank-badge rank-${i + 1}">${i + 1}.</span>${rumLabel(v.id)}</span><span class="stat-row-sub">Ø ${v.avg.toFixed(1)} · ${v.cena} Kč</span></div>`
     ).join('');

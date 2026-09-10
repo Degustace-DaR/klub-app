@@ -527,10 +527,39 @@ function currentBalance(typ) {
 }
 
 /* ---------------- RUMY tab ---------------- */
+// Volby řazení v katalogu se mění podle typu (rum/doutník) – přidávají se
+// hodnotící kritéria. Přebuduje se jen při přepnutí typu.
+function syncRumSortOptions() {
+  const sel = document.getElementById('rumSort');
+  if (!sel || sel.dataset.typ === ui.typ) return;
+  const cur = sel.value || 'new';
+  const crit = ui.typ === 'doutnik' ? CIGAR_CRIT : RUM_CRIT;
+  const base = [
+    ['new', 'Nejnovější'],
+    ['score_desc', 'Nejlépe hodnocené'],
+    ['score_asc', 'Nejhůře hodnocené'],
+    ['name', 'Podle názvu'],
+    ['count', 'Podle počtu hodnocení'],
+  ];
+  const critOpts = crit.map(([k, label]) => ['crit_' + k, 'Nejlepší ' + label.toLowerCase()]);
+  const all = [...base, ...critOpts];
+  const keep = all.some(([v]) => v === cur) ? cur : 'new';
+  sel.innerHTML =
+    base.map(([v, t]) => `<option value="${v}">${t}</option>`).join('') +
+    '<optgroup label="Podle kritéria (nejlepší)">' +
+    critOpts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('') +
+    '</optgroup>';
+  sel.value = keep;
+  sel.dataset.typ = ui.typ;
+}
+
 function renderRumy() {
+  syncRumSortOptions();
   const search = (document.getElementById('rumSearch').value || '').toLowerCase();
   const sort = document.getElementById('rumSort').value;
   const isDoutnik = ui.typ === 'doutnik';
+  const critKey = sort.startsWith('crit_') ? sort.slice(5) : null;
+  const critLabel = critKey ? ((isDoutnik ? CIGAR_CRIT : RUM_CRIT).find(c => c[0] === critKey) || [,''])[1] : '';
   let rows = state.rums.filter(r => (r.typ||'rum') === ui.typ).map(r => ({ rum: r, stats: isDoutnik ? cigarStats(r.id) : rumStats(r.id) }));
   if (search) {
     rows = rows.filter(({rum}) =>
@@ -543,6 +572,10 @@ function renderRumy() {
     if (sort === 'name') return (a.rum.nazev||'').localeCompare(b.rum.nazev||'');
     if (sort === 'count') return (b.stats?.count||0) - (a.stats?.count||0);
     if (sort === 'new') return (b.rum._seq||0) - (a.rum._seq||0);
+    if (critKey) {
+      const av = a.stats?.[critKey] ?? -1, bv = b.stats?.[critKey] ?? -1;
+      return bv - av || (b.stats?.celkem||0) - (a.stats?.celkem||0);
+    }
     const av = a.stats?.celkem ?? -1, bv = b.stats?.celkem ?? -1;
     return sort === 'score_asc' ? av - bv : bv - av;
   });
@@ -578,6 +611,7 @@ function renderRumy() {
       </div>
       <div class="rum-score">
         <div class="num ${scoreClass(stats?.celkem)}">${stats ? stats.celkem : '–'}</div>
+        ${critKey && stats && stats[critKey] != null ? `<div class="crit">${esc(critLabel)} ${stats[critKey]}</div>` : ''}
         <div class="cnt">${stats ? stats.count + '×' : '–'}</div>
       </div>
     </div>

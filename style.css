@@ -218,6 +218,7 @@
   .rum-score { text-align:right; flex-shrink:0; }
   .rum-score .num { font-family: var(--font-display); font-weight:700; font-size:1.55rem; line-height:1.05; }
   .rum-score .cnt { font-size:11.5px; color: var(--ink-faint); margin-top:1px; }
+  .rum-score .crit { font-size:11px; color: var(--accent); font-family: var(--font-mono); margin-top:1px; white-space:nowrap; }
   .score-gold { color: var(--gold); }
   .score-good { color: var(--good); }
   .score-mid { color: var(--ink); }

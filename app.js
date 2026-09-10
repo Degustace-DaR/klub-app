@@ -932,21 +932,36 @@ async function shareRumCard(rumId) {
     c.fillText('Společné chutě. Vlastní názor.', W / 2, H - pad + 4);
     c.textAlign = 'left';
 
-    const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
+    // blob synchronně – ať se na mobilu neztratí „user gesture" pro navigator.share
+    const dataUrl = cv.toDataURL('image/png');
+    const bin = atob(dataUrl.split(',')[1]);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    const blob = new Blob([arr], { type: 'image/png' });
     const slug = (rum.nazev || 'produkt').toLowerCase().normalize('NFD')
       .replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'produkt';
     const fname = 'degustace-' + slug + '.png';
     const file = new File([blob], fname, { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: rum.nazev, text: `${rum.nazev} – ${stats.celkem} b.` }); return; }
-      catch (e) { if (e && e.name === 'AbortError') return; }
+
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+      || (matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches);
+
+    // mobil → systémové sdílení (do klubového chatu); PC → rovnou stáhnout PNG
+    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: rum.nazev, text: `${rum.nazev} – ${stats.celkem} b.` });
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        // jinak spadneme na stažení
+      }
     }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = fname;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast('Obrázek stažen', 'ok');
+    toast(isMobile ? 'Obrázek uložen' : 'Obrázek stažen', 'ok');
   } catch (e) {
     console.error('shareRumCard:', e);
     toast('Obrázek se nepodařilo vytvořit.');

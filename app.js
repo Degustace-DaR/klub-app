@@ -1901,18 +1901,31 @@ function toggleWishForm() {
   document.getElementById('wishToggleBtn').hidden = ui.wishFormOpen;
   if (ui.wishFormOpen) {
     const isDoutnik = ui.typ === 'doutnik';
+    window._newWishFotoBlob = null;
     el.innerHTML = `
       <div class="field"><label>Značka ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="wishZnacka" placeholder="${isDoutnik?'např. COHIBA':'např. HAVANA CLUB'}"></div>
       <div class="row2">
         <div class="field"><label>Název ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="wishNazev" placeholder="${isDoutnik?'Robusto':'Anejo Especial'}"></div>
-        <div class="field"><label>Původ</label><input class="input" id="wishPuvod" placeholder="víc zemí odděl čárkou"></div>
+        <div class="field"><label>Původ</label>${puvodSelectHtml('wishPuvod', '')}</div>
       </div>
       <div class="row2">
-        <div class="field"><label>Cena</label><input class="input" type="number" id="wishCena"></div>
-        ${isDoutnik ? '' : '<div class="field"><label>Obsah alkoholu</label><input class="input" type="number" step="0.1" id="wishAbv" placeholder="40"></div>'}
+        <div class="field"><label>Cena (Kč)</label><input class="input" type="number" id="wishCena"></div>
+        ${isDoutnik
+          ? '<div class="field"><label>Formát</label><input class="input" id="wishFormat" placeholder="Toro, Robusto…"></div>'
+          : '<div class="field"><label>Obsah alkoholu (%)</label><input class="input" type="number" step="0.1" id="wishAbv" placeholder="40"></div>'}
       </div>
-      ${isDoutnik ? '' : '<div class="field"><label>Cukr (g/l)</label><input class="input" type="number" id="wishCukr"></div>'}
+      <div class="row2">
+        ${isDoutnik
+          ? `<div class="field"><label>Síla/plnost</label>${silaSelectHtml('wishSila', '')}</div>`
+          : `<div class="field"><label>Surovina</label>${surovinaSelectHtml('wishSurovina', '')}</div>`}
+        ${isDoutnik ? '' : '<div class="field"><label>Obsah cukru (g/l)</label><input class="input" type="number" step="0.1" id="wishCukr"></div>'}
+      </div>
       <div class="field"><label>Poznámka</label><textarea class="input" id="wishPoznamka"></textarea></div>
+      <div class="field">
+        <label>Fotka (nepovinné)</label>
+        ${fotoButtonsHtml("prepNewWishFoto(this.files[0])")}
+        <div class="muted" id="wishFotoStatus" style="font-size:11.5px;margin-top:4px;">Po výběru fotky si ještě ořízneš výřez.</div>
+      </div>
       <div class="btn-row" style="margin-top:4px;">
         <button class="btn btn-primary btn-sm" onclick="addWish()">Přidat na wishlist</button>
         <button class="btn btn-ghost btn-sm" onclick="toggleWishForm()">Zpět</button>
@@ -1921,27 +1934,67 @@ function toggleWishForm() {
   }
 }
 
+async function prepNewWishFoto(file) {
+  const s = document.getElementById('wishFotoStatus');
+  if (s) s.textContent = 'Připravuji fotku…';
+  const blob = await cropPhoto(file);
+  window._newWishFotoBlob = blob || null;
+  if (s) s.textContent = blob ? '✓ fotka připravena' : 'fotka nevybrána';
+}
+
+async function uploadWishFoto(wishId, blob) {
+  if (isGuest || !storage || !blob) return;
+  try {
+    toast('Nahrávám fotku (' + Math.round(blob.size / 1024) + ' kB)…');
+    const ref = storage.ref(`wish-photos/${wishId}-${Date.now()}.jpg`);
+    await ref.put(blob, { contentType: 'image/jpeg' });
+    const url = await ref.getDownloadURL();
+    await db.collection('wishlist').doc(wishId).update({ foto: url });
+    const w = state.wishlist.find(x => x.id === wishId);
+    if (w) w.foto = url;
+    toast('Fotka uložena', 'ok');
+    if (ui.tab === 'wishlist') renderWishlist();
+  } catch (e) {
+    console.error('uploadWishFoto:', e);
+    toast('Nahrání fotky se nezdařilo, zkus to znovu.');
+  }
+}
+
 async function addWish() {
   try {
     if (isGuest) return;
-    const nazev = document.getElementById('wishNazev').value.trim();
-    if (!nazev) { toast('Zadej název'); return; }
+    const znacka = document.getElementById('wishZnacka').value.trim();
+    if (!znacka) { toast('Zadej značku'); return; }
     const isDoutnik = ui.typ === 'doutnik';
-    const abvEl = document.getElementById('wishAbv');
-    const cukrEl = document.getElementById('wishCukr');
-    await db.collection('wishlist').add({
-      znacka: document.getElementById('wishZnacka').value.trim(),
-      nazev,
-      puvod: document.getElementById('wishPuvod').value.trim(),
-      cena: Number(document.getElementById('wishCena').value) || null,
-      abv: (!isDoutnik && abvEl && abvEl.value) ? Number(abvEl.value) : null,
-      cukr: (!isDoutnik && cukrEl && cukrEl.value) ? Number(cukrEl.value) : null,
-      poznamka: document.getElementById('wishPoznamka').value.trim(),
-      priorita: 'střední', stav: 'kandidát', typ: ui.typ, _seq: Date.now(),
-    });
+    const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    const num = (id) => { const el = document.getElementById(id); return (el && el.value) ? Number(el.value) : null; };
+    const fotoBlob = window._newWishFotoBlob || null;
+    window._newWishFotoBlob = null;
+    // nové položky nahoru: _seq menší než všechny stávající téhož typu
+    const sameTyp = state.wishlist.filter(w => (w.typ || 'rum') === ui.typ);
+    const minSeq = sameTyp.length ? Math.min(...sameTyp.map(w => w._seq || 0)) : 0;
+    const item = {
+      znacka,
+      nazev: val('wishNazev'),
+      puvod: readPuvod('wishPuvod'),
+      cena: num('wishCena'),
+      poznamka: val('wishPoznamka'),
+      priorita: 'střední', stav: 'kandidát', typ: ui.typ,
+      _seq: minSeq - 1,
+    };
+    if (isDoutnik) {
+      item.format = val('wishFormat');
+      item.sila = readSila('wishSila');
+    } else {
+      item.abv = num('wishAbv');
+      item.surovina = readSurovina('wishSurovina');
+      item.cukr = num('wishCukr');
+    }
+    const ref = await db.collection('wishlist').add(item);
+    if (fotoBlob) await uploadWishFoto(ref.id, fotoBlob);
     toggleWishForm();
     toast('Přidáno na wishlist', 'ok');
-    logChange('Přidáno na wishlist', nazev);
+    logChange('Přidáno na wishlist', znacka + (item.nazev ? ' – ' + item.nazev : ''));
 
   } catch (e) {
     console.error('addWish:', e);
@@ -1984,11 +2037,21 @@ async function convertWishToCatalog(id) {
     const isDoutnik = (w.typ||'rum') === 'doutnik';
     const label = `${w.znacka||''} ${w.nazev||''}`.trim();
     if (!confirm(`Přesunout "${label}" do katalogu ${isDoutnik?'doutníků':'rumů'} a smazat z wishlistu?`)) return;
+    // ve wishlistu je „Značka" = w.znacka (hlavní název), v katalogu = nazev
     const rum = {
-      nazev: w.nazev || '', znacka: w.znacka || '', puvod: w.puvod || '',
-      cena: w.cena ?? null, abv: w.abv ?? null, cukr: w.cukr ?? null,
+      nazev: w.znacka || '', znacka: w.nazev || '', puvod: w.puvod || '',
+      cena: w.cena ?? null,
       poznamka: w.poznamka || '', typ: w.typ || 'rum', _seq: Date.now(),
     };
+    if (isDoutnik) {
+      rum.format = w.format || '';
+      rum.sila = w.sila || '';
+    } else {
+      rum.abv = w.abv ?? null;
+      rum.surovina = w.surovina || '';
+      rum.cukr = w.cukr ?? null;
+    }
+    if (w.foto) rum.foto = w.foto;
     await db.collection('rums').add(rum);
     await db.collection('wishlist').doc(id).delete();
     toast(isDoutnik ? 'Doutník přesunut do katalogu' : 'Rum přesunut do katalogu');
@@ -2007,13 +2070,17 @@ function renderWishlist() {
   list.innerHTML = rows.map(w => {
     const subParts = [];
     if (w.abv) subParts.push(esc(String(w.abv))+'% obj.');
+    if (w.format) subParts.push(esc(w.format));
+    if (w.sila) subParts.push(esc(w.sila));
     if (w.puvod) subParts.push(puvodBadges(w));
     if (w.cena) subParts.push(esc(String(w.cena))+' Kč');
+    if (w.surovina) subParts.push(esc(w.surovina));
     if (w.cukr!=null) subParts.push('cukr '+esc(String(w.cukr))+' g/l');
     return `
     <div class="card wish-card" data-id="${w.id}">
       <div style="display:flex; gap:8px; align-items:flex-start;">
         ${hasPerm(PERM_SPRAVCI) ? '<div class="drag-handle" style="cursor:grab; touch-action:none; user-select:none; color:var(--ink-faint); font-size:18px; line-height:1.4; padding:2px 4px 2px 0; flex-shrink:0;">⠿</div>' : ''}
+        ${w.foto ? `<img src="${esc(w.foto)}" alt="" class="rum-thumb" loading="lazy" decoding="async" onerror="this.classList.add('rum-thumb-empty');this.removeAttribute('src');">` : ''}
         <div style="flex:1; min-width:0;">
           <div class="rum-name">${esc(w.znacka)} ${w.nazev?'<span class="muted" style="font-weight:400;">– '+esc(w.nazev)+'</span>':''}</div>
           <div class="rum-sub">${subParts.join(' · ')}</div>

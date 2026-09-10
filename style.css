@@ -194,7 +194,8 @@
   }
 
   /* rum leaderboard */
-  .search-row { display:flex; gap:8px; margin-bottom: 12px; }
+  .search-row { display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 12px; }
+  .search-row #rumSearch { min-width: 140px; }
   .search-row .input { flex:1; }
   .search-row select.input { flex: 0 0 auto; width: auto; }
   .list-count { font-size:12.5px; color: var(--ink-faint); margin: 0 0 10px 2px; }

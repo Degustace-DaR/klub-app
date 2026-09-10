@@ -52,6 +52,8 @@ let ui = {
   detailUcastId: null,
   showPuvodCleanup: false,
   showDatumBackfill: false,
+  showCenaBackfill: false,
+  rumOrigin: 'vse',
   puvodGroups: null,
   puvodCanon: {},
   puvodChecked: {},
@@ -561,6 +563,14 @@ function renderRumy() {
   const isDoutnik = ui.typ === 'doutnik';
   const critKey = sort.startsWith('crit_') ? sort.slice(5) : null;
   const critLabel = critKey ? ((isDoutnik ? CIGAR_CRIT : RUM_CRIT).find(c => c[0] === critKey) || [,''])[1] : '';
+
+  // filtr podle původu
+  const originSel = document.getElementById('rumOrigin');
+  const allOrigins = [...new Set(state.rums.filter(r => (r.typ||'rum') === ui.typ).flatMap(r => puvodList(r)))].sort((a,b) => a.localeCompare(b, 'cs'));
+  if (ui.rumOrigin !== 'vse' && !allOrigins.includes(ui.rumOrigin)) ui.rumOrigin = 'vse';
+  if (originSel) originSel.innerHTML = '<option value="vse">Všechny země</option>' +
+    allOrigins.map(o => `<option value="${esc(o)}" ${ui.rumOrigin===o?'selected':''}>Jen ${esc(o)}</option>`).join('');
+
   let rows = state.rums.filter(r => (r.typ||'rum') === ui.typ).map(r => ({ rum: r, stats: isDoutnik ? cigarStats(r.id) : rumStats(r.id) }));
   if (search) {
     rows = rows.filter(({rum}) =>
@@ -568,6 +578,9 @@ function renderRumy() {
       (rum.znacka||'').toLowerCase().includes(search) ||
       (rum.puvod||'').toLowerCase().includes(search)
     );
+  }
+  if (ui.rumOrigin !== 'vse') {
+    rows = rows.filter(({rum}) => puvodList(rum).includes(ui.rumOrigin));
   }
   rows.sort((a,b) => {
     if (sort === 'name') return (a.rum.nazev||'').localeCompare(b.rum.nazev||'');
@@ -583,13 +596,14 @@ function renderRumy() {
 
   const list = document.getElementById('rumList');
   renderNewRumSection();
+  const filtered = !!search || ui.rumOrigin !== 'vse';
   if (rows.length === 0) {
-    list.innerHTML = `<div class="empty-note">Žádný ${isDoutnik?'doutník':'rum'} neodpovídá hledání.</div>`;
+    list.innerHTML = `<div class="empty-note">Žádný ${isDoutnik?'doutník':'rum'} neodpovídá filtru.</div>`;
     return;
   }
   const total = rows.length;
   const totalAll = state.rums.filter(r => (r.typ||'rum') === ui.typ).length;
-  const countLine = `<div class="list-count">${search ? total + ' z ' + totalAll : total} ${isDoutnik ? 'doutníků' : 'rumů'}</div>`;
+  const countLine = `<div class="list-count">${filtered ? total + ' z ' + totalAll : total} ${isDoutnik ? 'doutníků' : 'rumů'}</div>`;
   list.innerHTML = countLine + rows.map(({rum, stats}, i) => {
     const expr = (isDoutnik
       ? [rum.znacka, rum.format, rum.sila]
@@ -1219,6 +1233,13 @@ async function createNewRum() {
     const isDoutnik = ui.typ === 'doutnik';
     if (!nazev) { toast('Zadej název'); return; }
     const znacka = document.getElementById('newRumZnacka').value.trim();
+    // varování na duplicitu (stejná značka + název)
+    const key = (a, b) => (a || '').trim().toLowerCase() + '|' + (b || '').trim().toLowerCase();
+    const dupes = state.rums.filter(r => (r.typ || 'rum') === ui.typ && key(r.nazev, r.znacka) === key(nazev, znacka));
+    if (dupes.length) {
+      const lst = dupes.slice(0, 5).map(r => '• ' + r.nazev + (r.znacka ? ' – ' + r.znacka : '')).join('\n');
+      if (!confirm(`${isDoutnik ? 'Doutník' : 'Rum'} „${nazev}${znacka ? ' – ' + znacka : ''}" už v katalogu je (${dupes.length}×):\n${lst}\n\nPřidat i tak?`)) return;
+    }
     const puvod = readPuvod('newRumPuvod');
     const cena = document.getElementById('newRumCena').value;
     const nfVal = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
@@ -3286,6 +3307,22 @@ function renderStatistika() {
   ).join('') : `<div class="empty-note">Zatím málo dat – ${wordMnoz} chybí datum ochutnání.</div>`;
   if (bezData) html += `<div class="muted" style="font-size:11.5px;margin-top:6px;">${bezData} ${wordMnoz} bez data ochutnání se do žebříčku nepočítá. Doplň v Info → „Doplnit datum ochutnání".</div>`;
 
+  // --- Nejlepší poměr cena/kvalita ---
+  const valRanked = roky_rums.map(r => {
+    const st = isDoutnik ? cigarStats(r.id) : rumStats(r.id);
+    return (Number(r.cena) > 0 && st && st.count >= 2)
+      ? { id: r.id, cena: Number(r.cena), avg: st.celkem }
+      : null;
+  }).filter(Boolean).sort((a, b) => (b.avg / b.cena) - (a.avg / a.cena)).slice(0, 6);
+  if (valRanked.length) {
+    html += `<div class="stat-section-title">Nejlepší poměr cena/kvalita</div>`;
+    html += valRanked.map((v, i) =>
+      `<div class="stat-row"><span class="stat-row-main"><span class="rank-badge rank-${i + 1}">${i + 1}.</span>${rumLabel(v.id)}</span><span class="stat-row-sub">Ø ${v.avg.toFixed(1)} · ${v.cena} Kč</span></div>`
+    ).join('');
+    const bezCeny = roky_rums.filter(r => !(Number(r.cena) > 0)).length;
+    if (bezCeny) html += `<div class="muted" style="font-size:11.5px;margin-top:6px;">${bezCeny} ${wordMnoz} bez ceny se nepočítá. Doplň v Info → „Doplnit ceny".</div>`;
+  }
+
   html += '<div class="stat-section-title">Žebříček členů</div>';
   const memberRows = activeMembers.map(m => {
     const rs = originRatings.filter(r=>r.clen===m.jmeno);
@@ -3647,8 +3684,9 @@ function renderInfoTools() {
   }
 
   if (spravce) {
-    h += `<div class="stat-section-title" style="margin-top:18px;">Datum ochutnání</div>
-      <div id="datumBackfillSection"></div>`;
+    h += `<div class="stat-section-title" style="margin-top:18px;">Doplnění údajů</div>
+      <div id="datumBackfillSection"></div>
+      <div id="cenaBackfillSection"></div>`;
   }
 
   if (spravce) {
@@ -3674,6 +3712,53 @@ function renderInfoTools() {
   renderPuvodCleanupSection();
   renderNameCleanupSection();
   renderDatumBackfillSection();
+  renderCenaBackfillSection();
+}
+
+// Hromadné doplnění ceny u produktů, co ji nemají (podle přepínače Rum/Doutník).
+function renderCenaBackfillSection() {
+  const el = document.getElementById('cenaBackfillSection');
+  if (!el) return;
+  if (!hasPerm(PERM_SPRAVCI)) { el.innerHTML = ''; return; }
+  const isDoutnik = ui.typ === 'doutnik';
+  const word = isDoutnik ? 'doutníků' : 'rumů';
+  const noPrice = state.rums.filter(r => (r.typ || 'rum') === ui.typ && !(Number(r.cena) > 0));
+  if (!ui.showCenaBackfill) {
+    el.innerHTML = `<button class="btn btn-ghost tools-btn" onclick="ui.showCenaBackfill=true; renderCenaBackfillSection();">💰 Doplnit ceny – chybí u ${noPrice.length} ${word}</button>`;
+    return;
+  }
+  if (!noPrice.length) {
+    el.innerHTML = `<div class="muted" style="font-size:13px;">Všechny ${word} mají cenu. 🎉 (přepínač nahoře přepne na druhý druh)</div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="ui.showCenaBackfill=false; renderCenaBackfillSection();">Zpět</button>`;
+    return;
+  }
+  const shown = noPrice.slice(0, 80);
+  el.innerHTML = `
+    <div class="muted" style="font-size:12px;margin-bottom:8px;">Chybí u ${noPrice.length} ${word} (režim ${isDoutnik ? 'Doutník' : 'Rum'}). Ukládá se hned.</div>
+    <div class="picker-list">
+      ${shown.map(r => `
+        <div class="picker-item" style="display:flex; gap:8px; align-items:center;">
+          <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(r.nazev)}${r.znacka ? ' – ' + esc(r.znacka) : ''}</span>
+          <input class="input" type="number" inputmode="numeric" placeholder="Kč" style="width:96px; flex-shrink:0;" onchange="setRumCena('${r.id}', this.value)">
+        </div>`).join('')}
+    </div>
+    ${noPrice.length > shown.length ? `<div class="muted" style="font-size:11px;margin-top:6px;">Zobrazeno ${shown.length} z ${noPrice.length} – po uložení otevři znovu pro další.</div>` : ''}
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showCenaBackfill=false; renderCenaBackfillSection();">Zavřít</button>`;
+}
+
+async function setRumCena(id, cenaRaw) {
+  try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
+    const cena = Number(cenaRaw);
+    if (!(cena > 0)) return;
+    await db.collection('rums').doc(id).update({ cena });
+    const r = state.rums.find(x => x.id === id);
+    if (r) r.cena = cena;
+    toast('Cena uložena', 'ok');
+  } catch (e) {
+    console.error('setRumCena:', e);
+    toast('Uložení se nezdařilo, zkus to znovu.');
+  }
 }
 
 // Hromadné doplnění „datum ochutnání" u produktů, co ho nemají (podle přepínače Rum/Doutník).

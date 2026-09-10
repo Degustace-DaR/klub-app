@@ -317,6 +317,9 @@
     border-bottom:1px solid var(--line-strong); padding-bottom:5px;
   }
   .stat-year-head { font-family: var(--font-mono); font-size:12px; font-weight:600; color: var(--ink-soft); margin:10px 0 2px; }
+  .year-pick { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
+  .year-pick select { flex:1 1 auto; min-width:0; }
+  .year-pick .btn { flex:0 0 auto; width:auto; }
   .tools-btn { margin-top: 8px; }
   .rank-badge { font-family: var(--font-mono); font-weight:700; font-size:12px; margin-right:5px; }
   .rank-1 { color: var(--gold); }

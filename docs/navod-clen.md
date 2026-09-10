@@ -3,6 +3,9 @@
 Appka: **https://degustace-dar.github.io/klub-app/**
 Přidej si ji na plochu telefonu (v prohlížeči → „Přidat na plochu").
 
+> **Na mobilu otevírej appku v Chrome.** V jiných prohlížečích (např. DuckDuckGo)
+> nefunguje sdílení obrázku produktu přímo do chatu – jen se stáhne.
+
 ## Přihlášení
 
 Zadáš svůj **osobní PIN**. Appka si tě pak pamatuje – PIN píšeš, jen když se odhlásíš.
@@ -27,6 +30,8 @@ Vpravo nahoře je vidět, kdo je přihlášený.
 ### Prohlížet katalog
 Spodní lišta → **Katalog**. Ťuk na položku = detail: údaje, průměrné skóre,
 kdo jak hodnotil. Řadit / hledat jde nahoře.
+V detailu je i **📤 Sdílet** – vyrobí obrázek karty (název, skóre, kritéria).
+V Chrome vyskočí systémové sdílení; jinak se obrázek stáhne a sdílíš ho z galerie.
 
 ### Wishlist
 Tipy na příští nákup. Můžeš **přidat kandidáta** (+ nahoře).

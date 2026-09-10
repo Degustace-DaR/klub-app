@@ -955,7 +955,7 @@ async function shareRumCard(rumId) {
     a.download = fname;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast(isMobile ? 'Obrázek uložen' : 'Obrázek stažen', 'ok');
+    toast(isMobile ? 'Uloženo do Stažené – odtud sdílej do chatu' : 'Obrázek stažen', 'ok');
   } catch (e) {
     console.error('shareRumCard:', e);
     toast('Obrázek se nepodařilo vytvořit.');

@@ -1010,7 +1010,7 @@ function shareYearCard() {
     if (!isGuest && yn.utrata) rows.push(['Útrata z účtu', yn.utrata.toLocaleString('cs-CZ') + ' Kč']);
     if (yn.degustaci) rows.push(['Degustací', String(yn.degustaci)]);
     if (yn.nej) rows.push(['Nej ' + (isDoutnik ? 'doutník' : 'rum') + ' roku', yn.nej.label + '  ·  ' + yn.nej.score + ' b.']);
-    if (yn.topRater && !yn.topRaterTie) rows.push(['Nejvíc ohodnotil', yn.topRater + '  ·  ' + yn.topRaterCnt + ' z ' + yn.ochutnano]);
+    if (yn.topMember) rows.push(['Nejaktivnější člen', yn.topMember + '  ·  ' + yn.topMemberCnt + '×']);
     if (yn.topOrigin) rows.push(['Oblíbený původ', yn.topOrigin]);
 
     const headB = pad + 40 + 250;
@@ -3370,15 +3370,9 @@ function yearInNumbers(typ, year) {
     .reduce((s, l) => s + Math.abs(Number(l.castka) || 0), 0);
 
   const ucY = state.ucasti.filter(u => yrOf(u.datum) === year);
-
-  // „nejpilnější": kdo ohodnotil nejvíc z produktů degustovaných v tomto roce
-  // (nezávisí na datu hodnocení, které často chybí).
-  const ratingsSrc = isDoutnik ? state.cigarRatings : state.ratings;
-  const prodIds = new Set(prodY.map(r => r.id));
-  const rateCnt = {};
-  ratingsSrc.forEach(r => { if (prodIds.has(r.rumId) && r.clen) rateCnt[r.clen] = (rateCnt[r.clen] || 0) + 1; });
-  const topRater = Object.keys(rateCnt).sort((a, b) => rateCnt[b] - rateCnt[a])[0] || null;
-  const topRaterTie = topRater && Object.keys(rateCnt).filter(k => rateCnt[k] === rateCnt[topRater]).length > 1;
+  const attCnt = {};
+  ucY.forEach(u => (u.ucastnici || []).forEach(jm => { attCnt[jm] = (attCnt[jm] || 0) + 1; }));
+  const topMember = Object.keys(attCnt).sort((a, b) => attCnt[b] - attCnt[a])[0] || null;
 
   const origCnt = {};
   prodY.forEach(r => puvodList(r).forEach(o => { origCnt[o] = (origCnt[o] || 0) + 1; }));
@@ -3390,7 +3384,7 @@ function yearInNumbers(typ, year) {
     utrata: Math.round(utrata),
     degustaci: ucY.length,
     nej,
-    topRater, topRaterCnt: topRater ? rateCnt[topRater] : 0, topRaterTie,
+    topMember, topMemberCnt: topMember ? attCnt[topMember] : 0,
     topOrigin, topOriginCnt: topOrigin ? origCnt[topOrigin] : 0,
   };
 }
@@ -3632,7 +3626,7 @@ function renderStatistika() {
     html += '</div>';
     const ynLines = [];
     if (yn.nej) ynLines.push(`Nej ${wordJedn} roku: <b>${rumLabel(yn.nej.id)}</b> (${yn.nej.score} b.)`);
-    if (yn.topRater && !yn.topRaterTie) ynLines.push(`Nejvíc ohodnotil: <b>${esc(yn.topRater)}</b> (${yn.topRaterCnt} z ${yn.ochutnano} ${wordMnoz})`);
+    if (yn.topMember) ynLines.push(`Nejaktivnější: <b>${esc(yn.topMember)}</b> (${yn.topMemberCnt}× na degustaci)`);
     if (yn.topOrigin) ynLines.push(`Oblíbený původ: <b>${esc(yn.topOrigin)}</b> (${yn.topOriginCnt} ${yn.topOriginCnt === 1 ? wordJedn : wordMnoz})`);
     if (ynLines.length) html += `<div class="muted" style="font-size:12.5px;margin-top:8px;line-height:1.9;">${ynLines.join('<br>')}</div>`;
     if (!yn.ochutnano && !yn.degustaci && !yn.utrata && !ynLines.length) html += `<div class="empty-note">Za rok ${ui.statYear} zatím žádná data (chybí datum ochutnání / transakce / degustace).</div>`;

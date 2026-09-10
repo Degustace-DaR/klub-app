@@ -797,6 +797,7 @@ function openRumDetail(rumId) {
 
     <div class="btn-row" style="margin-top:18px;">
       <button class="btn btn-ghost" onclick="closeRumDetail()">← Zpět</button>
+      ${stats ? `<button class="btn btn-ghost" onclick="shareRumCard('${rum.id}')">📤 Sdílet</button>` : ''}
     </div>
     ${isGuest ? '' : `
     <div class="btn-row" style="margin-top:8px;">
@@ -823,6 +824,134 @@ function openRumDetail(rumId) {
   document.getElementById('rumDetailOverlay').hidden = false;
 }
 function closeRumDetail() { ui.editingRumId = null; document.getElementById('rumDetailOverlay').hidden = true; }
+
+// --- Sdílení produktu jako obrázek (karta se skóre a pruhy kritérií) ---
+function _wrapCanvasText(ctx, text, maxW, maxLines) {
+  const words = String(text || '').split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else { cur = t; }
+  }
+  if (cur) lines.push(cur);
+  if (lines.length > maxLines) {
+    lines.length = maxLines;
+    let last = lines[maxLines - 1];
+    while (last && ctx.measureText(last + '…').width > maxW) last = last.slice(0, -1);
+    lines[maxLines - 1] = last + '…';
+  }
+  return lines;
+}
+
+async function shareRumCard(rumId) {
+  const rum = state.rums.find(r => r.id === rumId);
+  if (!rum) return;
+  const isDoutnik = (rum.typ || 'rum') === 'doutnik';
+  const stats = isDoutnik ? cigarStats(rumId) : rumStats(rumId);
+  if (!stats) { toast('Zatím bez hodnocení – není co sdílet.'); return; }
+  const crit = isDoutnik ? CIGAR_CRIT : RUM_CRIT;
+  toast('Připravuji obrázek…');
+  try {
+    try {
+      await Promise.all([
+        document.fonts.load('700 60px Fraunces'),
+        document.fonts.load('500 40px "Public Sans"'),
+        document.fonts.load('500 40px "IBM Plex Mono"'),
+      ]);
+    } catch (e) { /* fallback fonty */ }
+
+    const C = { bg: '#EAE2D0', surf: '#FBF8F0', ink: '#2B2013', soft: '#6B5D46', faint: '#948566', accent: '#9C5D18' };
+    const scoreCol = stats.celkem >= 95 ? '#B8860B' : stats.celkem >= 90 ? '#3F6E4C' : C.ink;
+    const W = 1080, pad = 76, rowH = 74;
+
+    const measure = document.createElement('canvas').getContext('2d');
+    measure.font = '700 76px Fraunces, Georgia, serif';
+    const nameLines = _wrapCanvasText(measure, rum.nazev, W - pad * 2, 3);
+
+    const H = pad + 40 + nameLines.length * 88 + 150 + 300 + crit.length * rowH + pad + 40;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const c = cv.getContext('2d');
+
+    c.fillStyle = C.bg; c.fillRect(0, 0, W, H);
+
+    c.textBaseline = 'alphabetic';
+    c.fillStyle = C.faint;
+    c.font = '500 26px "IBM Plex Mono", monospace';
+    c.fillText('DEGUSTAČNÍ KLUB', pad, pad + 20);
+    c.textAlign = 'right';
+    c.fillText(isDoutnik ? 'DOUTNÍK' : 'RUM', W - pad, pad + 20);
+    c.textAlign = 'left';
+
+    let y = pad + 110;
+    c.fillStyle = C.ink;
+    c.font = '700 76px Fraunces, Georgia, serif';
+    nameLines.forEach(ln => { c.fillText(ln, pad, y); y += 88; });
+    y += 2;
+
+    const abvStr = (!isDoutnik && rum.abv && !String(rum.znacka || '').replace(/\s/g, '').includes(String(rum.abv))) ? rum.abv + ' %' : null;
+    const sub = [rum.znacka, isDoutnik ? rum.format : abvStr, isDoutnik ? rum.sila : null].filter(Boolean).join('   ·   ');
+    if (sub) { c.fillStyle = C.soft; c.font = '500 36px "Public Sans", sans-serif'; c.fillText(sub, pad, y); y += 46; }
+    const meta = [...puvodList(rum), rum.cena ? rum.cena + ' Kč' : null].filter(Boolean).join('   ·   ');
+    if (meta) { c.fillStyle = C.faint; c.font = '500 30px "Public Sans", sans-serif'; c.fillText(meta, pad, y); y += 38; }
+
+    y += 40;
+    c.textAlign = 'center';
+    c.fillStyle = scoreCol;
+    c.font = '700 190px Fraunces, Georgia, serif';
+    c.fillText(String(stats.celkem), W / 2, y + 150);
+    c.fillStyle = C.faint;
+    c.font = '500 30px "IBM Plex Mono", monospace';
+    c.fillText('průměr z ' + stats.count + ' hodnocení', W / 2, y + 205);
+    c.textAlign = 'left';
+    y += 280;
+
+    const labelW = 210, valW = 80, g = 26;
+    const barX = pad + labelW + g;
+    const barW = W - pad - valW - g - barX;
+    c.textBaseline = 'middle';
+    crit.forEach(([k, label, max]) => {
+      const val = stats[k];
+      c.fillStyle = C.soft; c.font = '500 32px "Public Sans", sans-serif';
+      c.fillText(label, pad, y + rowH / 2);
+      c.fillStyle = C.surf;
+      c.beginPath(); c.roundRect(barX, y + rowH / 2 - 13, barW, 26, 13); c.fill();
+      c.fillStyle = C.accent;
+      c.beginPath(); c.roundRect(barX, y + rowH / 2 - 13, Math.max(26, barW * (val / max)), 26, 13); c.fill();
+      c.fillStyle = C.ink; c.font = '500 32px "IBM Plex Mono", monospace'; c.textAlign = 'right';
+      c.fillText(String(val), W - pad, y + rowH / 2);
+      c.textAlign = 'left';
+      y += rowH;
+    });
+    c.textBaseline = 'alphabetic';
+
+    c.fillStyle = C.faint;
+    c.font = 'italic 500 28px "Public Sans", sans-serif';
+    c.textAlign = 'center';
+    c.fillText('Společné chutě. Vlastní názor.', W / 2, H - pad + 4);
+    c.textAlign = 'left';
+
+    const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
+    const slug = (rum.nazev || 'produkt').toLowerCase().normalize('NFD')
+      .replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'produkt';
+    const fname = 'degustace-' + slug + '.png';
+    const file = new File([blob], fname, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: rum.nazev, text: `${rum.nazev} – ${stats.celkem} b.` }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast('Obrázek stažen', 'ok');
+  } catch (e) {
+    console.error('shareRumCard:', e);
+    toast('Obrázek se nepodařilo vytvořit.');
+  }
+}
 
 async function deleteRum(rumId) {
   try {

@@ -51,6 +51,7 @@ let ui = {
   newUcastDalsi: '',
   detailUcastId: null,
   showPuvodCleanup: false,
+  showDatumBackfill: false,
   puvodGroups: null,
   puvodCanon: {},
   puvodChecked: {},
@@ -722,6 +723,7 @@ function openRumDetail(rumId) {
   }
   if (rum.puvod) infoRows.push(puvodBadges(rum));
   if (has(rum.cena)) infoRows.push(`Cena: <b>${esc(String(rum.cena))} Kč</b>`);
+  if (rum.datum) infoRows.push(`Ochutnáno: <b>${esc(formatDatumCz(rum.datum))}</b>`);
 
   const editFormHtml = `
     <div class="card" style="margin-top:12px;">
@@ -730,6 +732,7 @@ function openRumDetail(rumId) {
         <div class="field"><label>Název ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="editRumZnacka" value="${esc(rum.znacka||'')}"></div>
         <div class="field"><label>Původ</label>${puvodSelectHtml('editRumPuvod', rum.puvod)}</div>
       </div>
+      <div class="field"><label>Datum ochutnání</label><input class="input" type="date" id="editRumDatum" value="${esc(rum.datum||'')}"></div>
       <div class="row2">
         <div class="field"><label>Cena (Kč)</label><input class="input" type="number" id="editRumCena" value="${has(rum.cena)?esc(String(rum.cena)):''}"></div>
         ${isDoutnik
@@ -1185,6 +1188,7 @@ function renderNewRumSection() {
       <div class="field"><label>Název ${isDoutnik?'doutníku':'rumu'}</label><input class="input" id="newRumZnacka" placeholder="${isDoutnik?'Robusto':'Anejo Especial'}"></div>
       <div class="field"><label>Původ</label>${puvodSelectHtml('newRumPuvod', '')}</div>
     </div>
+    <div class="field"><label>Datum ochutnání</label><input class="input" type="date" id="newRumDatum" value="${new Date().toISOString().slice(0,10)}"></div>
     <div class="row2">
       <div class="field"><label>Cena (Kč)</label><input class="input" type="number" id="newRumCena"></div>
       ${isDoutnik
@@ -1221,7 +1225,7 @@ async function createNewRum() {
     const nfNum = (id) => { const el = document.getElementById(id); return (el && el.value) ? Number(el.value) : null; };
     const fotoBlob = window._newRumFotoBlob || null;
     window._newRumFotoBlob = null;
-    const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, poznamka: '', typ: ui.typ, _seq: Date.now() };
+    const rum = { nazev, znacka, puvod, cena: cena ? Number(cena) : null, datum: nfVal('newRumDatum'), poznamka: '', typ: ui.typ, _seq: Date.now() };
     if (isDoutnik) {
       rum.format = nfVal('newRumFormat');
       rum.sila = readSila('newRumSila');
@@ -1255,7 +1259,7 @@ async function saveRumEdit(rumId) {
     const cenaRaw = document.getElementById('editRumCena').value;
     const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
     const num = (id) => { const el = document.getElementById(id); return (el && el.value) ? Number(el.value) : null; };
-    const payload = { nazev, znacka, puvod, cena: cenaRaw ? Number(cenaRaw) : null };
+    const payload = { nazev, znacka, puvod, cena: cenaRaw ? Number(cenaRaw) : null, datum: val('editRumDatum') };
     if (isDoutnik) {
       payload.format = val('editRumFormat');
       payload.sila = readSila('editRumSila');
@@ -2040,7 +2044,7 @@ async function convertWishToCatalog(id) {
     // ve wishlistu je „Značka" = w.znacka (hlavní název), v katalogu = nazev
     const rum = {
       nazev: w.znacka || '', znacka: w.nazev || '', puvod: w.puvod || '',
-      cena: w.cena ?? null,
+      cena: w.cena ?? null, datum: new Date().toISOString().slice(0, 10),
       poznamka: w.poznamka || '', typ: w.typ || 'rum', _seq: Date.now(),
     };
     if (isDoutnik) {
@@ -3079,24 +3083,32 @@ function statTile(val, lbl, small) {
 /* --- pomocné výpočty pro statistiky (čisté funkce) --- */
 
 // Nejlepší položka za každý rok (min. minPerYear hodnocení v daném roce).
-function statBestOfYear(ratings, minPerYear, topN) {
+// Nej produkt roku – rok bere z pole `datum` u produktu (datum ochutnání).
+// Fallback: nejčastější rok z dat jednotlivých hodnocení. Skóre = průměr klubu.
+function statBestOfYear(rums, ratings, minPerYear, topN) {
   topN = topN || 3;
+  const agg = {};
+  ratings.forEach(r => { (agg[r.rumId] = agg[r.rumId] || []).push(Number(r.celkem) || 0); });
+  const yearFromRatings = (rumId) => {
+    const c = {};
+    ratings.forEach(r => {
+      if (r.rumId !== rumId) return;
+      const y = (r.datum || '').slice(0, 4);
+      if (/^\d{4}$/.test(y)) c[y] = (c[y] || 0) + 1;
+    });
+    return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || '';
+  };
   const byYear = {};
-  ratings.forEach(r => {
-    const y = (r.datum || '').slice(0, 4);
+  rums.forEach(rum => {
+    let y = /^\d{4}/.test(rum.datum || '') ? rum.datum.slice(0, 4) : yearFromRatings(rum.id);
     if (!/^\d{4}$/.test(y)) return;
-    byYear[y] = byYear[y] || {};
-    (byYear[y][r.rumId] = byYear[y][r.rumId] || []).push(Number(r.celkem) || 0);
+    const arr = agg[rum.id];
+    if (!arr || arr.length < minPerYear) return;
+    (byYear[y] = byYear[y] || []).push({ id: rum.id, avg: arr.reduce((s, v) => s + v, 0) / arr.length, count: arr.length });
   });
-  return Object.keys(byYear).sort((a, b) => b.localeCompare(a)).map(y => {
-    const items = Object.keys(byYear[y]).map(id => {
-      const arr = byYear[y][id];
-      return arr.length >= minPerYear
-        ? { id, avg: arr.reduce((s, v) => s + v, 0) / arr.length, count: arr.length }
-        : null;
-    }).filter(Boolean).sort((a, b) => b.avg - a.avg).slice(0, topN);
-    return items.length ? { rok: y, top: items } : null;
-  }).filter(Boolean);
+  return Object.keys(byYear).sort((a, b) => b.localeCompare(a))
+    .map(y => ({ rok: y, top: byYear[y].sort((a, b) => b.avg - a.avg).slice(0, topN) }))
+    .filter(y => y.top.length);
 }
 
 // Shoda vkusu: pro každou dvojici jmen korelace (Pearson) jejich bodů přes položky,
@@ -3262,14 +3274,17 @@ function renderStatistika() {
 
   // --- Nejlepší za rok ---
   const nyni = String(new Date().getFullYear());
-  const roky = statBestOfYear(originRatings, 2, 3).slice(0, 3);
+  const roky_rums = rumIdsByOrigin ? rumsSrc.filter(r => rumIdsByOrigin.has(r.id)) : rumsSrc;
+  const roky = statBestOfYear(roky_rums, originRatings, 2, 3).slice(0, 3);
+  const bezData = roky_rums.filter(r => !/^\d{4}/.test(r.datum || '')).length;
   html += `<div class="stat-section-title">Nej ${wordJedn} roku</div>`;
   html += roky.length ? roky.map(y =>
     `<div class="stat-year-head">${y.rok === nyni ? '★ ' : ''}${y.rok}</div>` +
     y.top.map((t, i) =>
       `<div class="stat-row"><span class="stat-row-main"><span class="rank-badge rank-${i + 1}">${i + 1}.</span>${rumLabel(t.id)}</span><span class="stat-row-sub">Ø ${t.avg.toFixed(1)} · ${t.count} hodn.</span></div>`
     ).join('')
-  ).join('') : `<div class="empty-note">Zatím málo dat (min. 2 hodnocení na ${wordJedn} za rok).</div>`;
+  ).join('') : `<div class="empty-note">Zatím málo dat – ${wordMnoz} chybí datum ochutnání.</div>`;
+  if (bezData) html += `<div class="muted" style="font-size:11.5px;margin-top:6px;">${bezData} ${wordMnoz} bez data ochutnání se do žebříčku nepočítá. Doplň v Info → „Doplnit datum ochutnání".</div>`;
 
   html += '<div class="stat-section-title">Žebříček členů</div>';
   const memberRows = activeMembers.map(m => {
@@ -3632,6 +3647,11 @@ function renderInfoTools() {
   }
 
   if (spravce) {
+    h += `<div class="stat-section-title" style="margin-top:18px;">Datum ochutnání</div>
+      <div id="datumBackfillSection"></div>`;
+  }
+
+  if (spravce) {
     h += `<div class="stat-section-title" style="margin-top:18px;">Export dat</div>
       <button class="btn btn-ghost tools-btn" onclick="exportToExcel()">⬇️ Exportovat všechno do Excelu</button>`;
   }
@@ -3653,6 +3673,81 @@ function renderInfoTools() {
   box.innerHTML = h;
   renderPuvodCleanupSection();
   renderNameCleanupSection();
+  renderDatumBackfillSection();
+}
+
+// Hromadné doplnění „datum ochutnání" u produktů, co ho nemají (podle přepínače Rum/Doutník).
+function renderDatumBackfillSection() {
+  const el = document.getElementById('datumBackfillSection');
+  if (!el) return;
+  if (!hasPerm(PERM_SPRAVCI)) { el.innerHTML = ''; return; }
+  const isDoutnik = ui.typ === 'doutnik';
+  const word = isDoutnik ? 'doutníků' : 'rumů';
+  const undated = state.rums.filter(r => (r.typ || 'rum') === ui.typ && !/^\d{4}-\d{2}-\d{2}/.test(r.datum || ''));
+  if (!ui.showDatumBackfill) {
+    el.innerHTML = `<button class="btn btn-ghost tools-btn" onclick="ui.showDatumBackfill=true; renderDatumBackfillSection();">🗓️ Doplnit datum ochutnání – chybí u ${undated.length} ${word}</button>`;
+    return;
+  }
+  if (!undated.length) {
+    el.innerHTML = `<div class="muted" style="font-size:13px;">Všechny ${word} mají datum ochutnání. 🎉 (přepínač nahoře přepne na druhý druh)</div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="ui.showDatumBackfill=false; renderDatumBackfillSection();">Zpět</button>`;
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const shown = undated.slice(0, 80);
+  el.innerHTML = `
+    <div class="muted" style="font-size:12px;margin-bottom:6px;">Chybí u ${undated.length} ${word} (režim ${isDoutnik ? 'Doutník' : 'Rum'}). Nastav datum a průběžně se ukládá.</div>
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+      <input class="input" type="date" id="datumBulkInput" value="${today}" style="flex:1;">
+      <button class="btn btn-ghost btn-sm" style="flex-shrink:0;" onclick="bulkSetRumDatum()">Nastavit všem níže</button>
+    </div>
+    <div class="picker-list">
+      ${shown.map(r => `
+        <div class="picker-item" style="display:flex; gap:8px; align-items:center;">
+          <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(r.nazev)}${r.znacka ? ' – ' + esc(r.znacka) : ''}</span>
+          <input class="input" type="date" style="width:148px; flex-shrink:0;" onchange="setRumDatum('${r.id}', this.value)">
+        </div>`).join('')}
+    </div>
+    ${undated.length > shown.length ? `<div class="muted" style="font-size:11px;margin-top:6px;">Zobrazeno ${shown.length} z ${undated.length} – po uložení otevři znovu pro další.</div>` : ''}
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="ui.showDatumBackfill=false; renderDatumBackfillSection();">Zavřít</button>`;
+}
+
+async function setRumDatum(id, datum) {
+  try {
+    if (!hasPerm(PERM_SPRAVCI) || !datum) return;
+    await db.collection('rums').doc(id).update({ datum });
+    const r = state.rums.find(x => x.id === id);
+    if (r) r.datum = datum;
+    toast('Datum uloženo', 'ok');
+  } catch (e) {
+    console.error('setRumDatum:', e);
+    toast('Uložení se nezdařilo, zkus to znovu.');
+  }
+}
+
+async function bulkSetRumDatum() {
+  try {
+    if (!hasPerm(PERM_SPRAVCI)) return;
+    const datum = document.getElementById('datumBulkInput')?.value;
+    if (!datum) return;
+    const isDoutnik = ui.typ === 'doutnik';
+    const word = isDoutnik ? 'doutníků' : 'rumů';
+    const undated = state.rums
+      .filter(r => (r.typ || 'rum') === ui.typ && !/^\d{4}-\d{2}-\d{2}/.test(r.datum || ''))
+      .slice(0, 80);
+    if (!undated.length) return;
+    if (!confirm(`Nastavit datum ${datum} u ${undated.length} ${word}?`)) return;
+    const batch = db.batch();
+    undated.forEach(r => batch.update(db.collection('rums').doc(r.id), { datum }));
+    await batch.commit();
+    undated.forEach(r => { const x = state.rums.find(y => y.id === r.id); if (x) x.datum = datum; });
+    toast(`Datum nastaveno u ${undated.length} položek`, 'ok');
+    logChange('Hromadně doplněno datum ochutnání', `${undated.length}× ${word} → ${datum}`);
+    renderDatumBackfillSection();
+  } catch (e) {
+    console.error('bulkSetRumDatum:', e);
+    toast('Uložení se nezdařilo, zkus to znovu.');
+  }
 }
 
 /* ---------------- KLUB tab ---------------- */

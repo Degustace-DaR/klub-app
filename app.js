@@ -3312,6 +3312,34 @@ function statDisagreement(ratings, minRaters) {
   }).filter(Boolean).sort((a, b) => b.spread - a.spread || b.sd - a.sd);
 }
 
+// Férové skóre — očistí hodnocení o „přísnost" každého hodnotícího.
+// baseRatings = všechna hodnocení daného typu (klidně nefiltrovaná) → z nich se počítá
+//   osobní průměr každého člena (jen když má ≥ 3 hodnocení, jinak se nekoriguje).
+// scopeRatings = hodnocení v aktuálním výběru (např. jen jedna země) → z nich se skládá žebříček.
+// fair = globální průměr + průměr( r.celkem − osobní_průměr(hodnotícího) ).
+function statFairRanking(baseRatings, scopeRatings, minCount) {
+  minCount = minCount || 2;
+  const vals = baseRatings.map(r => Number(r.celkem) || 0);
+  const gMean = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+  const byRater = {};
+  baseRatings.forEach(r => { (byRater[r.clen] = byRater[r.clen] || []).push(Number(r.celkem) || 0); });
+  const raterMean = {};
+  Object.keys(byRater).forEach(k => {
+    raterMean[k] = byRater[k].length >= 3
+      ? byRater[k].reduce((s, v) => s + v, 0) / byRater[k].length
+      : gMean;
+  });
+  const byRum = {};
+  scopeRatings.forEach(r => {
+    const base = raterMean[r.clen] != null ? raterMean[r.clen] : gMean;
+    (byRum[r.rumId] = byRum[r.rumId] || []).push(gMean + (Number(r.celkem) || 0) - base);
+  });
+  return Object.keys(byRum).map(id => ({
+    id, count: byRum[id].length,
+    fair: byRum[id].reduce((s, v) => s + v, 0) / byRum[id].length,
+  })).filter(r => r.count >= minCount).sort((a, b) => b.fair - a.fair);
+}
+
 // Průměr podle výrobce (pole nazev); jen výrobci s ≥ minRatings hodnoceními.
 function statByProducer(rumsSrc, ratings, minRatings) {
   const g = {};
@@ -3531,6 +3559,25 @@ function renderStatistika() {
   const bottomRated = [...rumAgg].filter(r=>r.count>=2).sort((a,b)=>a.avg-b.avg).slice(0,5);
   html += '<div class="stat-section-title">Nejhůře hodnocené v klubu</div>';
   html += bottomRated.length ? bottomRated.map(renderRumRankRow).join('') : `<div class="empty-note">Zatím málo dat (min. 2 hodnocení na ${wordJedn}).</div>`;
+
+  // --- Férový žebříček (skóre očištěné o přísnost hodnotících) ---
+  const fair = statFairRanking(ratingsSrc, originRatings, 2);
+  if (fair.length >= 3) {
+    const rawOrder = [...rumAgg].filter(r => r.count >= 2).sort((a, b) => b.avg - a.avg);
+    const rawRank = {};
+    rawOrder.forEach((r, i) => { rawRank[r.id] = i + 1; });
+    html += '<div class="stat-section-title">Férový žebříček</div>';
+    html += fair.slice(0, 8).map((r, i) => {
+      const rr = rawRank[r.id];
+      const move = rr ? rr - (i + 1) : 0;
+      const badge = move > 0
+        ? `<span style="color:var(--good);">▲ ${move}</span>`
+        : move < 0 ? `<span style="color:var(--warn);">▼ ${-move}</span>`
+        : '<span class="muted">=</span>';
+      return `<div class="stat-row"><span class="stat-row-main"><span class="rank-badge rank-${i + 1}">${i + 1}.</span>${rumLabel(r.id)}</span><span class="stat-row-sub">${r.fair.toFixed(1)} b. · ${badge}</span></div>`;
+    }).join('');
+    html += `<div class="chart-note">Skóre přepočítané, jako by všichni bodovali stejně „přísně" (odečte se osobní průměr hodnotícího). Šipka = posun proti běžnému pořadí „Nejlépe hodnocené". Jen ${wordMnoz} s ≥ 2 hodnoceními; hodnotící s méně než 3 hodnoceními se nekorigují.</div>`;
+  }
 
 
   // --- Největší rozpory v hodnocení (napříč členy, filtr člena se neuplatní) ---

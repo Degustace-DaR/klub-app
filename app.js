@@ -49,7 +49,11 @@ let ui = {
   newUcastMisto: '',
   newUcastLidi: [],
   newUcastDalsi: '',
+  newUcastVzorky: [],
+  newUcastVzorkyTyp: 'rum',
   detailUcastId: null,
+  tsUcastId: null,
+  tsQueue: null,
   showPuvodCleanup: false,
   showDatumBackfill: false,
   showCenaBackfill: false,
@@ -991,11 +995,14 @@ async function deleteRum(rumId) {
 
 /* ---------------- DEGUSTACE (add rating) tab ---------------- */
 function backToRatingStart() {
+  const hadSession = !!ui.tsUcastId;
   ui.selectedRatingRumId = null;
   ui.selectedMember = currentUser || ui.selectedMember || null;
   ui.showNewRum = false;
   ui.showNewMember = false;
   ui.rateAllUnrated = false;
+  ui.tsUcastId = null;
+  ui.tsQueue = null;
   if (ui.typ === 'doutnik') {
     ui.cigarScores = { vzhled: 8, vune: 8, tah: 8, chut: 15, kour: 15, horeni: 15, popel: 8 };
   } else {
@@ -1003,6 +1010,50 @@ function backToRatingStart() {
   }
   renderActiveDegustaceForm();
   document.getElementById('view-degustace').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (hadSession) toast('Degustace přerušena – pokračuješ z Účasti kdykoli později.');
+}
+
+/* ---------------- REŽIM DEGUSTACE (vedené hodnocení vzorků z jedné účasti) ---------------- */
+// Spustí/pokračuje ve vedeném hodnocení vzorků naplánovaných u dané účasti.
+// Postupně volá editRating() pro každý vzorek (ohodnotí nebo umožní přepsat), jako
+// při běžném hodnocení – jen automaticky přechází na další vzorek ve frontě.
+function startTastingSession(ucastId) {
+  if (isGuest) return;
+  const u = state.ucasti.find(x => x.id === ucastId);
+  if (!u || !u.degustaceVzorky || !u.degustaceVzorky.length) return;
+  const who = ratingWhoLabel();
+  if (!who) { toast('Nejdřív se přihlas.'); return; }
+  const typ = u.degustaceTyp || 'rum';
+  if (ui.typ !== typ) { ui.typ = typ; syncTypUI(); }
+  ui.tsUcastId = ucastId;
+  ui.tsQueue = u.degustaceVzorky.filter(id => state.rums.some(r => r.id === id));
+  closeUcastDetail();
+  goTab('degustace');
+  _tsAdvance();
+}
+
+function _tsAdvance() {
+  if (!ui.tsUcastId || !ui.tsQueue || !ui.tsQueue.length) { _tsFinish(); return; }
+  editRating(ui.tsQueue[0]);
+  const v = document.getElementById('view-degustace');
+  if (v) v.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function _tsFinish() {
+  const ucastId = ui.tsUcastId;
+  ui.tsUcastId = null;
+  ui.tsQueue = null;
+  if (ucastId) { toast('Degustace ohodnocena, díky! 🥃', 'ok'); openUcastDetail(ucastId); }
+}
+
+// Banner nahoře v „Hodnotit", dokud běží vedená degustace.
+function tsBannerHtml() {
+  if (!ui.tsUcastId) return '';
+  const u = state.ucasti.find(x => x.id === ui.tsUcastId);
+  if (!u) return '';
+  const total = (u.degustaceVzorky || []).length;
+  const pos = Math.max(1, total - (ui.tsQueue || []).length + 1);
+  return `<div class="ts-banner">🥃 Degustace ${esc(formatDatumCz(u.datum))}${u.misto ? ' · ' + esc(u.misto) : ''} — vzorek ${pos} z ${total}</div>`;
 }
 
 function presetRatingRum(rumId) {
@@ -1023,7 +1074,7 @@ function renderDegustaceForm() {
     dup = state.ratings.find(r => r.rumId === rum.id && r.clen === ui.selectedMember);
   }
 
-  let html = '<div class="card">';
+  let html = tsBannerHtml() + '<div class="card">';
   html += '<div class="field"><label>1. Rum</label>';
   if (rum) {
     html += `<div class="selected-chip"><span>${esc(rum.nazev)} ${rum.znacka?'– '+esc(rum.znacka):''}</span><button class="x" onclick="ui.selectedRatingRumId=null; renderDegustaceForm();">×</button></div>`;
@@ -1115,7 +1166,7 @@ function renderCigarDegustaceForm() {
     dup = state.cigarRatings.find(r => r.rumId === rum.id && r.clen === ui.selectedMember);
   }
 
-  let html = '<div class="card">';
+  let html = tsBannerHtml() + '<div class="card">';
   html += '<div class="field"><label>1. Doutník</label>';
   if (rum) {
     html += `<div class="selected-chip"><span>${esc(rum.nazev)} ${rum.znacka?'– '+esc(rum.znacka):''}</span><button class="x" onclick="ui.selectedRatingRumId=null; renderCigarDegustaceForm();">×</button></div>`;
@@ -1207,7 +1258,8 @@ async function submitCigarRating() {
     ui.selectedMember = currentUser || ui.selectedMember || null;
     ui.selectedRatingRumId = null;
     ui.cigarScores = { vzhled: 8, vune: 8, tah: 8, chut: 15, kour: 15, horeni: 15, popel: 8 };
-    renderActiveDegustaceForm();
+    if (ui.tsUcastId) { ui.tsQueue = (ui.tsQueue || []).filter(id => id !== rum.id); _tsAdvance(); }
+    else renderActiveDegustaceForm();
 
   } catch (e) {
     console.error('submitCigarRating:', e);
@@ -1865,7 +1917,8 @@ async function submitRating() {
     ui.selectedMember = currentUser || ui.selectedMember || null;
     ui.selectedRatingRumId = null;
     ui.scores = { barva: 15, aroma: 15, chut: 15, plnost: 15, dojezd: 15 };
-    renderActiveDegustaceForm();
+    if (ui.tsUcastId) { ui.tsQueue = (ui.tsQueue || []).filter(id => id !== rum.id); _tsAdvance(); }
+    else renderActiveDegustaceForm();
 
   } catch (e) {
     console.error('submitRating:', e);
@@ -3040,7 +3093,7 @@ function renderNewUcastSection() {
   if (!el) return;
   if (!hasPerm(PERM_SPRAVCI)) { el.innerHTML = ''; return; }
   if (!ui.showNewUcast) {
-    el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewUcast=true; ui.newUcastDatum=''; ui.newUcastMisto=''; ui.newUcastLidi=[]; ui.newUcastDalsi=''; renderNewUcastSection();">+ Nová účast</button>`;
+    el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ui.showNewUcast=true; ui.newUcastDatum=''; ui.newUcastMisto=''; ui.newUcastLidi=[]; ui.newUcastDalsi=''; ui.newUcastVzorky=[]; ui.newUcastVzorkyTyp=ui.typ; renderNewUcastSection();">+ Nová účast</button>`;
     return;
   }
   el.innerHTML = `
@@ -3059,11 +3112,61 @@ function renderNewUcastSection() {
     <div class="field"><label>Další (host, oddělit čárkou)</label>
       <input class="input" value="${esc(ui.newUcastDalsi)}" oninput="ui.newUcastDalsi=this.value;" placeholder="např. Petr">
     </div>
+    <div class="field"><label>🥃 Degustace (nepovinné) – vzorky k ohodnocení</label>
+      <div class="member-chips">
+        <button type="button" class="member-chip ${ui.newUcastVzorkyTyp !== 'doutnik' ? 'active' : ''}" onclick="setNewUcastVzorkyTyp('rum')">🥃 Rum</button>
+        <button type="button" class="member-chip ${ui.newUcastVzorkyTyp === 'doutnik' ? 'active' : ''}" onclick="setNewUcastVzorkyTyp('doutnik')">🚬 Doutník</button>
+      </div>
+      <div id="newUcastVzorkyChips">${newUcastVzorkyChipsHtml()}</div>
+      <input class="input" id="newUcastVzorekSearch" placeholder="Hledat a přidat vzorek…" oninput="renderNewUcastVzorekPicker()" style="margin-top:8px;">
+      <div class="picker-list" id="newUcastVzorekPickList"></div>
+    </div>
     <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-primary btn-sm" onclick="createNewUcast()">Uložit účast</button>
       <button class="btn btn-ghost btn-sm" onclick="ui.showNewUcast=false; renderNewUcastSection();">Zpět</button>
     </div>
   `;
+  renderNewUcastVzorekPicker();
+}
+
+function newUcastVzorkyChipsHtml() {
+  const list = ui.newUcastVzorky || [];
+  if (!list.length) return '<div class="muted" style="font-size:12px;margin-top:6px;">zatím žádný vzorek – degustace se nezaloží</div>';
+  return list.map(id => {
+    const r = state.rums.find(x => x.id === id);
+    const label = r ? esc(r.nazev) + (r.znacka ? ' – ' + esc(r.znacka) : '') : '?';
+    return `<div class="selected-chip"><span>${label}</span><button class="x" onclick="toggleNewUcastVzorek('${id}')">×</button></div>`;
+  }).join('');
+}
+
+function setNewUcastVzorkyTyp(typ) {
+  ui.newUcastVzorkyTyp = typ;
+  ui.newUcastVzorky = [];
+  renderNewUcastSection();
+}
+
+function toggleNewUcastVzorek(id) {
+  const list = ui.newUcastVzorky || (ui.newUcastVzorky = []);
+  const i = list.indexOf(id);
+  if (i === -1) list.push(id); else list.splice(i, 1);
+  const chipsEl = document.getElementById('newUcastVzorkyChips');
+  if (chipsEl) chipsEl.innerHTML = newUcastVzorkyChipsHtml();
+  renderNewUcastVzorekPicker();
+}
+
+function renderNewUcastVzorekPicker() {
+  const el = document.getElementById('newUcastVzorekPickList');
+  if (!el) return;
+  const q = (document.getElementById('newUcastVzorekSearch')?.value || '').trim().toLowerCase();
+  const typ = ui.newUcastVzorkyTyp || 'rum';
+  let rows = state.rums.filter(r => (r.typ || 'rum') === typ);
+  if (q) rows = rows.filter(r => (r.nazev || '').toLowerCase().includes(q) || (r.znacka || '').toLowerCase().includes(q));
+  rows = rows.slice().sort((a, b) => (b._seq || 0) - (a._seq || 0)).slice(0, 20);
+  const sel = new Set(ui.newUcastVzorky || []);
+  el.innerHTML = rows.map(r => `
+    <div class="picker-item" onclick="toggleNewUcastVzorek('${r.id}')">
+      ${sel.has(r.id) ? '✓ ' : ''}${esc(r.nazev)}${r.znacka ? ' – ' + esc(r.znacka) : ''}
+    </div>`).join('') || '<div class="picker-item muted">Nic nenalezeno</div>';
 }
 
 function toggleNewUcastOsoba(jmeno) {
@@ -3078,12 +3181,24 @@ async function createNewUcast() {
     if (!ui.newUcastDatum) { toast('Vyber datum'); return; }
     const dalsi = ui.newUcastDalsi.split(',').map(s => s.trim()).filter(Boolean);
     const ucastnici = [...ui.newUcastLidi, ...dalsi];
-    await db.collection('ucast').add({
+    const vzorky = (ui.newUcastVzorky || []).slice();
+    const payload = {
       datum: ui.newUcastDatum, misto: ui.newUcastMisto || '', ucastnici, poznamka: '', zdrojKoloId: null, _seq: Date.now(),
-    });
+    };
+    if (vzorky.length) { payload.degustaceTyp = ui.newUcastVzorkyTyp || 'rum'; payload.degustaceVzorky = vzorky; }
+    await db.collection('ucast').add(payload);
+    if (vzorky.length) {
+      // vzorkům bez data ochutnání doplní datum degustace (kvůli statistice „nej roku")
+      const jobs = vzorky.map(id => {
+        const rum = state.rums.find(r => r.id === id);
+        return (rum && !rum.datum) ? db.collection('rums').doc(id).update({ datum: ui.newUcastDatum }).catch(() => {}) : null;
+      }).filter(Boolean);
+      await Promise.all(jobs);
+    }
     ui.showNewUcast = false;
-    toast('Účast uložena', 'ok');
-    logChange('Přidána účast', formatDatumCz(ui.newUcastDatum) + (ui.newUcastMisto ? ' · ' + ui.newUcastMisto : ''));
+    ui.newUcastVzorky = [];
+    toast(vzorky.length ? 'Účast a degustace uloženy' : 'Účast uložena', 'ok');
+    logChange('Přidána účast', formatDatumCz(ui.newUcastDatum) + (ui.newUcastMisto ? ' · ' + ui.newUcastMisto : '') + (vzorky.length ? ` · degustace (${vzorky.length}×)` : ''));
 
   } catch (e) {
     console.error('createNewUcast:', e);
@@ -3158,6 +3273,42 @@ async function deleteUcast(ucastId) {
   }
 }
 
+// Kartička „🥃 Degustace" v detailu účasti – vzorky naplánované k hodnocení + stav.
+function tastingSessionCardHtml(u, lidi) {
+  if (!u.degustaceVzorky || !u.degustaceVzorky.length) return '';
+  const typ = u.degustaceTyp || 'rum';
+  const isD = typ === 'doutnik';
+  const pool = isD ? state.cigarRatings : state.ratings;
+  const vzorky = u.degustaceVzorky.map(id => state.rums.find(r => r.id === id)).filter(Boolean);
+  const who = ratingWhoLabel();
+  const myDone = who ? vzorky.filter(r => pool.some(x => x.rumId === r.id && x.clen === who)).length : 0;
+
+  const rows = vzorky.map(r => {
+    const st = isD ? cigarStats(r.id) : rumStats(r.id);
+    return `<div class="stat-row"><span class="stat-row-main">${esc(r.nazev)}${r.znacka ? ' – ' + esc(r.znacka) : ''}</span><span class="stat-row-sub">${st ? 'Ø ' + st.celkem + ' · ' + st.count + '×' : 'zatím nikdo'}</span></div>`;
+  }).join('');
+
+  let action = '';
+  if (isGuest) {
+    action = '';
+  } else if (!who) {
+    action = `<div class="muted" style="font-size:12px;margin-top:8px;">Přihlas se, abys mohl hodnotit.</div>`;
+  } else if (!lidi.includes(who) && !isAdmin) {
+    action = `<div class="muted" style="font-size:12px;margin-top:8px;">Nejsi v seznamu účastníků téhle degustace.</div>`;
+  } else if (myDone >= vzorky.length) {
+    action = `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="startTastingSession('${u.id}')">✓ Ohodnoceno – upravit</button>`;
+  } else {
+    action = `<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="startTastingSession('${u.id}')">Hodnotit (${myDone}/${vzorky.length})</button>`;
+  }
+
+  return `<div class="card" style="margin-bottom:14px;">
+    <div class="rum-name" style="font-size:1.05rem;margin-bottom:2px;">🥃 Degustace${isD ? ' – doutníky' : ''}</div>
+    <div class="muted" style="font-size:11.5px;margin-bottom:6px;">${vzorky.length} ${vzorky.length === 1 ? 'vzorek' : 'vzorky'}</div>
+    ${rows}
+    ${action}
+  </div>`;
+}
+
 function renderUcastDetail() {
   const u = state.ucasti.find(x => x.id === ui.detailUcastId);
   if (!u) { closeUcastDetail(); return; }
@@ -3180,6 +3331,7 @@ function renderUcastDetail() {
       <button class="sheet-close" onclick="closeUcastDetail()" aria-label="Zavřít">×</button>
     </div>
     ${u.zdrojKoloId ? `<div class="origin-badge" style="margin-bottom:10px;">🗓️ vytvořeno automaticky z termínu</div>` : ''}
+    ${tastingSessionCardHtml(u, lidi)}
     <div class="field"><label>Datum</label>
       <input class="input" type="date" value="${esc(u.datum||'')}" ${canEdit?'':'disabled'} onchange="updateUcastField('${u.id}','datum',this.value)">
     </div>

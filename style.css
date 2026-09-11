@@ -287,6 +287,10 @@
     background: var(--warn-soft); color: var(--warn); border-radius:9px; padding:10px 12px;
     font-size:13px; margin-bottom:12px;
   }
+  .ts-banner {
+    background: var(--accent-soft); color: var(--accent-strong); border-radius:9px; padding:10px 12px;
+    font-size:13px; font-weight:600; margin-bottom:12px;
+  }
   .recent-item { display:flex; justify-content:space-between; font-size:13.5px; padding:8px 0; border-bottom:1px solid var(--line); }
   .recent-item:last-child { border-bottom:none; }
   .recent-item.clickable { cursor:pointer; }

@@ -76,6 +76,26 @@ Tuhle adresu pošli Liborovi a ostatním — appka jim poběží v mobilu i na p
 
 V appce v záložce **👥 Klub** je dole tlačítko **⬇️ Exportovat všechna data (Excel)** — kdykoliv jedním kliknutím stáhneš aktuální stav všech tabulek (Členové, Rumy, Hodnocení, Účet, Wishlist) jako `.xlsx` soubor. Data tedy nejsou nikdy uzamčená jen ve Firebase.
 
+## Práce z více počítačů (přes Claude Code)
+
+Appka se dál vyvíjí přes git — commity se pushují na GitHub (`Degustace-DaR/klub-app`, branch `main`), odkud si je GitHub Pages sama vezme. Na tomhle počítači žije pracovní složka na Google Disku (`G:\Můj disk\Claude\Appka\Rum Klub Web`), ale appka na Disku **nijak nezávisí** — je to jen git repozitář, který jde otevřít odkudkoli.
+
+**Na druhém počítači (třeba doma):**
+
+1. Nainstaluj Claude Code (desktop appka funguje i na Windows) a přihlas se **stejným účtem**.
+2. Stáhni si repozitář do libovolné složky (nemusí to být Google Disk):
+   ```bash
+   git clone https://github.com/Degustace-DaR/klub-app.git
+   ```
+3. V Claude Code otevři tu složku a založ nové vlákno — pracuje se úplně stejně jako tady.
+4. **Před každou prací na kterémkoli počítači** dej `git pull`, ať máš nejnovější stav (noční záloha i práce z druhého PC se totiž průběžně pushuje do stejného repa).
+
+Poznámky:
+
+- Tahle konkrétní konverzace (historie rozhodnutí, kontext) je navázaná jen na tenhle počítač a tuhle složku — na druhém PC se needotáhne. Podstatné věci ale nese samotný git: `git log`, kód a komentáře v něm.
+- Google Disk používej nanejvýš jako pohodlné úložiště téhle jedné pracovní složky — ne jako náhradu za `git pull`/`push`. Synchronizace Disku a gitu (zvlášť `.git` vnitřek) se občas perou o stejné soubory.
+- Když budeš pracovat na obou počítačích souběžně, hlídej si `git pull --rebase origin main` před vlastním `push`, ať nedojde ke konfliktu.
+
 ## Když něco nefunguje
 
 - Appka ukazuje "Appka ještě není nastavená" → v `index.html` zůstaly nevyplněné `SEM_VLOZ_...` hodnoty.

@@ -1,7 +1,7 @@
 {
  "_export": "rum-klub-db",
  "_version": 1,
- "_exportedAt": "2026-09-09T02:34:28.621Z",
+ "_exportedAt": "2026-10-10T08:40:16.934Z",
  "_sourceProject": "degustace-dar",
  "_source": "github-action-backup",
  "collections": {
@@ -60,7 +60,8 @@
     "typ": "rum",
     "foto": "https://firebasestorage.googleapis.com/v0/b/degustace-dar.firebasestorage.app/o/rum-photos%2FJipqMeT1G3urC0mX6Q28-1788716640688.jpg?alt=media&token=384b5fd1-c758-484c-9443-a0bc15a2b6fd",
     "cukr": 10,
-    "surovina": "Melasa"
+    "surovina": "Melasa",
+    "datum": "2026-09-04"
    },
    {
     "id": "O7Biq0qULSMBMkMpIQbD",
@@ -74,7 +75,8 @@
     "znacka": "Detroit Rock Premium Dark Rum",
     "foto": "https://firebasestorage.googleapis.com/v0/b/degustace-dar.firebasestorage.app/o/rum-photos%2FO7Biq0qULSMBMkMpIQbD-1788716372548.jpg?alt=media&token=02c7b177-f3fd-4937-a887-26dee381cf96",
     "cukr": 20,
-    "surovina": "Melasa"
+    "surovina": "Melasa",
+    "datum": "2026-09-04"
    },
    {
     "id": "doutnik_1",
@@ -701,7 +703,10 @@
     "_seq": 59,
     "puvod": "Nikaragua",
     "typ": "doutnik",
-    "nazev": "BLACKENED"
+    "nazev": "BLACKENED",
+    "datum": "",
+    "format": "Toro",
+    "sila": "Střední až silná"
    },
    {
     "id": "doutnik_61",
@@ -984,7 +989,8 @@
     "foto": "https://firebasestorage.googleapis.com/v0/b/degustace-dar.firebasestorage.app/o/rum-photos%2FgeYIN4UACwsaqbTZ8Rz0-1788716239720.jpg?alt=media&token=f5b5e142-f589-4ffe-ae55-1de8296e955e",
     "abv": 40,
     "cukr": 16,
-    "surovina": "Melasa"
+    "surovina": "Melasa",
+    "datum": "2026-09-04"
    },
    {
     "id": "rum_1",
@@ -5151,6 +5157,20 @@
   ],
   "wishlist": [
    {
+    "id": "3gHogxZHg98bI8Wwi06w",
+    "puvod": "Jamajka",
+    "nazev": "Traditional Jamaica Rum",
+    "priorita": "střední",
+    "poznamka": "",
+    "stav": "kandidát",
+    "cena": 737,
+    "znacka": "Smith & Cross",
+    "typ": "rum",
+    "cukr": null,
+    "abv": 57,
+    "_seq": 49
+   },
+   {
     "id": "wish_1",
     "_seq": 0,
     "puvod": "Peru",
@@ -5520,7 +5540,7 @@
     "nazev": "Navy Strength Rum 54,5%",
     "poznamka": "",
     "priorita": "střední",
-    "_seq": 34
+    "_seq": 33
    },
    {
     "id": "wish_45",
@@ -5532,7 +5552,7 @@
     "cukr": 24,
     "cena": 1050,
     "nazev": "XII Two Oaks",
-    "_seq": 35
+    "_seq": 34
    },
    {
     "id": "wish_46",
@@ -5544,7 +5564,7 @@
     "cukr": 28,
     "cena": 660,
     "nazev": "Anejo 12y",
-    "_seq": 36
+    "_seq": 35
    },
    {
     "id": "wish_47",
@@ -5556,7 +5576,7 @@
     "puvod": "Panama",
     "poznamka": "",
     "stav": "kandidát",
-    "_seq": 37
+    "_seq": 36
    },
    {
     "id": "wish_49",
@@ -5568,7 +5588,7 @@
     "cena": null,
     "puvod": "",
     "stav": "kandidát",
-    "_seq": 38
+    "_seq": 37
    },
    {
     "id": "wish_5",
@@ -5592,7 +5612,7 @@
     "poznamka": "",
     "priorita": "střední",
     "znacka": "0–25",
-    "_seq": 39
+    "_seq": 38
    },
    {
     "id": "wish_52",
@@ -5604,7 +5624,7 @@
     "nazev": "Není to jed, ale člověk by si přál, aby byl.",
     "stav": "kandidát",
     "znacka": "26–49",
-    "_seq": 40
+    "_seq": 39
    },
    {
     "id": "wish_53",
@@ -5616,7 +5636,7 @@
     "nazev": "Dá sa to vypit, ale radši ne.",
     "znacka": "50–59",
     "stav": "kandidát",
-    "_seq": 41
+    "_seq": 40
    },
    {
     "id": "wish_54",
@@ -5628,7 +5648,7 @@
     "cukr": null,
     "cena": null,
     "nazev": "Tak toto odradí aj kamarády, co by ináč pili kdeco.",
-    "_seq": 42
+    "_seq": 41
    },
    {
     "id": "wish_55",
@@ -5640,7 +5660,7 @@
     "priorita": "střední",
     "puvod": "",
     "poznamka": "",
-    "_seq": 43
+    "_seq": 42
    },
    {
     "id": "wish_56",
@@ -5652,7 +5672,7 @@
     "puvod": "",
     "cukr": null,
     "cena": null,
-    "_seq": 44
+    "_seq": 43
    },
    {
     "id": "wish_57",
@@ -5664,7 +5684,7 @@
     "cukr": null,
     "cena": null,
     "puvod": "",
-    "_seq": 45
+    "_seq": 44
    },
    {
     "id": "wish_58",
@@ -5676,7 +5696,7 @@
     "cukr": null,
     "cena": null,
     "puvod": "",
-    "_seq": 46
+    "_seq": 45
    },
    {
     "id": "wish_59",
@@ -5688,7 +5708,7 @@
     "puvod": "",
     "znacka": "90–94",
     "stav": "kandidát",
-    "_seq": 47
+    "_seq": 46
    },
    {
     "id": "wish_6",
@@ -5712,7 +5732,7 @@
     "priorita": "střední",
     "nazev": "To sú ti nejlepší z nejlepších, co stojí za každú korunu.",
     "znacka": "95–98",
-    "_seq": 48
+    "_seq": 47
    },
    {
     "id": "wish_61",
@@ -5724,7 +5744,7 @@
     "znacka": "98–100",
     "poznamka": "",
     "priorita": "střední",
-    "_seq": 49
+    "_seq": 48
    },
    {
     "id": "wish_7",
@@ -11586,6 +11606,21 @@
     "kour": 19
    },
    {
+    "id": "kvCCxfMTXqzbiHD6AZcV",
+    "chut": 19,
+    "tah": 10,
+    "rumId": "doutnik_80",
+    "_seq": 1788972425207,
+    "celkem": 95,
+    "horeni": 19,
+    "vune": 9,
+    "popel": 9,
+    "kour": 20,
+    "datum": "2026-09-09",
+    "vzhled": 9,
+    "clen": "Broněk"
+   },
+   {
     "id": "lhK8lxEiLTjKpfcYaFqV",
     "vzhled": 9,
     "tah": 9,
@@ -12237,6 +12272,7 @@
      "2026-10-31"
     ],
     "_seq": 13,
+    "vybrano": "2026-10-16",
     "odpovedi": {
      "Jirka": {
       "2026-10-10": "N",
@@ -12268,6 +12304,13 @@
       "2026-10-24": "A",
       "2026-10-10": "A"
      },
+     "Tomáš": {
+      "2026-10-16": "A"
+     },
+     "Tonda": {
+      "2026-10-16": "A",
+      "2026-10-09": null
+     },
      "Broněk": {
       "2026-10-23": "N",
       "2026-10-17": "N",
@@ -12277,15 +12320,8 @@
       "2026-10-24": "N",
       "2026-10-10": "N",
       "2026-10-09": "N"
-     },
-     "Tomáš": {
-      "2026-10-16": "A"
-     },
-     "Tonda": {
-      "2026-10-16": "A"
      }
-    },
-    "vybrano": "2026-10-16"
+    }
    },
    {
     "id": "kolo_2",
@@ -13573,6 +13609,13 @@
     "popis": "Libor → IRON MAIDEN – The Rum of the Ancient Mariner (91)"
    },
    {
+    "id": "94wI4IwOWvoQ2M4HNxZr",
+    "akce": "Přidáno na wishlist",
+    "cas": 1788973252651,
+    "kdo": "Broněk",
+    "popis": "Traditional Jamaica Rum"
+   },
+   {
     "id": "ADPb6jMmUIYMPmHo3aXn",
     "kdo": "Admin",
     "akce": "Přeuspořádán wishlist",
@@ -13762,11 +13805,25 @@
     "kdo": "Broněk"
    },
    {
+    "id": "QYjCatmO9CGovwYg1AUV",
+    "kdo": "Libor",
+    "akce": "Upraven doutník",
+    "popis": "BLACKENED – M81 Toro",
+    "cas": 1789111190029
+   },
+   {
     "id": "QcDOA80dQEByG6P2ZpOF",
     "cas": 1788762595752,
     "popis": "Libor → ZACAPA – XO (96)",
     "akce": "Upraveno hodnocení",
     "kdo": "Libor"
+   },
+   {
+    "id": "So9RCCJrxDokFtFUbdin",
+    "kdo": "Broněk",
+    "akce": "Přeuspořádán wishlist",
+    "popis": "50 položek",
+    "cas": 1788973321766
    },
    {
     "id": "SsTHlc7f6RZmrHOeCoXf",
@@ -13832,6 +13889,13 @@
     "cas": 1788764054742
    },
    {
+    "id": "cy0fxSyKTzo1TLZ2zZx1",
+    "kdo": "Libor",
+    "akce": "Upraven doutník",
+    "popis": "BLACKENED – M81 Toro",
+    "cas": 1789111120068
+   },
+   {
     "id": "dSJ79BaALtswv0YCiyc5",
     "kdo": "Admin",
     "akce": "Upraven rum",
@@ -13879,6 +13943,13 @@
     "akce": "Přidán rum",
     "popis": "RAMMSTEIN – Port Cask Finish 2022",
     "kdo": "Admin"
+   },
+   {
+    "id": "iPJrQ9pLHkTEBAueB7U6",
+    "kdo": "Broněk",
+    "cas": 1788972425707,
+    "popis": "Broněk → LEAF BY OSCAR – Corojo (95)",
+    "akce": "Přidáno hodnocení doutníku"
    },
    {
     "id": "jOd2lfssrLyO7EvbWa95",
@@ -14122,7 +14193,7 @@
   "meta": [
    {
     "id": "last_db_export",
-    "at": "2026-09-06T10:07:06.559Z"
+    "at": "2026-09-10T12:06:01.052Z"
    },
    {
     "id": "seed",

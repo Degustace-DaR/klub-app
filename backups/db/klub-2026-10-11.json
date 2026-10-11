@@ -1,7 +1,7 @@
 {
  "_export": "rum-klub-db",
  "_version": 1,
- "_exportedAt": "2026-09-10T02:34:41.151Z",
+ "_exportedAt": "2026-10-11T09:04:42.480Z",
  "_sourceProject": "degustace-dar",
  "_source": "github-action-backup",
  "collections": {
@@ -60,7 +60,8 @@
     "typ": "rum",
     "foto": "https://firebasestorage.googleapis.com/v0/b/degustace-dar.firebasestorage.app/o/rum-photos%2FJipqMeT1G3urC0mX6Q28-1788716640688.jpg?alt=media&token=384b5fd1-c758-484c-9443-a0bc15a2b6fd",
     "cukr": 10,
-    "surovina": "Melasa"
+    "surovina": "Melasa",
+    "datum": "2026-09-04"
    },
    {
     "id": "O7Biq0qULSMBMkMpIQbD",
@@ -74,7 +75,8 @@
     "znacka": "Detroit Rock Premium Dark Rum",
     "foto": "https://firebasestorage.googleapis.com/v0/b/degustace-dar.firebasestorage.app/o/rum-photos%2FO7Biq0qULSMBMkMpIQbD-1788716372548.jpg?alt=media&token=02c7b177-f3fd-4937-a887-26dee381cf96",
     "cukr": 20,
-    "surovina": "Melasa"
+    "surovina": "Melasa",
+    "datum": "2026-09-04"
    },
    {
     "id": "doutnik_1",
@@ -701,7 +703,10 @@
     "_seq": 59,
     "puvod": "Nikaragua",
     "typ": "doutnik",
-    "nazev": "BLACKENED"
+    "nazev": "BLACKENED",
+    "datum": "",
+    "format": "Toro",
+    "sila": "Střední až silná"
    },
    {
     "id": "doutnik_61",
@@ -984,7 +989,8 @@
     "foto": "https://firebasestorage.googleapis.com/v0/b/degustace-dar.firebasestorage.app/o/rum-photos%2FgeYIN4UACwsaqbTZ8Rz0-1788716239720.jpg?alt=media&token=f5b5e142-f589-4ffe-ae55-1de8296e955e",
     "abv": 40,
     "cukr": 16,
-    "surovina": "Melasa"
+    "surovina": "Melasa",
+    "datum": "2026-09-04"
    },
    {
     "id": "rum_1",
@@ -12266,6 +12272,7 @@
      "2026-10-31"
     ],
     "_seq": 13,
+    "vybrano": "2026-10-16",
     "odpovedi": {
      "Jirka": {
       "2026-10-10": "N",
@@ -12297,6 +12304,13 @@
       "2026-10-24": "A",
       "2026-10-10": "A"
      },
+     "Tomáš": {
+      "2026-10-16": "A"
+     },
+     "Tonda": {
+      "2026-10-16": "A",
+      "2026-10-09": null
+     },
      "Broněk": {
       "2026-10-23": "N",
       "2026-10-17": "N",
@@ -12306,15 +12320,8 @@
       "2026-10-24": "N",
       "2026-10-10": "N",
       "2026-10-09": "N"
-     },
-     "Tomáš": {
-      "2026-10-16": "A"
-     },
-     "Tonda": {
-      "2026-10-16": "A"
      }
-    },
-    "vybrano": "2026-10-16"
+    }
    },
    {
     "id": "kolo_2",
@@ -13798,6 +13805,13 @@
     "kdo": "Broněk"
    },
    {
+    "id": "QYjCatmO9CGovwYg1AUV",
+    "kdo": "Libor",
+    "akce": "Upraven doutník",
+    "popis": "BLACKENED – M81 Toro",
+    "cas": 1789111190029
+   },
+   {
     "id": "QcDOA80dQEByG6P2ZpOF",
     "cas": 1788762595752,
     "popis": "Libor → ZACAPA – XO (96)",
@@ -13873,6 +13887,13 @@
     "akce": "Upraveno hodnocení doutníku",
     "kdo": "Libor",
     "cas": 1788764054742
+   },
+   {
+    "id": "cy0fxSyKTzo1TLZ2zZx1",
+    "kdo": "Libor",
+    "akce": "Upraven doutník",
+    "popis": "BLACKENED – M81 Toro",
+    "cas": 1789111120068
    },
    {
     "id": "dSJ79BaALtswv0YCiyc5",
@@ -14172,7 +14193,7 @@
   "meta": [
    {
     "id": "last_db_export",
-    "at": "2026-09-06T10:07:06.559Z"
+    "at": "2026-09-10T12:06:01.052Z"
    },
    {
     "id": "seed",

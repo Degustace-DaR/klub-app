@@ -1,7 +1,7 @@
 {
  "_export": "rum-klub-db",
  "_version": 1,
- "_exportedAt": "2026-09-11T02:34:11.501Z",
+ "_exportedAt": "2026-10-12T09:26:33.673Z",
  "_sourceProject": "degustace-dar",
  "_source": "github-action-backup",
  "collections": {
@@ -703,7 +703,10 @@
     "_seq": 59,
     "puvod": "Nikaragua",
     "typ": "doutnik",
-    "nazev": "BLACKENED"
+    "nazev": "BLACKENED",
+    "datum": "",
+    "format": "Toro",
+    "sila": "Střední až silná"
    },
    {
     "id": "doutnik_61",
@@ -12269,6 +12272,7 @@
      "2026-10-31"
     ],
     "_seq": 13,
+    "vybrano": "2026-10-16",
     "odpovedi": {
      "Jirka": {
       "2026-10-10": "N",
@@ -12300,6 +12304,13 @@
       "2026-10-24": "A",
       "2026-10-10": "A"
      },
+     "Tomáš": {
+      "2026-10-16": "A"
+     },
+     "Tonda": {
+      "2026-10-16": "A",
+      "2026-10-09": null
+     },
      "Broněk": {
       "2026-10-23": "N",
       "2026-10-17": "N",
@@ -12309,15 +12320,8 @@
       "2026-10-24": "N",
       "2026-10-10": "N",
       "2026-10-09": "N"
-     },
-     "Tomáš": {
-      "2026-10-16": "A"
-     },
-     "Tonda": {
-      "2026-10-16": "A"
      }
-    },
-    "vybrano": "2026-10-16"
+    }
    },
    {
     "id": "kolo_2",
@@ -13801,6 +13805,13 @@
     "kdo": "Broněk"
    },
    {
+    "id": "QYjCatmO9CGovwYg1AUV",
+    "kdo": "Libor",
+    "akce": "Upraven doutník",
+    "popis": "BLACKENED – M81 Toro",
+    "cas": 1789111190029
+   },
+   {
     "id": "QcDOA80dQEByG6P2ZpOF",
     "cas": 1788762595752,
     "popis": "Libor → ZACAPA – XO (96)",
@@ -13876,6 +13887,13 @@
     "akce": "Upraveno hodnocení doutníku",
     "kdo": "Libor",
     "cas": 1788764054742
+   },
+   {
+    "id": "cy0fxSyKTzo1TLZ2zZx1",
+    "kdo": "Libor",
+    "akce": "Upraven doutník",
+    "popis": "BLACKENED – M81 Toro",
+    "cas": 1789111120068
    },
    {
     "id": "dSJ79BaALtswv0YCiyc5",
